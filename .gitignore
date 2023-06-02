@@ -1,0 +1,12 @@
+*.log
+venv/
+__pycache__/
+*.kml
+.idea/
+node_modules/
+.next/
+env/
+locale-data.json
+*.rdb
+*.db 
+.DS_Store

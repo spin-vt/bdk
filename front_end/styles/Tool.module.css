@@ -1,0 +1,51 @@
+.content {
+  display: flex;
+}
+
+.mapContainer {
+  flex: 1;
+  position: relative;
+  height: 100vh;
+}
+
+.iconContainer {
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  cursor: pointer;
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-radius: 50%;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 999;
+}
+
+.expandIcon {
+  color: grey;
+  font-size: 20px;
+}
+
+.sidebar {
+  flex: 0 0 200px;
+  background-color: #f0f0f0;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+  z-index: 1;
+}
+
+.sidebarVisible {
+  transform: translateX(0);
+}
+
+.sidebarContent {
+  padding: 10px;
+}
+
+.backButton {
+  margin-bottom: -25px;
+}
+
+.backButtonContainer {
+  padding-top: 1px; /* Adjust the padding as needed */
+}
