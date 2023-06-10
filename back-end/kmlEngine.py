@@ -13,6 +13,8 @@ import fiona
 import processData
 from sqlalchemy import Column, Integer, Float, Boolean, String, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
+import pandas as pd
+import geopandas as gpd
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
@@ -92,6 +94,99 @@ def check_mismatches():
                     session.add(new_record)
             session.commit()
 
+def wired_locations(fabric_fn, coverage_fn, lte_fn):
+    df = pandas.read_csv(fabric_fn) ##Changed fabric (v2)
+
+    fabric = geopandas.GeoDataFrame(
+        df.drop(['latitude', 'longitude'], axis=1),
+        crs="EPSG:4326",
+        geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
+    
+    # Enable KML support
+    fiona.drvsupport.supported_drivers['kml'] = 'rw'
+    fiona.drvsupport.supported_drivers['KML'] = 'rw'
+    
+    wireless_coverage = geopandas.read_file(coverage_fn)
+    wireless_coverage = wireless_coverage.to_crs("EPSG:4326")
+    fabric_in_wireless = geopandas.sjoin(fabric,wireless_coverage,how="inner")
+
+    # filter for only data where bsl_flag is true
+    bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
+    bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
+
+    print(len(fabric_in_wireless), len(bsl_fabric_in_wireless))
+
+    # Create a dataset for 2.5GHz tower points
+
+    # first, load in the 2.5GHz tower approximation that Wesley drew
+    lte_coverage = geopandas.read_file(lte_fn)
+
+    lte_fabric = gpd.GeoDataFrame()  # Initialize an empty GeoDataFrame
+
+    # next, get all points within this coverage
+    lte_fabric = bsl_fabric_in_wireless[bsl_fabric_in_wireless.geometry.within(lte_coverage['geometry'][0])]
+
+    nonlte_fabric = bsl_fabric_in_wireless[~bsl_fabric_in_wireless.geometry.within(lte_coverage['geometry'][0])]
+
+    #need to double check the accuracy
+    for i in range(1, len(lte_coverage)):
+        # on each iteration, only keep the points within
+        lte_fabric = pd.concat([lte_fabric, bsl_fabric_in_wireless[bsl_fabric_in_wireless.geometry.within(lte_coverage['geometry'][i])]])
+        # on each iteration, only keep the points not inside each polygon
+        nonlte_fabric = nonlte_fabric[~nonlte_fabric.geometry.within(lte_coverage['geometry'][i])]
+
+    # convert lte_fabric back to a GeoDataFrame
+    lte_fabric = gpd.GeoDataFrame(lte_fabric, crs="EPSG:4326")
+
+    # remove duplicate rows from both
+    lte_fabric = lte_fabric.drop_duplicates()
+    nonlte_fabric = nonlte_fabric.drop_duplicates()
+
+    print(len(lte_fabric), len(nonlte_fabric))
+
+    from datetime import datetime
+
+    PROVIDER_ID = 330054
+    BRAND_NAME = 'test'
+    TECHNOLOGY_CODE = 71 
+    MAX_DOWNLOAD_SPEED = 25
+    MAX_UPLOAD_SPEED = 3
+    LATENCY = 1
+    BUSINESS_CODE = 'X'
+
+    availability_csv = pandas.DataFrame()
+
+    availability_csv['location_id'] = lte_fabric['location_id'] #had to copy this first to copy size of fabric_near_fiber
+    availability_csv['provider_id'] = PROVIDER_ID
+    availability_csv['brand_name'] = BRAND_NAME
+    availability_csv['technology'] = TECHNOLOGY_CODE
+    availability_csv['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
+    availability_csv['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
+    availability_csv['low_latency'] = LATENCY
+    availability_csv['business_residential_code'] = BUSINESS_CODE
+
+    availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
+                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] #reordering the columns to match BDC website
+
+    print(len(availability_csv))
+
+    availability_csv.to_csv(path_or_buf='./lte/' + str(datetime.now()) + '.csv', index=False)
+
+    availability_csv2 = pandas.DataFrame()
+    availability_csv2['location_id'] = nonlte_fabric['location_id'] #had to copy this first to copy size of fabric_near_fiber    
+    availability_csv2['provider_id'] = PROVIDER_ID
+    availability_csv2['brand_name'] = BRAND_NAME
+    availability_csv2['technology'] = TECHNOLOGY_CODE
+    availability_csv2['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
+    availability_csv2['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
+    availability_csv2['low_latency'] = LATENCY
+    availability_csv2['business_residential_code'] = BUSINESS_CODE
+
+    availability_csv2 = availability_csv2[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
+                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] #reordering the columns to match BDC website
+
+    availability_csv2.to_csv(path_or_buf='./nonlte/' + str(datetime.now()) + '.csv', index=False)
+        
 def filter_locations(Fabric_FN, Fiber_FN):
     df = pandas.read_csv(Fabric_FN) ##Changed fabric (v2)
 
@@ -145,4 +240,5 @@ def filter_locations(Fabric_FN, Fiber_FN):
     
 
 if __name__ == "__main__":
-    filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
+    # filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
+    wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")

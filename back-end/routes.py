@@ -61,8 +61,6 @@ import logging
 @celery.task(bind=True)
 def provide_kml_locations(self, names):
     try:
-        print(names[0])
-        print(names[1])
         result = kmlEngine.filter_locations(names[0], names[1])
         self.update_state(state='PROCESSED')
         return result

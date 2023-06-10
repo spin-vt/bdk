@@ -216,8 +216,6 @@ export default function Upload({ fetchMarkers }) {
             style={{
               transformOrigin:
                 placement === 'bottom',
-              marginTop: placement === 'bottom' ? '15vh' : '0',
-              marginLeft: placement === 'bottom' ? '33vw' : '0',
             }}
           >
             <Paper>

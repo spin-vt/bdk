@@ -10,3 +10,5 @@ locale-data.json
 *.rdb
 *.db 
 .DS_Store
+lte/
+nonlte/
