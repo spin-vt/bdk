@@ -10,7 +10,7 @@ from sqlalchemy import inspect
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 NUMBER_THREADS = 4
-BATCH_SIZE = 1000
+BATCH_SIZE = 50000
 
 Base = declarative_base()
 

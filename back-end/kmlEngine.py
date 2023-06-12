@@ -9,16 +9,18 @@ from functools import partial
 import pyproj
 from shapely.ops import transform
 import fiona
-
+from sqlalchemy import inspect
 import processData
 from sqlalchemy import Column, Integer, Float, Boolean, String, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 import pandas as pd
+from sqlalchemy.exc import IntegrityError
 import geopandas as gpd
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 Base = declarative_base()
+BATCH_SIZE = 50000
 
 class kml_data(Base):
     __tablename__ = 'kml'
@@ -27,9 +29,15 @@ class kml_data(Base):
 
 DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
 engine = create_engine(DATABASE_URL)
-Base.metadata.create_all(engine)
+
+# Check if the table exists
+inspector = inspect(engine)
+if not inspector.has_table('kml'):
+    Base.metadata.create_all(engine)
+
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 ScopedSession = scoped_session(session_factory)
+Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 db_lock = Lock()
 
@@ -219,26 +227,73 @@ def filter_locations(Fabric_FN, Fiber_FN):
     # Drop any duplicate rows
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates()
     # Set served to True for fabric points present in fabric_near_fiber
+    batch = [] 
+    session = Session()
     for _, row in bsl_fabric_near_fiber.iterrows():
         try:
-            location_id = int(row.location_id)
-            served = True
-            add_values_to_db(location_id, served)
+            newData = kml_data(
+                location_id = int(row.location_id),
+                served = True
+            )
+            
+            batch.append(newData)
+
+            if len(batch) >= BATCH_SIZE:
+                with db_lock:
+                    try:
+                        session.bulk_save_objects(batch)
+                        session.commit()
+                    except IntegrityError:
+                        session.rollback()  # Rollback the transaction on unique constraint violation
+                
+                batch = []
+            # add_values_to_db(location_id, served)
         except Exception as e:
             logging.error(f"Error occurred while inserting data: {e}")
 
+    if batch:
+        with db_lock:
+            try:
+                session.bulk_save_objects(batch)
+                session.commit()
+            except IntegrityError:
+                session.rollback()  # Rollback the transaction on unique constraint violation
+    session.close()
+
+    session = Session()
+    batch = [] 
     # Set served to False for fabric points not present in fabric_near_fiber
     not_served_fabric = fabric[~fabric['location_id'].isin(bsl_fabric_near_fiber['location_id'])]
+    not_served_fabric = not_served_fabric.drop_duplicates()
     for _, row in not_served_fabric.iterrows():
         try:
-            location_id = int(row.location_id)
-            served = False
-            add_values_to_db(location_id, served)
+            newData = kml_data(
+                location_id = int(row.location_id),
+                served = False
+            )
+            
+            batch.append(newData)
+            if len(batch) >= BATCH_SIZE:
+                with db_lock:
+                    try:
+                        session.bulk_save_objects(batch)
+                        session.commit()
+                    except IntegrityError:
+                        session.rollback()  # Rollback the transaction on unique constraint violation
+                batch = []
+            # add_values_to_db(location_id, served)
         except Exception as e:
             logging.error(f"Error occurred while inserting data: {e}")
-
-    
+            
+    if batch:
+        with db_lock:
+            try:
+                session.bulk_save_objects(batch)
+                session.commit()
+            except IntegrityError:
+                session.rollback()  # Rollback the transaction on unique constraint violation
+        session.close()
 
 if __name__ == "__main__":
     # filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
-    wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")
+    # wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")
