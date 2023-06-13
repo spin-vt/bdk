@@ -18,19 +18,27 @@
     "@material-ui/core": "^4.12.4",
     "@mui/icons-material": "^5.11.16",
     "@mui/material": "^5.13.1",
+    "@mui/styles": "^5.13.2",
     "@mui/x-data-grid": "^6.4.0",
+    "@turf/destination": "^6.5.0",
+    "@turf/helpers": "^6.5.0",
+    "@turf/hex-grid": "^6.5.0",
     "d3": "^7.8.5",
     "d3-array": "^3.2.4",
     "d3-hexbin": "^0.2.2",
+    "formik": "^2.4.1",
     "http-proxy-middleware": "^2.0.6",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "next": "^13.4.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-dropzone": "^14.2.3",
     "react-leaflet": "^4.2.1",
     "react-leaflet-marker-layer": "^0.1.4",
     "react-leaflet-markercluster": "^3.0.0-rc1",
-    "react-swipeable-views": "^0.14.0"
+    "react-swipeable-views": "^0.14.0",
+    "sweetalert2": "^11.7.12",
+    "yup": "^1.2.0"
   }
 }

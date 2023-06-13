@@ -3,6 +3,7 @@ import Map from "./Map";
 import Upload from "./Upload";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import styles from "../styles/Tool.module.css";
 import Button from "@mui/material/Button";
 
@@ -55,7 +56,7 @@ function Tool() {
         <div className={styles.mapContainer}>
           <Map markers={markers} />
           <div className={styles.iconContainer} onClick={toggleUpload}>
-            <FontAwesomeIcon icon={faArrowLeft} className={styles.expandIcon} />
+          <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowLeft} className={styles.expandIcon} />
           </div>
         </div>
         {expandTable && (

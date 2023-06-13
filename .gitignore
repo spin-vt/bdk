@@ -12,3 +12,5 @@ locale-data.json
 .DS_Store
 lte/
 nonlte/
+*.csv
+back-end/clusterCoordinate.json

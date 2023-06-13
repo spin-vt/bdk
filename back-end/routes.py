@@ -8,6 +8,8 @@ import uuid
 import servicePlan
 import kmlEngine
 import filterPointsFunction
+import pandas as pd
+
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -223,6 +225,141 @@ def get_all_data():
         "data": data
     }
     return jsonify(response_body)
+
+from coordinateCluster import get_bounding_boxes 
+
+@app.route("/api/coordinates", methods=['POST'])
+def get_bounding_coordinates():
+    data = request.get_json()
+    filename = data['filename']
+    zoom_level = data.get('zoom_level', 10)
+    
+    if not os.path.isfile(filename):
+        return jsonify({"error": "File not found"}), 404
+
+    df = pd.read_csv(filename)
+    if not {'latitude', 'longitude'}.issubset(df.columns):
+        return jsonify({"error": "CSV does not contain latitude or longitude column"}), 400
+    
+    data = get_bounding_boxes(filename, zoom_level)
+
+    print(data)
+    
+    return jsonify(data)
+
+    # lat_min = df['latitude'].min()
+    # lat_max = df['latitude'].max()
+    # lon_min = df['longitude'].min()
+    # lon_max = df['longitude'].max()
+
+    
+
+    # return jsonify({
+    #     'latitude': {
+    #         'min': lat_min,
+    #         'max': lat_max
+    #     },
+    #     'longitude': {
+    #         'min': lon_min,
+    #         'max': lon_max
+    #     }
+    # })
+
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
+from flask_jwt_extended.exceptions import NoAuthorizationError
+
+
+app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:db123@localhost:5432/postgres'
+app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
+jwt = JWTManager(app)
+
+db = SQLAlchemy(app)
+
+# CORS(app)
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True)
+    password = db.Column(db.String(256))
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+    def get_id(self):
+        return self.id
+    
+    @property
+    def is_authenticated(self):
+        return True
+    
+    @property
+    def is_active(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+with app.app_context():
+    db.create_all()
+
+
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if User.query.filter_by(username=username).first():
+        return jsonify({'status': 'error', 'message': 'Username already exists.'})
+
+    hashed_password = generate_password_hash(password, method='sha256')
+    new_user = User(username=data['username'], password=hashed_password)
+    db.session.add(new_user)
+    db.session.commit()
+    access_token = create_access_token(identity={'id': new_user.id, 'username': new_user.username})
+
+    response = make_response(jsonify({'status': 'success'}))
+    # Set access token as a secure HTTP only cookie
+    response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+    return response
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+        
+    # Get the data from the request
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    # Query your database for the user
+    user = User.query.filter_by(username=username).first()
+
+    # Check the user's password
+    if user is not None and check_password_hash(user.password, password):
+        # If the password is valid, log the user in
+        access_token = create_access_token(identity={'id': user.id, 'username': user.username})
+        return jsonify({'status': 'success', 'token': access_token})
+    else:
+        return jsonify({'status': 'error', 'message': 'Invalid credentials'})
+    
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    return jsonify({'status': 'success', 'token': ''})
+
+@app.route('/api/user', methods=['GET'])
+@jwt_required()
+def get_user_info():
+    try:
+        identity = get_jwt_identity()
+        return jsonify({'username': identity['username']})
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
 if __name__ == '__main__':

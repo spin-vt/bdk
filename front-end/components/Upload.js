@@ -18,6 +18,7 @@ let storage = [];
 export default function Upload({ fetchMarkers }) {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
+  const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [selectedFiles, setSelectedFiles] = React.useState([]);
   const [downloadSpeed, setDownloadSpeed] = React.useState('');
@@ -26,6 +27,7 @@ export default function Upload({ fetchMarkers }) {
   const [ispName, setISPName] = React.useState('');
   const idCounterRef = React.useRef(1); // Counter for generating unique IDs
   const [exportSuccess, setExportSuccess] = React.useState(false);
+  const [buttonGroupWidth, setButtonGroupWidth] = React.useState(null);
 
   const handleExportClick = (event) => {
     event.preventDefault();
@@ -76,7 +78,10 @@ export default function Upload({ fetchMarkers }) {
         dynamicMap.fetchMarkers(); // Call fetchMarkers function in the DynamicMap component
       }
     }
-  }, [exportSuccess]);
+    if (buttonGroupRef.current) {
+      setButtonGroupWidth(buttonGroupRef.current.offsetWidth);
+    }
+  }, [exportSuccess, buttonGroupRef]);
 
   const handleFileChange = (event) => {
     storage.push([event.target.files[0], idCounterRef.current]);
@@ -187,7 +192,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      <ButtonGroup variant="contained" ref={anchorRef} aria-label="split button">
+      <ButtonGroup variant="contained" ref={buttonGroupRef} aria-label="split button">
         <Button onClick={handleClick}>{options[selectedIndex]}</Button>
         <Button
           size="small"
@@ -205,7 +210,7 @@ export default function Upload({ fetchMarkers }) {
           zIndex: 1,
         }}
         open={open}
-        anchorEl={anchorRef.current}
+        anchorEl={buttonGroupRef.current}
         role={undefined}
         transition
         disablePortal
@@ -215,10 +220,10 @@ export default function Upload({ fetchMarkers }) {
             {...TransitionProps}
             style={{
               transformOrigin:
-                placement === 'bottom',
+                placement === 'bottom' ? 'center top' : 'center bottom',
             }}
           >
-            <Paper>
+            <Paper style={{ width: buttonGroupWidth }}>
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList id="split-button-menu" autoFocusItem>
                   {options.map((option, index) => (
