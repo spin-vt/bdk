@@ -27,6 +27,7 @@ function Tool() {
           served: item.served
         }));
         console.log(newMarkers)
+        console.log("going to set the markers")
         setMarkers(newMarkers);
       })
       .catch((error) => {
