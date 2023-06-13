@@ -294,6 +294,6 @@ def filter_locations(Fabric_FN, Fiber_FN):
                 session.rollback()  # Rollback the transaction on unique constraint violation
         session.close()
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
     # wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")

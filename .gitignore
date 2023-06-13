@@ -12,3 +12,4 @@ locale-data.json
 .DS_Store
 lte/
 nonlte/
+*.csv

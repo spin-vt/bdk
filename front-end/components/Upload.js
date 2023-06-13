@@ -59,6 +59,7 @@ export default function Upload({ fetchMarkers }) {
       })
       .then((data) => {
         console.log('Success:', data);
+        console.log("going to fetch markers")
         setExportSuccess(true); // Set the export success state to true
         fetchMarkers();
       })
@@ -80,7 +81,6 @@ export default function Upload({ fetchMarkers }) {
 
   const handleFileChange = (event) => {
     storage.push([event.target.files[0], idCounterRef.current]);
-    console.log(storage)
 
     const newFiles = Array.from(event.target.files);
     const updatedFiles = newFiles.map((file) => ({
@@ -125,7 +125,6 @@ export default function Upload({ fetchMarkers }) {
       }
       i++;
     });
-    console.log(storage)
     
     setSelectedFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
 
@@ -216,6 +215,8 @@ export default function Upload({ fetchMarkers }) {
             style={{
               transformOrigin:
                 placement === 'bottom',
+                marginLeft: "33vw",
+                marginTop: "30vh"
             }}
           >
             <Paper>
