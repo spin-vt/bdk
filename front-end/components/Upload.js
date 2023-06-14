@@ -29,6 +29,20 @@ export default function Upload({ fetchMarkers }) {
   const [exportSuccess, setExportSuccess] = React.useState(false);
   const [buttonGroupWidth, setButtonGroupWidth] = React.useState(null);
 
+  const handleDownloadClick = (event) => {
+    event.preventDefault();
+    fetch('http://localhost:8000/export', {
+      method: 'GET',
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        console.log('Status:', response); // log the status
+        return response.json();
+      })
+  }
+  
   const handleExportClick = (event) => {
     event.preventDefault();
   
@@ -71,8 +85,8 @@ export default function Upload({ fetchMarkers }) {
       });
   };
   
-   // Call fetchMarkers when the Export button is clicked
-   React.useEffect(() => {
+  // Call fetchMarkers when the Export button is clicked
+  React.useEffect(() => {
     if (exportSuccess) {
       const dynamicMap = document.getElementById('dynamic-map');
       if (dynamicMap) {
@@ -243,45 +257,44 @@ export default function Upload({ fetchMarkers }) {
       {selectedIndex === 1 && (
         <Box sx={{ marginTop: '1rem' }}>
           <div>
-          <div>
-            <label htmlFor="ispName">ISP Name: </label>
-            <input
-              type="text"
-              id="ispName"
-              value={ispName}
-              onChange={(e) => setISPName(e.target.value)}
-            />
+            <div>
+              <label htmlFor="ispName">ISP Name: </label>
+              <input
+                type="text"
+                id="ispName"
+                value={ispName}
+                onChange={(e) => setISPName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="downloadSpeed">Download Speed: </label>
+              <input
+                type="text"
+                id="downloadSpeed"
+                value={downloadSpeed}
+                onChange={(e) => setDownloadSpeed(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="uploadSpeed">Upload Speed: </label>
+              <input
+                type="text"
+                id="uploadSpeed"
+                value={uploadSpeed}
+                onChange={(e) => setUploadSpeed(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="techType">Tech Type: </label>
+              <input
+                type="text"
+                id="techType"
+                value={techType}
+                onChange={(e) => setTechType(e.target.value)}
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor="downloadSpeed">Download Speed: </label>
-            <input
-              type="text"
-              id="downloadSpeed"
-              value={downloadSpeed}
-              onChange={(e) => setDownloadSpeed(e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="uploadSpeed">Upload Speed: </label>
-            <input
-              type="text"
-              id="uploadSpeed"
-              value={uploadSpeed}
-              onChange={(e) => setUploadSpeed(e.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="techType">Tech Type: </label>
-            <input
-              type="text"
-              id="techType"
-              value={techType}
-              onChange={(e) => setTechType(e.target.value)}
-            />
-          </div>
-        </div>
         </Box>
-        
       )}
       {/* Hidden file input to allow file selection */}
       <input
@@ -300,8 +313,13 @@ export default function Upload({ fetchMarkers }) {
         />
       </Box>
       <Box sx={{ display: 'flex', marginTop: '1rem', gap: '1rem' }}>
-      <ExportButton onClick={handleExportClick} />
-      </Box>      
+        <ExportButton onClick={handleExportClick} />
+        {exportSuccess && (
+          <Button variant="contained" onClick={handleDownloadClick}>
+            Download CSV
+          </Button>
+        )}
+      </Box>
     </React.Fragment>
   );
 }
