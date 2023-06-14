@@ -93,7 +93,7 @@ function SearchBar() {
       renderInput={(params) => (
         <TextField
           {...params}
-          label="Input location id or address to search map"
+          placeholder="Input location id or address to search map"
           onChange={handleSearchChange}
           value={searchInput}
           sx={{
