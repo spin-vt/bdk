@@ -1,21 +1,18 @@
 import csv
 from threading import Lock
-from sqlalchemy import create_engine, Column, Integer, String, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy import Column, Integer, String, Float
+from flask_sqlalchemy import SQLAlchemy
 import concurrent.futures
 import logging
-from sqlalchemy import inspect
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 NUMBER_THREADS = 4
 BATCH_SIZE = 50000
 
-Base = declarative_base()
+db = SQLAlchemy()
 
-
-class Data(Base):
+class Data(db.Model):
     __tablename__ = 'bdk'
 
     location_id = Column(Integer, primary_key=True)
@@ -35,17 +32,6 @@ class Data(Base):
     latitude = Column(Float)
     longitude = Column(Float)
 
-
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
-engine = create_engine(DATABASE_URL)
-
-# Check if the table exists
-inspector = inspect(engine)
-if not inspector.has_table('bdk'):
-    Base.metadata.create_all(engine)
-
-Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 db_lock = Lock()
 
 
@@ -55,7 +41,6 @@ def check_num_records_greater_zero():
 
 
 def process_rows(rows):
-    session = Session()
     batch = []
 
     try:
@@ -99,20 +84,20 @@ def process_rows(rows):
 
             if len(batch) >= BATCH_SIZE:
                 with db_lock:
-                    session.bulk_save_objects(batch)
-                    session.commit()
+                    db.session.bulk_save_objects(batch)
+                    db.session.commit()
                 batch = []
 
         if batch:
             with db_lock:
-                session.bulk_save_objects(batch)
-                session.commit()
+                db.session.bulk_save_objects(batch)
+                db.session.commit()
 
     except Exception as e:
         logging.error(f"Error occurred while inserting data: {e}")
 
     finally:
-        session.close()
+        db.session.close()
 
 
 def chunked(iterable, size):

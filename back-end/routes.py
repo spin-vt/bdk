@@ -232,7 +232,6 @@ from coordinateCluster import get_bounding_boxes
 def get_bounding_coordinates():
     data = request.get_json()
     filename = data['filename']
-    zoom_level = data.get('zoom_level', 10)
     
     if not os.path.isfile(filename):
         return jsonify({"error": "File not found"}), 404
@@ -240,12 +239,11 @@ def get_bounding_coordinates():
     df = pd.read_csv(filename)
     if not {'latitude', 'longitude'}.issubset(df.columns):
         return jsonify({"error": "CSV does not contain latitude or longitude column"}), 400
-    
-    data = get_bounding_boxes(filename, zoom_level)
 
-    print(data)
+    coordinates = df[['latitude', 'longitude']].to_dict('records')
+
+    return jsonify(coordinates)
     
-    return jsonify(data)
 
     # lat_min = df['latitude'].min()
     # lat_max = df['latitude'].max()
@@ -265,10 +263,14 @@ def get_bounding_coordinates():
     #     }
     # })
 
+
+
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
 from flask_jwt_extended.exceptions import NoAuthorizationError
+from processData import db, Data
+from sqlalchemy import or_
 
 
 app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
@@ -276,7 +278,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:db123@localhost:5
 app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
 jwt = JWTManager(app)
 
-db = SQLAlchemy(app)
+db.init_app(app)
 
 # CORS(app)
 
@@ -309,6 +311,29 @@ with app.app_context():
 
 
 
+@app.route('/api/search', methods=['GET'])
+def search_location():
+    query = request.args.get('query').upper()
+
+    print(query)
+
+    # Assuming you're searching for a location by its name
+    if query:
+        results = Data.query.filter(
+            or_(
+                Data.address_primary.contains(query)
+            )
+        ).limit(5).all()
+        # print('In here')
+        # print(results)
+        results_dict = [result.address_primary for result in results]
+    else:
+        results_dict = {}
+
+    # Convert SQLAlchemy results to dictionary format for jsonif
+
+    return jsonify(results_dict)
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -324,7 +349,7 @@ def register():
     db.session.commit()
     access_token = create_access_token(identity={'id': new_user.id, 'username': new_user.username})
 
-    response = make_response(jsonify({'status': 'success'}))
+    response = make_response(jsonify({'status': 'success', 'token': access_token}))
     # Set access token as a secure HTTP only cookie
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
     return response

@@ -23,6 +23,7 @@ import ContactMailIcon from '@mui/icons-material/ContactMail';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LoginIcon from '@mui/icons-material/Login';
 import UploadIcon from '@mui/icons-material/Upload';
+import Searchbar from '../components/Searchbar';
 
 const useStyles = makeStyles((theme) => ({
   drawer: {
@@ -77,6 +78,7 @@ export default function Navbar() {
     return [storedValue, setValue];
   }
   
+  const searchInputRef = React.useRef(null);
   const buttonRef = React.useRef(null);
   const [username, setUsername] = useLocalStorage("username", null);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
@@ -85,6 +87,8 @@ export default function Navbar() {
 
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [menuWidth, setMenuWidth] = React.useState(null);
+
+
   
 
   const handleMenuOpen = (event) => {
@@ -231,6 +235,8 @@ export default function Navbar() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Broadband Data Collection Helper
           </Typography>
+          <Searchbar/>
+ 
           <Box display="flex" alignItems="center">
             {username ? (
               <Box display="flex" alignItems="center">

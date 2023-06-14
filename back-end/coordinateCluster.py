@@ -7,8 +7,6 @@ def get_bounding_boxes(filename, zoom_level):
     # Adjust the epsilon parameter based on the zoom level
     # The actual value to use will depend on your specific use case
     # Here we assume a linear relationship between zoom level and epsilon
-
-    print('here')
     epsilon = 0.5 / zoom_level
     df = pd.read_csv(filename)
     coords = df[['latitude', 'longitude']].values
@@ -39,5 +37,4 @@ def get_bounding_boxes(filename, zoom_level):
     with open('clusterCoordinate.json', 'w') as json_file:
         json.dump(bounding_boxes, json_file)
     
-    print('done')
     return bounding_boxes
