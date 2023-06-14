@@ -16,6 +16,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 import pandas as pd
 from sqlalchemy.exc import IntegrityError
 import geopandas as gpd
+from datetime import datetime
+import psycopg2
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
@@ -151,51 +153,9 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
     nonlte_fabric = nonlte_fabric.drop_duplicates()
 
     print(len(lte_fabric), len(nonlte_fabric))
-
-    from datetime import datetime
-
-    PROVIDER_ID = 330054
-    BRAND_NAME = 'test'
-    TECHNOLOGY_CODE = 71 
-    MAX_DOWNLOAD_SPEED = 25
-    MAX_UPLOAD_SPEED = 3
-    LATENCY = 1
-    BUSINESS_CODE = 'X'
-
-    availability_csv = pandas.DataFrame()
-
-    availability_csv['location_id'] = lte_fabric['location_id'] #had to copy this first to copy size of fabric_near_fiber
-    availability_csv['provider_id'] = PROVIDER_ID
-    availability_csv['brand_name'] = BRAND_NAME
-    availability_csv['technology'] = TECHNOLOGY_CODE
-    availability_csv['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
-    availability_csv['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
-    availability_csv['low_latency'] = LATENCY
-    availability_csv['business_residential_code'] = BUSINESS_CODE
-
-    availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
-                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] #reordering the columns to match BDC website
-
-    print(len(availability_csv))
-
-    availability_csv.to_csv(path_or_buf='./lte/' + str(datetime.now()) + '.csv', index=False)
-
-    availability_csv2 = pandas.DataFrame()
-    availability_csv2['location_id'] = nonlte_fabric['location_id'] #had to copy this first to copy size of fabric_near_fiber    
-    availability_csv2['provider_id'] = PROVIDER_ID
-    availability_csv2['brand_name'] = BRAND_NAME
-    availability_csv2['technology'] = TECHNOLOGY_CODE
-    availability_csv2['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
-    availability_csv2['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
-    availability_csv2['low_latency'] = LATENCY
-    availability_csv2['business_residential_code'] = BUSINESS_CODE
-
-    availability_csv2 = availability_csv2[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
-                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] #reordering the columns to match BDC website
-
-    availability_csv2.to_csv(path_or_buf='./nonlte/' + str(datetime.now()) + '.csv', index=False)
         
 def filter_locations(Fabric_FN, Fiber_FN):
+
     df = pandas.read_csv(Fabric_FN) ##Changed fabric (v2)
 
     fabric = geopandas.GeoDataFrame(
@@ -294,6 +254,48 @@ def filter_locations(Fabric_FN, Fiber_FN):
                 session.rollback()  # Rollback the transaction on unique constraint violation
         session.close()
 
+def exportWired(): 
+    PROVIDER_ID = 777
+    BRAND_NAME = 'Test'
+    TECHNOLOGY_CODE = 1
+    MAX_DOWNLOAD_SPEED = 1
+    MAX_UPLOAD_SPEED = 1
+    LATENCY = 1
+    BUSINESS_CODE = 'X'
+
+    availability_csv = pandas.DataFrame()
+
+    # Establish PostgreSQL connection
+    conn = psycopg2.connect('postgresql://postgres:db123@localhost:5432/postgres')
+    cursor = conn.cursor()
+
+    # Retrieve location_id from PostgreSQL table 'kml'
+    cursor.execute("SELECT location_id FROM kml WHERE served = true")
+    result = cursor.fetchall()
+
+    # Close cursor and connection
+    cursor.close()
+    conn.close()
+
+    availability_csv['location_id'] = [row[0] for row in result]
+    availability_csv['provider_id'] = PROVIDER_ID
+    availability_csv['brand_name'] = BRAND_NAME
+    availability_csv['technology'] = TECHNOLOGY_CODE
+    availability_csv['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
+    availability_csv['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
+    availability_csv['low_latency'] = LATENCY
+    availability_csv['business_residential_code'] = BUSINESS_CODE
+
+    availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
+                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
+
+    print(len(availability_csv))
+
+    filename = 'wiredCSV.csv'
+    availability_csv.to_csv(filename, index=False)
+    return filename
+
 # if __name__ == "__main__":
-    # filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
-    # wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")
+#     exportWired()
+#     filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
+#     wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")
