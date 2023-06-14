@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
-
+import SelectedLocationContext from "./SelectedLocationContext";
 
 function SearchBar() {
   const [open, setOpen] = React.useState(false);
@@ -10,10 +10,25 @@ function SearchBar() {
   const [searchInput, setSearchInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const { setLocation } = useContext(SelectedLocationContext);
+  const { location } = useContext(SelectedLocationContext);
+  const handleSelectOption = (option) => {
+    console.log(option);
+    setLocation({
+      latitude: option.latitude,
+      longitude: option.longitude,
+    });
+  };
+  // console.log(setLocation);
+
+  React.useEffect(() => {
+    console.log(location); // Should log the updated location
+  }, [location]);
+
   const handleSearchChange = async (event) => {
     setSearchInput(event.target.value);
     if (event.target.value !== "") {
-        setIsLoading(true);
+      setIsLoading(true);
       const response = await fetch(
         `http://localhost:8000/api/search?query=${event.target.value}`
       );
@@ -67,8 +82,11 @@ function SearchBar() {
       onClose={() => {
         setOpen(false);
       }}
-      isOptionEqualToValue={(option, value) => option.name === value.name}
-      getOptionLabel={(option) => option}
+      isOptionEqualToValue={(option, value) => option.address === value.address}
+      getOptionLabel={(option) =>
+        `${option.address}, ${option.city}, ${option.state}, ${option.zipcode}`
+      }
+      onChange={(_, value) => handleSelectOption(value)}
       noOptionsText="No result found"
       options={options}
       loading={isLoading}
@@ -79,16 +97,16 @@ function SearchBar() {
           onChange={handleSearchChange}
           value={searchInput}
           sx={{
-            color: 'black',
-            backgroundColor: 'white',
-            '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: 'white',
+            color: "black",
+            backgroundColor: "white",
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: "white",
             },
-            '&:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: 'white',
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "white",
             },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: 'white',
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: "white",
             },
           }}
           InputProps={{

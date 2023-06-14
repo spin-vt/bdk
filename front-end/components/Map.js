@@ -1,15 +1,34 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useContext } from "react";
 import L from "leaflet";
 import "leaflet.markercluster/dist/leaflet.markercluster";
 import "../styles/Map.module.css";
+import Papa from "papaparse";
+import SelectedLocationContext from "./SelectedLocationContext";
 
 const h3 = require("h3-js");
 
-function Map({ markers }) {
+function Map() {
   const mapRef = useRef(null);
   const [hexIndexToMarkers, setHexIndexToMarkers] = useState({});
   const polygonsRef = useRef([]);
   const markerLayersRef = useRef([]);
+  const [markers, setMarkers] = useState([]);
+
+  const { location } = useContext(SelectedLocationContext);
+
+  // useEffect(() => {
+  //   Papa.parse("/fabric.csv", {
+  //     download: true,
+  //     header: true,
+  //     complete: function (results) {
+  //       const markers = results.data.map((marker) => ({
+  //         latitude: parseFloat(marker.latitude),
+  //         longitude: parseFloat(marker.longitude),
+  //       }));
+  //       setMarkers(markers);
+  //     },
+  //   });
+  // }, []);
 
   useEffect(() => {
     // Initialize map on component mount
@@ -30,7 +49,7 @@ function Map({ markers }) {
   useEffect(() => {
     let newHexIndexToMarkers = {};
 
-    markers.forEach(marker => {
+    markers.forEach((marker) => {
       const h3Index = h3.latLngToCell(marker.latitude, marker.longitude, 7);
 
       // Add marker to hex index mapping
@@ -46,14 +65,14 @@ function Map({ markers }) {
   useEffect(() => {
     const map = mapRef.current;
 
-    Object.keys(hexIndexToMarkers).forEach(h3Index => {
+    Object.keys(hexIndexToMarkers).forEach((h3Index) => {
       const hexBoundary = h3.cellToBoundary(h3Index);
-      const latLngs = hexBoundary.map(coord => L.latLng(coord[0], coord[1]));
+      const latLngs = hexBoundary.map((coord) => L.latLng(coord[0], coord[1]));
 
       const polygon = L.polygon(latLngs, {
         color: "blue",
         fillColor: "blue",
-        fillOpacity: 0.5
+        fillOpacity: 0.5,
       }).addTo(map);
 
       polygonsRef.current.push(polygon);
@@ -61,26 +80,32 @@ function Map({ markers }) {
       polygon.on("click", () => {
         const currentZoom = map.getZoom();
         if (currentZoom >= 10) {
-          hexIndexToMarkers[h3Index].forEach(marker => {
+          hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
             if (marker.served === true) {
-              markerLayer = L.circleMarker([marker.latitude, marker.longitude], {
-                radius: 5,
-                color: "green",
-                fillColor: "green",
-                fillOpacity: 1
-              }).addTo(map);
+              markerLayer = L.circleMarker(
+                [marker.latitude, marker.longitude],
+                {
+                  radius: 5,
+                  color: "green",
+                  fillColor: "green",
+                  fillOpacity: 1,
+                }
+              ).addTo(map);
             } else {
-              markerLayer = L.circleMarker([marker.latitude, marker.longitude], {
-                radius: 5,
-                color: "red",
-                fillColor: "red",
-                fillOpacity: 1
-              }).addTo(map);
+              markerLayer = L.circleMarker(
+                [marker.latitude, marker.longitude],
+                {
+                  radius: 5,
+                  color: "red",
+                  fillColor: "red",
+                  fillOpacity: 1,
+                }
+              ).addTo(map);
             }
             markerLayersRef.current.push(markerLayer);
           });
-          polygon.setStyle({ fillOpacity: 0});
+          polygon.setStyle({ fillOpacity: 0 });
         }
       });
     });
@@ -88,18 +113,25 @@ function Map({ markers }) {
     map.on("zoomend", () => {
       const currentZoom = map.getZoom();
       if (currentZoom < 10) {
-        polygonsRef.current.forEach(polygon => {
+        polygonsRef.current.forEach((polygon) => {
           polygon.setStyle({ fillOpacity: 0.5 });
         });
 
-        markerLayersRef.current.forEach(markerLayer => {
+        markerLayersRef.current.forEach((markerLayer) => {
           map.removeLayer(markerLayer);
         });
         markerLayersRef.current = [];
       }
     });
-
   }, [hexIndexToMarkers]);
+
+  useEffect(() => {
+    console.log(location);
+    if (location && mapRef.current) {
+      const { latitude, longitude } = location;
+      mapRef.current.setView([latitude, longitude], 13);
+    }
+  }, [location]);
 
   return (
     <div>

@@ -317,16 +317,13 @@ def search_location():
 
     print(query)
 
-    # Assuming you're searching for a location by its name
     if query:
         results = Data.query.filter(
             or_(
                 Data.address_primary.contains(query)
             )
         ).limit(5).all()
-        # print('In here')
-        # print(results)
-        results_dict = [result.address_primary for result in results]
+        results_dict = [{"address": result.address_primary, "city": result.city, "state": result.state, "zipcode": result.zip_code, "latitude": result.latitude, "longitude": result.longitude} for result in results]
     else:
         results_dict = {}
 

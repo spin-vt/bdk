@@ -53,7 +53,9 @@ export default function Navbar() {
   function useLocalStorage(key, initialValue) {
     const [storedValue, setStoredValue] = React.useState(() => {
       try {
+        if (typeof window !== undefined) {
         const item = window.localStorage.getItem(key);
+        }
         return item ? item : initialValue;
       } catch (error) {
         console.error(error);
@@ -64,10 +66,14 @@ export default function Navbar() {
     const setValue = (value) => {
       try {
         if (value === null) {
+          if (typeof window !== undefined) {
           window.localStorage.removeItem(key);
+          }
           setStoredValue(null);
         } else {
+          if (typeof window !== undefined) {
           window.localStorage.setItem(key, value);
+          }
           setStoredValue(value);
         }
       } catch (error) {
