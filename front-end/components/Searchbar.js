@@ -38,6 +38,7 @@ function SearchBar() {
       if (data.length === 0) {
         setIsLoading(false);
       }
+      console.log(options);
     } else {
       setOptions([]); // Clear the search results list
       setIsLoading(false);

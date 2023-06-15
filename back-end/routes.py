@@ -303,14 +303,20 @@ def search_location():
 
     query = request.args.get('query').upper()
 
-    print(query)
 
     if query:
         # Retrieve location_id from PostgreSQL table 'kml'
-        cursor.execute("SELECT address_primary FROM bdk WHERE UPPER(address_primary) LIKE %s LIMIT 5",
-                       ('%' + query + '%',))
+        cursor.execute(
+            """
+            SELECT address_primary, city, state, zip_code, latitude, longitude
+            FROM bdk 
+            WHERE UPPER(address_primary) LIKE %s 
+            LIMIT 5
+            """,
+            ('%' + query + '%',)
+        )
         results = cursor.fetchall()
-        results_dict = [result[0] for result in results]
+        results_dict = [{"address": result[0], "city": result[1], "state": result[2], "zipcode": result[3], "latitude": result[4], "longitude": result[5]} for result in results]
 
     else:
         results_dict = {}
