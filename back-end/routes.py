@@ -420,8 +420,7 @@ def export():
     filename = kmlEngine.exportWired()
     if filename:
         response_data = {'Status': "Success"}
-        send_file(filename, as_attachment=True)
-        return jsonify(response_data)
+        return send_file(filename, as_attachment=True)
     else:
         return jsonify(response_data)
 

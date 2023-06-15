@@ -31,17 +31,8 @@ export default function Upload({ fetchMarkers }) {
 
   const handleDownloadClick = (event) => {
     event.preventDefault();
-    fetch('http://localhost:8000/export', {
-      method: 'GET',
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        console.log('Status:', response); // log the status
-        return response.json();
-      })
-  }
+    window.location.href = 'http://localhost:8000/export';
+  };
   
   const handleExportClick = (event) => {
     event.preventDefault();
@@ -70,12 +61,15 @@ export default function Upload({ fetchMarkers }) {
           throw new Error('Network response was not ok');
         }
         fetchMarkers();
+        console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
+        setExportSuccess(true); // Set the export success state to true
         return response.json();
       })
       .then((data) => {
         console.log('Success:', data);
         console.log("going to fetch markers")
+        console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
         fetchMarkers();
       })
