@@ -2,33 +2,18 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import L from "leaflet";
 import "leaflet.markercluster/dist/leaflet.markercluster";
 import "../styles/Map.module.css";
-import Papa from "papaparse";
 import SelectedLocationContext from "./SelectedLocationContext";
 
 const h3 = require("h3-js");
 
-function Map() {
+function Map({markers}) {
   const mapRef = useRef(null);
   const [hexIndexToMarkers, setHexIndexToMarkers] = useState({});
   const polygonsRef = useRef([]);
   const markerLayersRef = useRef([]);
-  const [markers, setMarkers] = useState([]);
 
   const { location } = useContext(SelectedLocationContext);
 
-  // useEffect(() => {
-  //   Papa.parse("/fabric.csv", {
-  //     download: true,
-  //     header: true,
-  //     complete: function (results) {
-  //       const markers = results.data.map((marker) => ({
-  //         latitude: parseFloat(marker.latitude),
-  //         longitude: parseFloat(marker.longitude),
-  //       }));
-  //       setMarkers(markers);
-  //     },
-  //   });
-  // }, []);
 
   useEffect(() => {
     // Initialize map on component mount

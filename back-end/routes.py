@@ -417,8 +417,6 @@ from flask import send_file
 '''
 @wired: if true return wired csv, otherwise wireless
 '''
-
-
 @app.route('/export', methods=['GET'])
 def export():
     response_data = {'Status': 'Failure'}
