@@ -3,6 +3,7 @@ import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
 import SelectedLocationContext from "./SelectedLocationContext";
+import debounce from "lodash.debounce";
 
 function SearchBar() {
   const [open, setOpen] = React.useState(false);
@@ -13,56 +14,43 @@ function SearchBar() {
   const { setLocation } = useContext(SelectedLocationContext);
   const { location } = useContext(SelectedLocationContext);
   const handleSelectOption = (option) => {
-    console.log(option);
-    setLocation({
-      latitude: option.latitude,
-      longitude: option.longitude,
-    });
+    if (option !== undefined && option !== null) {
+      setLocation({
+        latitude: option.latitude,
+        longitude: option.longitude,
+      });
+    }
   };
-  // console.log(setLocation);
 
-  React.useEffect(() => {
-    console.log(location); // Should log the updated location
-  }, [location]);
+  // React.useEffect(() => {
+  //   console.log(location); // Should log the updated location
+  // }, [location]);
 
-  const handleSearchChange = async (event) => {
-    setSearchInput(event.target.value);
-    if (event.target.value !== "") {
+  const debouncedSave = React.useCallback(
+    debounce((nextValue) => handleSearchChange(nextValue), 600), // debounce time of 300ms
+    [] // will be created only once initially
+  );
+
+  const handleSearchChange = async (nextValue) => {
+    console.log(nextValue);
+    setSearchInput(nextValue);
+    if (nextValue !== "") {
       setIsLoading(true);
       const response = await fetch(
-        `http://localhost:8000/api/search?query=${event.target.value}`
+        `http://localhost:8000/api/search?query=${nextValue}`
       );
       const data = await response.json();
-      setOptions(data);
-      console.log(data);
-      if (data.length === 0) {
+      setTimeout(() => {
+        setOptions(data);
         setIsLoading(false);
-      }
-      console.log(options);
+      }, 0);
+      
     } else {
       setOptions([]); // Clear the search results list
       setIsLoading(false);
-      console.log(options);
     }
   };
 
-  React.useEffect(() => {
-    let active = true;
-
-    if (!isLoading) {
-      return undefined;
-    }
-
-    (async () => {
-      if (active) {
-        setOpen(true);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [isLoading]);
 
   React.useEffect(() => {
     if (!open) {
@@ -70,9 +58,12 @@ function SearchBar() {
     }
   }, [open]);
 
+  React.useEffect(() => {
+    console.log(options);
+  }, [options]);
   return (
     <Autocomplete
-      id="asynchronous-demo"
+      id="searchbar"
       sx={{
         width: 400,
       }}
@@ -83,7 +74,12 @@ function SearchBar() {
       onClose={() => {
         setOpen(false);
       }}
-      isOptionEqualToValue={(option, value) => option.address === value.address}
+      filterOptions={(options, params) => options}
+      isOptionEqualToValue={(option, value) => 
+        option.address === value.address && 
+        option.city === value.city && 
+        option.state === value.state && 
+        option.zipcode === value.zipcode}
       getOptionLabel={(option) =>
         `${option.address}, ${option.city}, ${option.state}, ${option.zipcode}`
       }
@@ -94,8 +90,8 @@ function SearchBar() {
       renderInput={(params) => (
         <TextField
           {...params}
-          placeholder="Input location id or address to search map"
-          onChange={handleSearchChange}
+          placeholder="Enter address to search for location on map"
+          onChange={(event) => debouncedSave(event.target.value)} // Use debounced function
           value={searchInput}
           sx={{
             color: "black",
