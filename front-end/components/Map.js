@@ -79,6 +79,7 @@ function Map({markers}) {
 
       polygon.on("click", () => {
         const currentZoom = map.getZoom();
+        //higher number means more zoomed in
         if (currentZoom >= 10) {
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
@@ -103,9 +104,18 @@ function Map({markers}) {
                 }
               ).addTo(map);
             }
+              // Create a popup and bind it to the marker
+              markerLayer.bindPopup(`
+              <strong>Name:</strong> ${marker.name} <br/>
+              <strong>ID:</strong> ${marker.id} <br/>
+              <strong>Latitude:</strong> ${marker.latitude} <br/>
+              <strong>Longitude:</strong> ${marker.longitude} <br/>
+              <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
+            `);
+            
+            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent"});
             markerLayersRef.current.push(markerLayer);
           });
-          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent"});
         }
       });
     });
@@ -144,6 +154,14 @@ function Map({markers}) {
                 }
               ).addTo(mapRef.current);
             }
+              // Create a popup and bind it to the marker
+              markerLayer.bindPopup(`
+              <strong>Name:</strong> ${marker.name} <br/>
+              <strong>ID:</strong> ${marker.id} <br/>
+              <strong>Latitude:</strong> ${marker.latitude} <br/>
+              <strong>Longitude:</strong> ${marker.longitude} <br/>
+              <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
+            `);
             markerLayersRef.current.push(markerLayer);
           });
         }

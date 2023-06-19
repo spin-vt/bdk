@@ -20,13 +20,17 @@ export default function Upload({ fetchMarkers }) {
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [selectedFiles, setSelectedFiles] = React.useState([]);
+  const [selectedFiles, setSelectedFiles] = React.useState(
+    JSON.parse(localStorage.getItem('selectedFiles')) || []
+  );
   const [downloadSpeed, setDownloadSpeed] = React.useState('');
   const [uploadSpeed, setUploadSpeed] = React.useState('');
   const [techType, setTechType] = React.useState('');
   const [ispName, setISPName] = React.useState('');
   const idCounterRef = React.useRef(1); // Counter for generating unique IDs
-  const [exportSuccess, setExportSuccess] = React.useState(false);
+  const [exportSuccess, setExportSuccess] = React.useState(
+    localStorage.getItem('exportSuccess') === 'true' || false
+  );
   const [buttonGroupWidth, setButtonGroupWidth] = React.useState(null);
 
   const handleDownloadClick = (event) => {
@@ -95,8 +99,7 @@ export default function Upload({ fetchMarkers }) {
   const handleFileChange = (event) => {
     storage.push([event.target.files[0], idCounterRef.current]);
 
-    const newFiles = Array.from(event.target.files);
-    const updatedFiles = newFiles.map((file) => ({
+      const newFiles = Object.values(event.target.files).map((file) => ({
       id: idCounterRef.current++,
       name: file.name,
       option: options[selectedIndex], // Track the selected option for each file
@@ -105,7 +108,12 @@ export default function Upload({ fetchMarkers }) {
       uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
       techType: options[selectedIndex] === 'Network' ? techType : '',
     }));
-    setSelectedFiles((prevFiles) => [...prevFiles, ...updatedFiles]);
+    
+    idCounterRef.current += 1;
+
+    const updatedFiles = [...selectedFiles, ...newFiles];
+    setSelectedFiles(updatedFiles);
+    localStorage.setItem('selectedFiles', JSON.stringify(updatedFiles));
   };
 
   const handleClick = () => {
@@ -131,22 +139,29 @@ export default function Upload({ fetchMarkers }) {
   };
 
   const handleDelete = (id) => {
-    let i = 0;
-    storage.forEach((file) => {
-      if (file[1] === id) { 
-        storage.splice(i, 1);
-      }
-      i++;
-    });
-    
+    // Iterate through the 'storage' array and remove the matching file
+    for (let i = 0; i < storage.length; i++) {
+        if (storage[i][1] === id) {
+            storage.splice(i, 1);
+            break;
+        }
+    }
+
+    // Update selectedFiles state
     setSelectedFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
+    setExportSuccess(false); // Set the export success state to true
+
+    // Update local storage
+    const updatedFiles = JSON.parse(localStorage.getItem('selectedFiles')) || [];
+    const filteredFiles = updatedFiles.filter((file) => file.id !== id);
+    localStorage.setItem('selectedFiles', JSON.stringify(filteredFiles));
 
     // Reset the file input element
     const fileInput = anchorRef.current;
     if (fileInput) {
-      fileInput.value = '';
+        fileInput.value = '';
     }
-  };
+};
 
   const columns = [
     { field: 'id', headerName: 'ID', width: 90 },
@@ -196,6 +211,11 @@ export default function Upload({ fetchMarkers }) {
       ),
     },
   ];
+
+  React.useEffect(() => {
+    // Store the exportSuccess state in local storage whenever it changes
+    localStorage.setItem('exportSuccess', exportSuccess);
+  }, [exportSuccess]);
 
   return (
     <React.Fragment>
