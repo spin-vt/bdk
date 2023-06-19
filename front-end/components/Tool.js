@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Map from "./Map";
 import Upload from "./Upload";
-import UploadWireless from "./UploadWireless";
+import UploadWireless from "./UploadWireless"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
@@ -117,7 +117,7 @@ function Tool() {
                   {selectedOption === "wireless" && (
                     <div>
                       <h2>Wireless Upload Component</h2>
-                      <UploadWireless fetchMarkers={fetchMarkersWireless} />
+                      <UploadWireless fetchMarkersWireless={fetchMarkersWireless} />
                     </div>
                   )}
                 </div>

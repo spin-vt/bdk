@@ -161,7 +161,7 @@ export default function Upload({ fetchMarkers }) {
     if (fileInput) {
         fileInput.value = '';
     }
-};
+  };
 
   const columns = [
     { field: 'id', headerName: 'ID', width: 90 },
