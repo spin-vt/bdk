@@ -78,6 +78,29 @@ def check_num_records_greater_zero():
     session = ScopedSession()
     return session.query(kml_data).count() > 0
 
+def get_precise_wireless_data(): 
+    session = ScopedSession()
+
+    results = session.query(wireless).all()
+    # Get location IDs from kml_data
+    location_ids = [r.location_id for r in results]
+
+    # Query bdk_data using location IDs to get latitudes and longitudes
+    lte_results = session.query(processData.Data).filter(processData.Data.location_id.in_(location_ids)).all()
+
+    # Map location IDs to latitudes and longitudes
+    latitudes = {r.location_id: r.latitude for r in lte_results}
+    longitudes = {r.location_id: r.longitude for r in lte_results}
+    addresses = {r.location_id: r.address_primary for r in lte_results}
+
+    data = [{'location_id': r.location_id,
+             'served': True,
+             'latitude': latitudes.get(r.location_id),
+             'address': addresses.get(r.location_id),
+             'longitude': longitudes.get(r.location_id)} for r in results]
+
+    return data
+
 def get_precise_data():
     session = ScopedSession()
 

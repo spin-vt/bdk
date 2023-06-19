@@ -116,8 +116,9 @@ def get_number_records():
 
 @app.route("/served-data-wireless", methods=['GET'])
 def get_number_records_wireless():
-    response_data = {'Status': "Ok"}
-    return json.dumps(response_data)
+    return jsonify(kmlEngine.get_precise_wireless_data())
+    # response_data = {'Status': "Ok"}
+    # return json.dumps(response_data)
 
 
 @app.route('/pointsWithin/<minLat>/<maxLat>/<minLng>/<maxLng>', methods=['GET'])
@@ -133,20 +134,22 @@ import os
 import json
 
 @app.route('/submit-wireless-form', methods=['POST', 'GET'])
-def submit_wired_form():
+def submit_wireless_form():
     if request.method == 'POST':
         names = []
 
         if 'file' not in request.files:
+            print("1")
             return make_response('Error: No file uploaded', 400)
 
         files = request.files.getlist('file')
 
         if len(files) <= 0:
+            print("2")
             return make_response('Error: No file uploaded', 400)
         
         inspector = inspect(engine)
-        if inspector.has_table('bdk') and inspector.has_table('kml'):
+        if inspector.has_table('lte'):
             response_data = {'Status': "Ok"}
             return json.dumps(response_data)
 
