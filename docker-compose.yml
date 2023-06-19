@@ -1,27 +1,56 @@
 version: '3'
+
 services:
-  frontend:
-    build:
-      context: ./front_end # Path to the front-end Dockerfile
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: db123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - 3000:3000 # Map port 3000 inside the container to port 3000 on the host
+      - '5433:5432'
+
+  redis:
+    image: 'redis:latest'
+    ports:
+      - '6379:6379'
+  
+  celery:
+    build:
+      context: ./back-end
+      dockerfile: Dockerfile
+    command: celery -A routes.celery worker --loglevel=DEBUG
+    volumes:
+      - ./back-end:/app
+    depends_on:
+      - redis
+      - postgres
   
   backend:
     build:
-      context: ./back-end # Path to the back-end Dockerfile
+      context: ./back-end
+      dockerfile: Dockerfile
+    volumes:
+      - ./back-end:/app
     ports:
-      - 8000:8000 # Map port 8000 inside the container to port 8000 on the host
-      
-  db:
-    image: postgres
+      - '8000:8000'
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=db123
-      - POSTGRES_DB=postgres
+      - DB_HOST=postgres
+    depends_on:
+      - redis
+      - celery
+      - postgres
+  
+  frontend:
+    build:
+      context: ./front-end
+      dockerfile: Dockerfile
+    volumes:
+      - ./front-end:/app
     ports:
-      - 5432:5432  # Map port 5432 inside the container to port 5432 on the host
+      - '3000:3000'
 
-  redis:
-    image: redis:latest
-    ports:
-      - 6379:6379
+volumes:
+  postgres_data: {}

@@ -18,8 +18,10 @@ from sqlalchemy.exc import IntegrityError
 import geopandas as gpd
 from datetime import datetime
 import psycopg2
+import os
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+db_host = os.getenv('DB_HOST', 'localhost')
 
 Base = declarative_base()
 BATCH_SIZE = 50000
@@ -37,7 +39,7 @@ class wireless2(Base):
     __tablename__ = 'non-lte'
     location_id = Column(Integer, primary_key=True)
 
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 # Check if the table exists
@@ -366,7 +368,7 @@ def exportWired():
     availability_csv = pandas.DataFrame()
 
     # Establish PostgreSQL connection
-    conn = psycopg2.connect('postgresql://postgres:db123@localhost:5432/postgres')
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
     # Retrieve location_id from PostgreSQL table 'kml'
@@ -407,7 +409,7 @@ def exportWireless():
     availability_csv = pandas.DataFrame()
 
     # Establish PostgreSQL connection
-    conn = psycopg2.connect('postgresql://postgres:db123@localhost:5432/postgres')
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
     # Retrieve location_id from PostgreSQL table 'kml'

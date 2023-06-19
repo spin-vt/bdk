@@ -6,8 +6,10 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 import concurrent.futures
 import logging
 from sqlalchemy import inspect
+import os
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+db_host = os.getenv('DB_HOST', 'localhost')
 
 NUMBER_THREADS = 4
 BATCH_SIZE = 50000
@@ -36,7 +38,7 @@ class Data(Base):
     longitude = Column(Float)
 
 
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 # Check if the table exists

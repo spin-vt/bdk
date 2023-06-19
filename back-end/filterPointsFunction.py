@@ -3,15 +3,17 @@ from sqlalchemy.sql import text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from processData import Data
+import os 
 
 Base = declarative_base()
+db_host = os.getenv('DB_HOST', 'localhost')
 
 class kml_data(Base):
     __tablename__ = 'kml'
     location_id = Column(Integer, primary_key=True)
     served = Column(Boolean)
 
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 
 engine = create_engine(DATABASE_URL)
 # Create a session to interact with the database

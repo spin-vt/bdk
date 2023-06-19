@@ -1,14 +1,18 @@
-# Use a base image with Node.js pre-installed
-FROM node:14
+# Pull official base image
+FROM node:16
 
-# Set the working directory inside the container
+# Set work directory in the Docker image
 WORKDIR /app
 
-# Copy the application code
+# Copy package.json and package-lock.json (if available)
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy the rest of the application
 COPY . .
 
-# Expose the port on which the application will run
+# Expose port and define CMD
 EXPOSE 3000
-
-# Specify the command to start the application
 CMD ["npm", "run", "dev"]

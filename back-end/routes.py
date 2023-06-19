@@ -55,22 +55,26 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-celery = Celery(app.name, broker='redis://localhost:6379/0')
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+celery = Celery(app.name, broker='redis://redis:6379/0')
+app.config['CELERY_RESULT_BACKEND'] = 'redis://redis:6379/0'
 celery.conf.update(app.config)
+
+import os
+
+db_host = os.getenv('DB_HOST', 'localhost')
 
 # configure the logger to print out log messages to the console and file
 logging.basicConfig(level=logging.DEBUG)
 
 app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:db123@localhost:5432/postgres'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
 jwt = JWTManager(app)
 
 # CORS(app)
 
 Base = declarative_base()
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 
@@ -321,7 +325,7 @@ import concurrent.futures
 from sqlalchemy import inspect
 
 app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:db123@localhost:5432/postgres'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
 jwt = JWTManager(app)
 
@@ -330,7 +334,7 @@ jwt = JWTManager(app)
 states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
 
 Base = declarative_base()
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 # Check if the table exists
@@ -355,7 +359,7 @@ class User(Base):
 @app.route('/api/search', methods=['GET'])
 def search_location():
     # Establish PostgreSQL connection
-    conn = psycopg2.connect('postgresql://postgres:db123@localhost:5432/postgres')
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
     query = request.args.get('query').upper()
@@ -442,7 +446,7 @@ def register():
     password = data.get('password')
 
     # Establish PostgreSQL connection
-    conn = psycopg2.connect('postgresql://postgres:db123@localhost:5432/postgres')
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
     # Check if the username already exists
@@ -483,7 +487,7 @@ def login():
     password = data.get('password')
 
     # Establish PostgreSQL connection
-    conn = psycopg2.connect('postgresql://postgres:db123@localhost:5432/postgres')
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
     # Query your database for the user
