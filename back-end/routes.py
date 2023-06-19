@@ -61,7 +61,7 @@ celery.conf.update(app.config)
 
 import os
 
-db_host = os.getenv('DB_HOST', 'localhost')
+db_host = os.getenv('postgres', 'localhost')
 
 # configure the logger to print out log messages to the console and file
 logging.basicConfig(level=logging.DEBUG)

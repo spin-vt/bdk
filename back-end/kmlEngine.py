@@ -21,7 +21,7 @@ import psycopg2
 import os
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-db_host = os.getenv('DB_HOST', 'localhost')
+db_host = os.getenv('postgres', 'localhost')
 
 Base = declarative_base()
 BATCH_SIZE = 50000

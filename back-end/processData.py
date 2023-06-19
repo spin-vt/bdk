@@ -9,7 +9,7 @@ from sqlalchemy import inspect
 import os
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-db_host = os.getenv('DB_HOST', 'localhost')
+db_host = os.getenv('postgres', 'localhost')
 
 NUMBER_THREADS = 4
 BATCH_SIZE = 50000

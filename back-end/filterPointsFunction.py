@@ -6,7 +6,7 @@ from processData import Data
 import os 
 
 Base = declarative_base()
-db_host = os.getenv('DB_HOST', 'localhost')
+db_host = os.getenv('postgres', 'localhost')
 
 class kml_data(Base):
     __tablename__ = 'kml'

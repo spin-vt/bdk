@@ -26,7 +26,6 @@ services:
       - ./back-end:/app
     depends_on:
       - redis
-      - postgres
   
   backend:
     build:
@@ -38,10 +37,6 @@ services:
       - '8000:8000'
     environment:
       - DB_HOST=postgres
-    depends_on:
-      - redis
-      - celery
-      - postgres
   
   frontend:
     build:
