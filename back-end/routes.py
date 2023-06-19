@@ -302,6 +302,34 @@ def get_bounding_coordinates():
 
     return jsonify(coordinates)
 
+
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
+from flask_jwt_extended.exceptions import NoAuthorizationError
+from processData import Data
+from sqlalchemy import or_
+import csv
+from threading import Lock
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
+import concurrent.futures
+from sqlalchemy import inspect
+
+app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:db123@localhost:5432/postgres'
+app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
+jwt = JWTManager(app)
+
+# CORS(app)
+# List of all two-letter state abbreviations
+states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+
+Base = declarative_base()
+DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+engine = create_engine(DATABASE_URL)
+
 # Check if the table exists
 inspector = inspect(engine)
 if not inspector.has_table('User'):
@@ -329,9 +357,60 @@ def search_location():
 
     query = request.args.get('query').upper()
 
+    results = []
+
 
     if query:
-        # Retrieve location_id from PostgreSQL table 'kml'
+        query_split = query.split()
+
+        if len(query_split) >= 3:
+            # Assume the last two items correspond to city and state
+            primary_address = " ".join(query_split[:-2]).upper()
+            city = query_split[-2].upper().strip()
+            state = query_split[-1].upper().strip()
+
+            cursor.execute(
+                """
+                SELECT address_primary, city, state, zip_code, latitude, longitude
+                FROM bdk 
+                WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s AND UPPER(state) = %s
+                LIMIT 1
+                """,
+                ('%' + primary_address + '%', city, state,)
+            )
+
+            results.extend(cursor.fetchall())
+
+        if len(query_split) >= 2:
+            # Assume the last item is a city if it doesn't have two characters; otherwise, it's a state
+            primary_address = " ".join(query_split[:-1]).upper()
+            city_or_state = query_split[-1].upper().strip()
+
+            if city_or_state in states:  # Assume it's a state
+                cursor.execute(
+                    """
+                    SELECT address_primary, city, state, zip_code, latitude, longitude
+                    FROM bdk 
+                    WHERE UPPER(address_primary) LIKE %s AND UPPER(state) = %s
+                    LIMIT 3
+                    """,
+                    ('%' + primary_address + '%', city_or_state,)
+                )
+
+            else:  # Assume it's a city
+                cursor.execute(
+                    """
+                    SELECT address_primary, city, state, zip_code, latitude, longitude
+                    FROM bdk 
+                    WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s
+                    LIMIT 3
+                    """,
+                    ('%' + primary_address + '%', city_or_state,)
+                )
+
+            results.extend(cursor.fetchall())
+
+        # Use the entire string as the primary address
         cursor.execute(
             """
             SELECT address_primary, city, state, zip_code, latitude, longitude
@@ -339,13 +418,12 @@ def search_location():
             WHERE UPPER(address_primary) LIKE %s 
             LIMIT 5
             """,
-            ('%' + query + '%',)
+            ('%' + query.upper() + '%',)
         )
-        results = cursor.fetchall()
-        results_dict = [{"address": result[0], "city": result[1], "state": result[2], "zipcode": result[3], "latitude": result[4], "longitude": result[5]} for result in results]
 
-    else:
-        results_dict = {}
+        results.extend(cursor.fetchall())
+
+    results_dict = [{"address": result[0], "city": result[1], "state": result[2], "zipcode": result[3], "latitude": result[4], "longitude": result[5]} for result in results]
 
     # Convert SQLAlchemy results to dictionary format for jsonify
     # Close cursor and connection
