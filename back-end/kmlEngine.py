@@ -29,12 +29,28 @@ class kml_data(Base):
     location_id = Column(Integer, primary_key=True)
     served = Column(Boolean)
 
+class wireless(Base):
+    __tablename__ = 'lte'
+    location_id = Column(Integer, primary_key=True)
+
+class wireless2(Base):
+    __tablename__ = 'non-lte'
+    location_id = Column(Integer, primary_key=True)
+
 DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 # Check if the table exists
 inspector = inspect(engine)
 if not inspector.has_table('kml'):
+    Base.metadata.create_all(engine)
+
+inspector = inspect(engine)
+if not inspector.has_table('lte'):
+    Base.metadata.create_all(engine)
+
+inspector = inspect(engine)
+if not inspector.has_table('non-lte'):
     Base.metadata.create_all(engine)
 
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -153,6 +169,67 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
     nonlte_fabric = nonlte_fabric.drop_duplicates()
 
     print(len(lte_fabric), len(nonlte_fabric))
+
+    session = Session()
+    batch = [] 
+    for _, row in lte_fabric.iterrows():
+        try:
+            newData = wireless(
+                location_id = int(row.location_id),
+            )
+            
+            batch.append(newData)
+            if len(batch) >= BATCH_SIZE:
+                with db_lock:
+                    try:
+                        session.bulk_save_objects(batch)
+                        session.commit()
+                    except IntegrityError:
+                        session.rollback()  # Rollback the transaction on unique constraint violation
+                batch = []
+
+        except Exception as e:
+            logging.error(f"Error occurred while inserting data: {e}")
+            
+    if batch:
+        with db_lock:
+            try:
+                session.bulk_save_objects(batch)
+                session.commit()
+            except IntegrityError:
+                session.rollback()  # Rollback the transaction on unique constraint violation
+    session.close()
+    
+    session = Session()
+    batch = [] 
+
+    for _, row in nonlte_fabric.iterrows():
+        try:
+            newData = wireless2(
+                location_id = int(row.location_id),
+            )
+            
+            batch.append(newData)
+            if len(batch) >= BATCH_SIZE:
+                with db_lock:
+                    try:
+                        session.bulk_save_objects(batch)
+                        session.commit()
+                    except IntegrityError:
+                        session.rollback()  # Rollback the transaction on unique constraint violation
+                batch = []
+        except Exception as e:
+            logging.error(f"Error occurred while inserting data: {e}")
+            
+    if batch:
+        with db_lock:
+            try:
+                session.bulk_save_objects(batch)
+                session.commit()
+            except IntegrityError:
+                session.rollback()  # Rollback the transaction on unique constraint violation
+    session.close()
+
         
 def filter_locations(Fabric_FN, Fiber_FN):
 
@@ -252,7 +329,7 @@ def filter_locations(Fabric_FN, Fiber_FN):
                 session.commit()
             except IntegrityError:
                 session.rollback()  # Rollback the transaction on unique constraint violation
-        session.close()
+    session.close()
 
 def exportWired(): 
     PROVIDER_ID = 777
@@ -295,7 +372,48 @@ def exportWired():
     availability_csv.to_csv(filename, index=False)
     return filename
 
+def exportWireless(): 
+    PROVIDER_ID = 777
+    BRAND_NAME = 'Test'
+    TECHNOLOGY_CODE = 1
+    MAX_DOWNLOAD_SPEED = 1
+    MAX_UPLOAD_SPEED = 1
+    LATENCY = 1
+    BUSINESS_CODE = 'X'
+
+    availability_csv = pandas.DataFrame()
+
+    # Establish PostgreSQL connection
+    conn = psycopg2.connect('postgresql://postgres:db123@localhost:5432/postgres')
+    cursor = conn.cursor()
+
+    # Retrieve location_id from PostgreSQL table 'kml'
+    cursor.execute("SELECT location_id FROM lte")
+    result = cursor.fetchall()
+
+    # Close cursor and connection
+    cursor.close()
+    conn.close()
+
+    availability_csv['location_id'] = [row[0] for row in result]
+    availability_csv['provider_id'] = PROVIDER_ID
+    availability_csv['brand_name'] = BRAND_NAME
+    availability_csv['technology'] = TECHNOLOGY_CODE
+    availability_csv['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
+    availability_csv['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
+    availability_csv['low_latency'] = LATENCY
+    availability_csv['business_residential_code'] = BUSINESS_CODE
+
+    availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
+                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
+
+    print(len(availability_csv))
+
+    filename = 'wirelessCSV.csv'
+    availability_csv.to_csv(filename, index=False)
+    return filename
+
 # if __name__ == "__main__":
-#     exportWired()
-#     filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
+# #     exportWired()
+# #     filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
 #     wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")
