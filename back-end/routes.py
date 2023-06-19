@@ -14,6 +14,19 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import ProgrammingError
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
+from flask_jwt_extended.exceptions import NoAuthorizationError
+from processData import Data
+from sqlalchemy import or_
+import csv
+from threading import Lock
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
+import concurrent.futures
+from sqlalchemy import inspect
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -48,6 +61,17 @@ celery.conf.update(app.config)
 
 # configure the logger to print out log messages to the console and file
 logging.basicConfig(level=logging.DEBUG)
+
+app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:db123@localhost:5432/postgres'
+app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
+jwt = JWTManager(app)
+
+# CORS(app)
+
+Base = declarative_base()
+DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+engine = create_engine(DATABASE_URL)
 
 
 @celery.task(bind=True)
@@ -90,6 +114,11 @@ def get_locations_in_range(lat, long, range):
 def get_number_records():
     return jsonify(kmlEngine.get_precise_data())
 
+@app.route("/served-data-wireless", methods=['GET'])
+def get_number_records_wireless():
+    response_data = {'Status': "Ok"}
+    return json.dumps(response_data)
+
 
 @app.route('/pointsWithin/<minLat>/<maxLat>/<minLng>/<maxLng>', methods=['GET'])
 def get_points(minLat, minLng, maxLat, maxLng):
@@ -103,6 +132,24 @@ import time
 import os
 import json
 
+@app.route('/submit-wireless-form', methods=['POST', 'GET'])
+def submit_wired_form():
+    if request.method == 'POST':
+        names = []
+
+        if 'file' not in request.files:
+            return make_response('Error: No file uploaded', 400)
+
+        files = request.files.getlist('file')
+
+        if len(files) <= 0:
+            return make_response('Error: No file uploaded', 400)
+        
+        inspector = inspect(engine)
+        if inspector.has_table('bdk') and inspector.has_table('kml'):
+            response_data = {'Status': "Ok"}
+            return json.dumps(response_data)
+
 @app.route('/submit-fiber-form', methods=['POST', 'GET'])
 def submit_fiber_form():
     if request.method == 'POST':
@@ -115,6 +162,11 @@ def submit_fiber_form():
 
         if len(files) <= 0:
             return make_response('Error: No file uploaded', 400)
+        
+        inspector = inspect(engine)
+        if inspector.has_table('bdk') and inspector.has_table('kml'):
+            response_data = {'Status': "Ok"}
+            return json.dumps(response_data)
 
         for file in files:
             print(file)
@@ -249,32 +301,6 @@ def get_bounding_coordinates():
     coordinates = df[['latitude', 'longitude']].to_dict('records')
 
     return jsonify(coordinates)
-
-
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
-from flask_jwt_extended.exceptions import NoAuthorizationError
-from processData import Data
-from sqlalchemy import or_
-import csv
-from threading import Lock
-from sqlalchemy import create_engine, Column, Integer, String, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
-import concurrent.futures
-from sqlalchemy import inspect
-
-app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:db123@localhost:5432/postgres'
-app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
-jwt = JWTManager(app)
-
-# CORS(app)
-
-Base = declarative_base()
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
-engine = create_engine(DATABASE_URL)
 
 # Check if the table exists
 inspector = inspect(engine)
@@ -414,14 +440,22 @@ def get_user_info():
 
 from flask import send_file
 
-'''
-@wired: if true return wired csv, otherwise wireless
-'''
 @app.route('/export', methods=['GET'])
 def export():
     response_data = {'Status': 'Failure'}
 
     filename = kmlEngine.exportWired()
+    if filename:
+        response_data = {'Status': "Success"}
+        return send_file(filename, as_attachment=True)
+    else:
+        return jsonify(response_data)
+
+@app.route('/export-wireless', methods=['GET'])
+def export_wireless():
+    response_data = {'Status': 'Failure'}
+
+    filename = kmlEngine.exportWireless()
     if filename:
         response_data = {'Status': "Success"}
         return send_file(filename, as_attachment=True)

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Map from "./Map";
 import Upload from "./Upload";
+import UploadWireless from "./UploadWireless";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
@@ -15,6 +16,28 @@ function Tool() {
 
   const fetchMarkers = () => {
     fetch("http://localhost:8000/served-data", {
+      method: "GET",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        const newMarkers = data.map((item) => ({
+          name: item.address,
+          id: item.location_id,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          served: item.served
+        }));
+        console.log(newMarkers)
+        console.log("going to set the markers")
+        setMarkers(newMarkers);
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
+
+  const fetchMarkersWireless = () => {
+    fetch("http://localhost:8000/served-data-wireless", {
       method: "GET",
     })
       .then((response) => response.json())
@@ -92,9 +115,10 @@ function Tool() {
                     </div>
                   )}
                   {selectedOption === "wireless" && (
-                    // Render the wireless upload component
-                    // You can replace the placeholder text with the actual wireless upload component
-                    <h2>Wireless Upload Component</h2>
+                    <div>
+                      <h2>Wireless Upload Component</h2>
+                      <UploadWireless fetchMarkers={fetchMarkersWireless} />
+                    </div>
                   )}
                 </div>
               )}
