@@ -381,7 +381,7 @@ def exportWired(download_speed, upload_speed, tech_type):
     'Licensed Terrestrial Fixed Wireless': 71,
     'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
     'Other': 0,
-}
+    }
 
     TECHNOLOGY_CODE = tech_types.get(tech_type, "Null")
     MAX_DOWNLOAD_SPEED = download_speed

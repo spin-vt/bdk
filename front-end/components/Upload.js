@@ -11,9 +11,47 @@ import MenuList from '@mui/material/MenuList';
 import Box from '@mui/material/Box';
 import ExportButton from './Export';
 import { DataGrid } from '@mui/x-data-grid';
+import Select from '@mui/material/Select';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import { makeStyles } from '@mui/styles';
+import Grid from '@mui/material/Grid';
+
+const useStyles = makeStyles({
+  formControl: {
+    margin: '4px',
+    minWidth: '150px',  
+    backgroundColor: 'white', 
+    borderRadius: '4px', 
+    height: '25px',
+    display: 'flex',
+    alignItems: 'center'
+  },
+  inputLabel: {
+    fontSize: '0.875rem',
+    top: '-000px'
+  },
+  select: {
+    height: '25px',
+    padding: '0 0 0 10px',
+    minWidth:'150px',
+  },
+});
 
 const options = ['Fabric', 'Network'];
 let storage = [];
+
+const tech_types = {
+  'Copper Wire': 10,
+  'Coaxial Cable / HFC': 40,
+  'Optical Carrier / Fiber to the Premises': 50,
+  'Geostationary Satellite': 60,
+  'Non-geostationary Satellite': 61,
+  'Unlicensed Terrestrial Fixed Wireless': 70,
+  'Licensed Terrestrial Fixed Wireless': 71,
+  'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
+  'Other': 0,
+};
 
 //Map key component
 
@@ -29,6 +67,7 @@ function MapKey() {
 }
 
 export default function Upload({ fetchMarkers }) {
+  const classes = useStyles();
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
@@ -282,38 +321,45 @@ export default function Upload({ fetchMarkers }) {
       </Popper>
       {selectedIndex === 1 && (
         <Box sx={{ marginTop: '1rem' }}>
-          <div>
-
-            <div>
-              <label htmlFor="downloadSpeed">Download Speed (Mgps): </label>
-              <input
-                type="text"
-                id="downloadSpeed"
-                value={downloadSpeed}
-                onChange={(e) => setDownloadSpeed(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="uploadSpeed">Upload Speed (Mgps): </label>
-              <input
-                type="text"
-                id="uploadSpeed"
-                value={uploadSpeed}
-                onChange={(e) => setUploadSpeed(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="techType">Technology Type: </label>
-              <label htmlFor="techType">Technology Type: </label>
-              <input
-                type="text"
-                id="techType"
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={4}>
+            <label htmlFor="downloadSpeed">Download Speed (Mgps): </label>
+            <input
+              type="text"
+              id="downloadSpeed"
+              value={downloadSpeed}
+              onChange={(e) => setDownloadSpeed(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <label htmlFor="uploadSpeed">Upload Speed (Mgps): </label>
+            <input
+              type="text"
+              id="uploadSpeed"
+              value={uploadSpeed}
+              onChange={(e) => setUploadSpeed(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <label htmlFor="techType">Technology Type: </label>
+            <FormControl variant="outlined" className={classes.formControl}>
+              <Select
+                labelId="demo-simple-select-outlined-label"
+                id="demo-simple-select-outlined"
                 value={techType}
                 onChange={(e) => setTechType(e.target.value)}
-              />
-            </div>
-          </div>
-        </Box>
+                className={classes.select}
+              >
+                {Object.entries(tech_types).map(([key, value]) => (
+                  <MenuItem key={value} value={value}>
+                    {key}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+      </Box>      
       )}
       {/* Hidden file input to allow file selection */}
       <input
