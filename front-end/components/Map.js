@@ -108,6 +108,9 @@ function Map({markers}) {
               markerLayer.bindPopup(`
               <strong>Name:</strong> ${marker.name} <br/>
               <strong>ID:</strong> ${marker.id} <br/>
+              <strong>Download Speed:</strong> ${marker.download_speed} <br/>
+              <strong>Upload Speed:</strong> ${marker.upload_speed} <br/>
+              <strong>Technology:</strong> ${marker.technology} <br/>
               <strong>Latitude:</strong> ${marker.latitude} <br/>
               <strong>Longitude:</strong> ${marker.longitude} <br/>
               <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
@@ -158,10 +161,14 @@ function Map({markers}) {
               markerLayer.bindPopup(`
               <strong>Name:</strong> ${marker.name} <br/>
               <strong>ID:</strong> ${marker.id} <br/>
+              <strong>Download Speed:</strong> ${marker.download_speed} <br/>
+              <strong>Upload Speed:</strong> ${marker.upload_speed} <br/>
+              <strong>Technology:</strong> ${marker.technology} <br/>
               <strong>Latitude:</strong> ${marker.latitude} <br/>
               <strong>Longitude:</strong> ${marker.longitude} <br/>
               <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
             `);
+            
             markerLayersRef.current.push(markerLayer);
           });
         }
