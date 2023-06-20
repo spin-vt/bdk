@@ -47,7 +47,14 @@ export default function Upload({ fetchMarkers }) {
 
   const handleDownloadClick = (event) => {
     event.preventDefault();
-    window.location.href = 'http://localhost:8000/export';
+    
+    const params = new URLSearchParams({
+      downloadSpeed: downloadSpeed,
+      uploadSpeed: uploadSpeed,
+      techType: techType,
+    });
+    
+    window.location.href = `http://localhost:8000/export?${params.toString()}`;
   };
 
 

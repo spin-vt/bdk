@@ -55,8 +55,8 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-celery = Celery(app.name, broker='redis://redis:6379/0')
-app.config['CELERY_RESULT_BACKEND'] = 'redis://redis:6379/0'
+celery = Celery(app.name, broker='redis://localhost:6379/0')
+app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 celery.conf.update(app.config)
 
 import os
@@ -522,12 +522,19 @@ def get_user_info():
 
 
 from flask import send_file
+import zipfile
 
 @app.route('/export', methods=['GET'])
 def export():
     response_data = {'Status': 'Failure'}
 
-    filename = kmlEngine.exportWired()
+    download_speed = request.args.get('downloadSpeed', default='', type=str)
+    upload_speed = request.args.get('uploadSpeed', default='', type=str)
+    tech_type = request.args.get('techType', default='', type=str)
+    
+    # Pass these parameters into your exportWired() function
+    filename = kmlEngine.exportWired(download_speed, upload_speed, tech_type)
+    
     if filename:
         response_data = {'Status': "Success"}
         return send_file(filename, as_attachment=True)
@@ -538,14 +545,24 @@ def export():
 def export_wireless():
     response_data = {'Status': 'Failure'}
 
-    filename = kmlEngine.exportWireless()
-    if filename:
-        response_data = {'Status': "Success"}
-        return send_file(filename, as_attachment=True)
+    download_speed = request.args.get('downloadSpeed', default='', type=str)
+    upload_speed = request.args.get('uploadSpeed', default='', type=str)
+    tech_type = request.args.get('techType', default='', type=str)
+    
+    # Pass these parameters into your exportWired() function
+    filename = kmlEngine.exportWireless(download_speed, upload_speed, tech_type)
+    filename2 = kmlEngine.exportWireless2(download_speed, upload_speed, tech_type)
+    
+    if filename and filename2:
+        # Creating a zip file
+        with zipfile.ZipFile('wirelessCSVs.zip', 'w') as zipf:
+            zipf.write(filename, os.path.basename(filename)) 
+            zipf.write(filename2, os.path.basename(filename2))
+
+        return send_file('wirelessCSVs.zip', as_attachment=True)
     else:
         return jsonify(response_data)
-
-
+    
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
     app.run(port=8000, debug=True)

@@ -367,14 +367,28 @@ def filter_locations(Fabric_FN, Fiber_FN):
                 session.rollback()  # Rollback the transaction on unique constraint violation
     session.close()
 
-def exportWired(): 
-    PROVIDER_ID = 777
-    BRAND_NAME = 'Test'
-    TECHNOLOGY_CODE = 1
-    MAX_DOWNLOAD_SPEED = 1
-    MAX_UPLOAD_SPEED = 1
-    LATENCY = 1
-    BUSINESS_CODE = 'X'
+def exportWired(download_speed, upload_speed, tech_type): 
+    PROVIDER_ID = 000 #will be done at later date 
+    BRAND_NAME = 'Test' #will be done at later date 
+    
+    tech_types = {
+    'Copper Wire': 10,
+    'Coaxial Cable / HFC': 40,
+    'Optical Carrier / Fiber to the Premises': 50,
+    'Geostationary Satellite': 60,
+    'Non-geostationary Satellite': 61,
+    'Unlicensed Terrestrial Fixed Wireless': 70,
+    'Licensed Terrestrial Fixed Wireless': 71,
+    'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
+    'Other': 0,
+}
+
+    TECHNOLOGY_CODE = tech_types.get(tech_type, "Null")
+    MAX_DOWNLOAD_SPEED = download_speed
+    MAX_UPLOAD_SPEED = upload_speed
+
+    LATENCY = 0 #will be done at later date 
+    BUSINESS_CODE = 0 #will be done at later date 
 
     availability_csv = pandas.DataFrame()
 
@@ -408,14 +422,28 @@ def exportWired():
     availability_csv.to_csv(filename, index=False)
     return filename
 
-def exportWireless(): 
-    PROVIDER_ID = 777
-    BRAND_NAME = 'Test'
-    TECHNOLOGY_CODE = 1
-    MAX_DOWNLOAD_SPEED = 1
-    MAX_UPLOAD_SPEED = 1
-    LATENCY = 1
-    BUSINESS_CODE = 'X'
+def exportWireless(download_speed, upload_speed, tech_type): 
+    PROVIDER_ID = 000 #will be done at later date 
+    BRAND_NAME = 'Test' #will be done at later date 
+    
+    tech_types = {
+    'Copper Wire': 10,
+    'Coaxial Cable / HFC': 40,
+    'Optical Carrier / Fiber to the Premises': 50,
+    'Geostationary Satellite': 60,
+    'Non-geostationary Satellite': 61,
+    'Unlicensed Terrestrial Fixed Wireless': 70,
+    'Licensed Terrestrial Fixed Wireless': 71,
+    'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
+    'Other': 0,
+    }
+
+    TECHNOLOGY_CODE = tech_types.get(tech_type, "Null")
+    MAX_DOWNLOAD_SPEED = download_speed
+    MAX_UPLOAD_SPEED = upload_speed
+
+    LATENCY = 0 #will be done at later date 
+    BUSINESS_CODE = 0 #will be done at later date 
 
     availability_csv = pandas.DataFrame()
 
@@ -445,7 +473,62 @@ def exportWireless():
 
     print(len(availability_csv))
 
-    filename = 'wirelessCSV.csv'
+    filename = 'wirelessCSV_lte.csv'
+    availability_csv.to_csv(filename, index=False)
+    return filename
+
+def exportWireless2(download_speed, upload_speed, tech_type): 
+    PROVIDER_ID = 000 #will be done at later date 
+    BRAND_NAME = 'Test' #will be done at later date 
+    
+    tech_types = {
+    'Copper Wire': 10,
+    'Coaxial Cable / HFC': 40,
+    'Optical Carrier / Fiber to the Premises': 50,
+    'Geostationary Satellite': 60,
+    'Non-geostationary Satellite': 61,
+    'Unlicensed Terrestrial Fixed Wireless': 70,
+    'Licensed Terrestrial Fixed Wireless': 71,
+    'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
+    'Other': 0,
+    }
+
+    TECHNOLOGY_CODE = tech_types.get(tech_type, "Null")
+    MAX_DOWNLOAD_SPEED = download_speed
+    MAX_UPLOAD_SPEED = upload_speed
+
+    LATENCY = 0 #will be done at later date 
+    BUSINESS_CODE = 0 #will be done at later date 
+
+    availability_csv = pandas.DataFrame()
+
+    # Establish PostgreSQL connection
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    cursor = conn.cursor()
+
+    # Retrieve location_id from PostgreSQL table 'kml'
+    cursor.execute('SELECT location_id FROM "non-lte"')
+    result = cursor.fetchall()
+
+    # Close cursor and connection
+    cursor.close()
+    conn.close()
+
+    availability_csv['location_id'] = [row[0] for row in result]
+    availability_csv['provider_id'] = PROVIDER_ID
+    availability_csv['brand_name'] = BRAND_NAME
+    availability_csv['technology'] = TECHNOLOGY_CODE
+    availability_csv['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
+    availability_csv['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
+    availability_csv['low_latency'] = LATENCY
+    availability_csv['business_residential_code'] = BUSINESS_CODE
+
+    availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
+                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
+
+    print(len(availability_csv))
+
+    filename = 'wirelessCSV_nonlte.csv'
     availability_csv.to_csv(filename, index=False)
     return filename
 
