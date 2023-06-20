@@ -8,13 +8,15 @@ import SelectedLocationContext from "./SelectedLocationContext";
 
 const h3 = require("h3-js");
 
-function Map({markers}) {
+function Map({ markers }) {
   const mapRef = useRef(null);
   const [hexIndexToMarkers, setHexIndexToMarkers] = useState({});
   const polygonsRef = useRef([]);
   const markerLayersRef = useRef([]);
 
   const { location } = useContext(SelectedLocationContext);
+
+  const distinctMarkerRef = useRef(null);
 
   const clearMapLayers = () => {
     if (mapRef.current) {
@@ -133,8 +135,8 @@ function Map({markers}) {
               <strong>Longitude:</strong> ${marker.longitude} <br/>
               <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
             `);
-            
-            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent"});
+
+            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
             markerLayersRef.current.push(markerLayer);
           });
         }
@@ -145,24 +147,27 @@ function Map({markers}) {
   useEffect(() => {
     console.log(location);
     if (location && mapRef.current) {
-      clearMapLayers();
-      
+
       const { latitude, longitude } = location;
+
+      if (distinctMarkerRef.current) {
+        mapRef.current.removeLayer(distinctMarkerRef.current);
+      }
 
       const myIcon = L.icon({
         iconUrl: '/map_marker.svg',
         iconSize: [38, 95], // size of the icon
         iconAnchor: [19, 95], // point of the icon which will correspond to marker's location
         popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
-    });
-      const distinct_marker = L.marker([latitude, longitude], {icon: myIcon}).addTo(mapRef.current);
+      });
+      distinctMarkerRef.current = L.marker([latitude, longitude], { icon: myIcon }).addTo(mapRef.current);
 
       const h3Index = h3.latLngToCell(latitude, longitude, 7);
       mapRef.current.setView([latitude, longitude], 20);
 
       polygonsRef.current.forEach((polygon) => {
         if (polygon.options.h3Index === h3Index) {
-          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent"});
+          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
             if (marker.served === true) {
@@ -196,11 +201,17 @@ function Map({markers}) {
               <strong>Longitude:</strong> ${marker.longitude} <br/>
               <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
             `);
-            
+
             markerLayersRef.current.push(markerLayer);
           });
         }
       });
+    }
+    else{
+      if (distinctMarkerRef.current) {
+        mapRef.current.removeLayer(distinctMarkerRef.current);
+        distinctMarkerRef.current = null;  // Important: clear the reference so we don't try to remove it again
+      }
     }
   }, [location]);
 
