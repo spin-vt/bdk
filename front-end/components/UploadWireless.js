@@ -265,7 +265,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         <Box sx={{ marginTop: '1rem' }}>
           <div>
             <div>
-              <label htmlFor="downloadSpeed">Download Speed: </label>
+              <label htmlFor="downloadSpeed">Download Speed (Mgps): </label>
               <input
                 type="text"
                 id="downloadSpeed"
@@ -274,7 +274,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
               />
             </div>
             <div>
-              <label htmlFor="uploadSpeed">Upload Speed: </label>
+              <label htmlFor="uploadSpeed">Upload Speed (Mgps): </label>
               <input
                 type="text"
                 id="uploadSpeed"

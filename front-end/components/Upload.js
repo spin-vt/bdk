@@ -264,7 +264,7 @@ export default function Upload({ fetchMarkers }) {
           <div>
 
             <div>
-              <label htmlFor="downloadSpeed">Download Speed: </label>
+              <label htmlFor="downloadSpeed">Download Speed (Mgps): </label>
               <input
                 type="text"
                 id="downloadSpeed"
@@ -273,7 +273,7 @@ export default function Upload({ fetchMarkers }) {
               />
             </div>
             <div>
-              <label htmlFor="uploadSpeed">Upload Speed: </label>
+              <label htmlFor="uploadSpeed">Upload Speed (Mgps): </label>
               <input
                 type="text"
                 id="uploadSpeed"

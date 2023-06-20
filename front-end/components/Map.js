@@ -14,6 +14,20 @@ function Map({markers}) {
 
   const { location } = useContext(SelectedLocationContext);
 
+  const clearMapLayers = () => {
+    if (mapRef.current) {
+      polygonsRef.current.forEach((polygon) => {
+        mapRef.current.removeLayer(polygon);
+      });
+      polygonsRef.current = [];
+
+      markerLayersRef.current.forEach((markerLayer) => {
+        mapRef.current.removeLayer(markerLayer);
+      });
+      markerLayersRef.current = [];
+    }
+  };
+
   useEffect(() => {
     const map = L.map("map");
     L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png").addTo(map);
@@ -47,6 +61,8 @@ function Map({markers}) {
   }, []);
 
   useEffect(() => {
+    clearMapLayers();
+
     let newHexIndexToMarkers = {};
 
     markers.forEach((marker) => {
@@ -64,6 +80,8 @@ function Map({markers}) {
   useEffect(() => {
     const map = mapRef.current;
 
+    clearMapLayers();
+
     Object.keys(hexIndexToMarkers).forEach((h3Index) => {
       const hexBoundary = h3.cellToBoundary(h3Index);
       const latLngs = hexBoundary.map((coord) => L.latLng(coord[0], coord[1]));
@@ -79,7 +97,6 @@ function Map({markers}) {
 
       polygon.on("click", () => {
         const currentZoom = map.getZoom();
-        //higher number means more zoomed in
         if (currentZoom >= 10) {
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
@@ -104,8 +121,7 @@ function Map({markers}) {
                 }
               ).addTo(map);
             }
-              // Create a popup and bind it to the marker
-              markerLayer.bindPopup(`
+            markerLayer.bindPopup(`
               <strong>Name:</strong> ${marker.name} <br/>
               <strong>ID:</strong> ${marker.id} <br/>
               <strong>Download Speed:</strong> ${marker.download_speed} <br/>
@@ -127,6 +143,8 @@ function Map({markers}) {
   useEffect(() => {
     console.log(location);
     if (location && mapRef.current) {
+      clearMapLayers();
+      
       const { latitude, longitude } = location;
       const h3Index = h3.latLngToCell(latitude, longitude, 7);
       mapRef.current.setView([latitude, longitude], 13);
@@ -157,8 +175,7 @@ function Map({markers}) {
                 }
               ).addTo(mapRef.current);
             }
-              // Create a popup and bind it to the marker
-              markerLayer.bindPopup(`
+            markerLayer.bindPopup(`
               <strong>Name:</strong> ${marker.name} <br/>
               <strong>ID:</strong> ${marker.id} <br/>
               <strong>Download Speed:</strong> ${marker.download_speed} <br/>
