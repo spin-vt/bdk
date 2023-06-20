@@ -66,7 +66,6 @@ export default function UploadWireless({ fetchMarkersWireless }) {
           throw new Error('Network response was not ok');
         }
         fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
-        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
         console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
         setExportSuccess(true); // Set the export success state to true
@@ -78,10 +77,8 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
         fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
-        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
       })
       .catch((error) => {
-        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType)
         fetchMarkersWireless(downloadSpeed, uploadSpeed, techType)
         console.error('Error:', error);
       });
@@ -119,7 +116,6 @@ export default function UploadWireless({ fetchMarkersWireless }) {
 
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
-    localStorage.setItem('selectedFiles2', JSON.stringify(updatedFiles));
     localStorage.setItem('selectedFiles2', JSON.stringify(updatedFiles));
   };
 

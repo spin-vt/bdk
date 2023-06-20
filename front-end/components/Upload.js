@@ -64,7 +64,6 @@ export default function Upload({ fetchMarkers }) {
           throw new Error('Network response was not ok');
         }
         fetchMarkers(downloadSpeed, uploadSpeed, techType);
-        fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
         setExportSuccess(true); // Set the export success state to true
@@ -76,10 +75,8 @@ export default function Upload({ fetchMarkers }) {
         console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
         fetchMarkers(downloadSpeed, uploadSpeed, techType);
-        fetchMarkers(downloadSpeed, uploadSpeed, techType);
       })
       .catch((error) => {
-        fetchMarkers(downloadSpeed, uploadSpeed, techType);
         fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error('Error:', error);
       });
