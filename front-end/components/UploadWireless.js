@@ -22,7 +22,6 @@ export default function UploadWireless({ fetchMarkersWireless }) {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [selectedFiles, setSelectedFiles] = React.useState(
     JSON.parse(localStorage.getItem('selectedFiles2')) || []
-    JSON.parse(localStorage.getItem('selectedFiles2')) || []
   );
   const [downloadSpeed, setDownloadSpeed] = React.useState('');
   const [uploadSpeed, setUploadSpeed] = React.useState('');
