@@ -21,12 +21,11 @@ export default function UploadWireless({ fetchMarkersWireless }) {
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [selectedFiles, setSelectedFiles] = React.useState(
-    JSON.parse(localStorage.getItem('selectedFiles')) || []
+    JSON.parse(localStorage.getItem('selectedFiles2')) || []
   );
   const [downloadSpeed, setDownloadSpeed] = React.useState('');
   const [uploadSpeed, setUploadSpeed] = React.useState('');
   const [techType, setTechType] = React.useState('');
-  const [ispName, setISPName] = React.useState('');
   const idCounterRef = React.useRef(1); // Counter for generating unique IDs
   const [exportSuccess, setExportSuccess] = React.useState(
     localStorage.getItem('exportSuccess') === 'true' || false
@@ -46,10 +45,9 @@ export default function UploadWireless({ fetchMarkersWireless }) {
     storage.forEach((file) => {
       const fileData = {
         file: file[0],
-        ispName: options[selectedIndex] === 'Network' ? ispName : '',
-        downloadSpeed: options[selectedIndex] === 'Network' ? downloadSpeed : '',
-        uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
-        techType: options[selectedIndex] === 'Network' ? techType : '',
+        downloadSpeed: options[selectedIndex] === 'Tower Data' ? downloadSpeed : '',
+        uploadSpeed: options[selectedIndex] === 'Tower Data' ? uploadSpeed : '',
+        techType: options[selectedIndex] === 'Tower Data' ? techType : '',
       };
   
       formData.append('fileData', JSON.stringify(fileData));
@@ -64,7 +62,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        fetchMarkersWireless();
+        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
         console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
         setExportSuccess(true); // Set the export success state to true
@@ -75,10 +73,10 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         console.log("going to fetch markers")
         console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
-        fetchMarkersWireless();
+        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
       })
       .catch((error) => {
-        fetchMarkersWireless
+        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType)
         console.error('Error:', error);
       });
   };
@@ -103,17 +101,16 @@ export default function UploadWireless({ fetchMarkersWireless }) {
       id: idCounterRef.current++,
       name: file.name,
       option: options[selectedIndex], // Track the selected option for each file
-      ispName: options[selectedIndex] === 'Network' ? ispName : '',
-      downloadSpeed: options[selectedIndex] === 'Network' ? downloadSpeed : '',
-      uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
-      techType: options[selectedIndex] === 'Network' ? techType : '',
+      downloadSpeed: options[selectedIndex] === 'Tower Data' ? downloadSpeed : '',
+      uploadSpeed: options[selectedIndex] === 'Tower Data' ? uploadSpeed : '',
+      techType: options[selectedIndex] === 'Tower Data' ? techType : '',
     }));
 
     idCounterRef.current += 1;
 
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
-    localStorage.setItem('selectedFiles', JSON.stringify(updatedFiles));
+    localStorage.setItem('selectedFiles2', JSON.stringify(updatedFiles));
   };
 
   const handleClick = () => {
@@ -143,6 +140,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
     for (let i = 0; i < storage.length; i++) {
         if (storage[i][1] === id) {
             storage.splice(i, 1);
+            idCounterRef.current -= 1
             break;
         }
     }
@@ -152,9 +150,9 @@ export default function UploadWireless({ fetchMarkersWireless }) {
     setExportSuccess(false); // Set the export success state to true
 
     // Update local storage
-    const updatedFiles = JSON.parse(localStorage.getItem('selectedFiles')) || [];
+    const updatedFiles = JSON.parse(localStorage.getItem('selectedFiles2')) || [];
     const filteredFiles = updatedFiles.filter((file) => file.id !== id);
-    localStorage.setItem('selectedFiles', JSON.stringify(filteredFiles));
+    localStorage.setItem('selectedFiles2', JSON.stringify(filteredFiles));
 
     // Reset the file input element
     const fileInput = anchorRef.current;
@@ -175,12 +173,6 @@ export default function UploadWireless({ fetchMarkersWireless }) {
       field: 'option',
       headerName: 'Option',
       width: 100,
-    },
-    {
-      field: 'ispName',
-      headerName: 'ISP Name',
-      width: 100,
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: 'downloadSpeed',
@@ -217,6 +209,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
     localStorage.setItem('exportSuccess', exportSuccess);
   }, [exportSuccess]);
 
+  
   return (
     <React.Fragment>
       <ButtonGroup variant="contained" ref={buttonGroupRef} aria-label="split button">
@@ -272,16 +265,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         <Box sx={{ marginTop: '1rem' }}>
           <div>
             <div>
-              <label htmlFor="ispName">ISP Name: </label>
-              <input
-                type="text"
-                id="ispName"
-                value={ispName}
-                onChange={(e) => setISPName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="downloadSpeed">Download Speed: </label>
+              <label htmlFor="downloadSpeed">Download Speed (Mgps): </label>
               <input
                 type="text"
                 id="downloadSpeed"
@@ -290,7 +274,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
               />
             </div>
             <div>
-              <label htmlFor="uploadSpeed">Upload Speed: </label>
+              <label htmlFor="uploadSpeed">Upload Speed (Mgps): </label>
               <input
                 type="text"
                 id="uploadSpeed"

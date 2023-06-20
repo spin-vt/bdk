@@ -14,7 +14,7 @@ function Tool() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showOptions, setShowOptions] = useState(true);
 
-  const fetchMarkers = () => {
+  const fetchMarkers = (downloadSpeed, uploadSpeed, techType) => {
     fetch("http://localhost:8000/served-data", {
       method: "GET",
     })
@@ -23,6 +23,9 @@ function Tool() {
         const newMarkers = data.map((item) => ({
           name: item.address,
           id: item.location_id,
+          download_speed: downloadSpeed, 
+          upload_speed: uploadSpeed, 
+          technology: techType,
           latitude: item.latitude,
           longitude: item.longitude,
           served: item.served
@@ -36,7 +39,7 @@ function Tool() {
       });
   };
 
-  const fetchMarkersWireless = () => {
+  const fetchMarkersWireless = (downloadSpeed, uploadSpeed, techType) => {
     fetch("http://localhost:8000/served-data-wireless", {
       method: "GET",
     })
@@ -45,6 +48,9 @@ function Tool() {
         const newMarkers = data.map((item) => ({
           name: item.address,
           id: item.location_id,
+          download_speed: downloadSpeed, 
+          upload_speed: uploadSpeed, 
+          technology: techType,
           latitude: item.latitude,
           longitude: item.longitude,
           served: item.served
