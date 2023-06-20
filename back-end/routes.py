@@ -143,17 +143,15 @@ def submit_wireless_form():
         names = []
 
         if 'file' not in request.files:
-            print("1")
             return make_response('Error: No file uploaded', 400)
 
         files = request.files.getlist('file')
 
         if len(files) <= 0:
-            print("2")
             return make_response('Error: No file uploaded', 400)
         
         inspector = inspect(engine)
-        if inspector.has_table('lte'):
+        if inspector.has_table('lte') and inspector.has_table('non-lte'):
             response_data = {'Status': "Ok"}
             return json.dumps(response_data)
 
