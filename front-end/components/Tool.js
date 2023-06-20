@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Map from "./Map";
 import Upload from "./Upload";
 import UploadWireless from "./UploadWireless"
@@ -7,12 +7,42 @@ import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import styles from "../styles/Tool.module.css";
 import Button from "@mui/material/Button";
+import { Typography } from "@material-ui/core";
+import Popover from '@mui/material/Popover';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import Tooltip from '@mui/material/Tooltip';
+import { makeStyles } from '@material-ui/core/styles';
+
+const useStyles = makeStyles(theme => ({
+  tooltip: {
+    animation: `$fade-in-out 2s infinite`,
+  },
+  '@keyframes fade-in-out': {
+    '0%': {
+      opacity: 0,
+    },
+    '50%': {
+      opacity: 1,
+    },
+    '100%': {
+      opacity: 0,
+    },
+  },
+}));
 
 function Tool() {
   const [markers, setMarkers] = useState([]);
   const [expandTable, setExpandTable] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showOptions, setShowOptions] = useState(true);
+
+  const classes = useStyles();
+  const [tooltipOpen, setTooltipOpen] = useState(true);  // new state for tooltip
+
+  const handleCloseTooltip = () => {   // new function to close tooltip
+    setTooltipOpen(false);
+  }
 
   const fetchMarkers = (downloadSpeed, uploadSpeed, techType) => {
     fetch("http://localhost:8000/served-data", {
@@ -23,8 +53,8 @@ function Tool() {
         const newMarkers = data.map((item) => ({
           name: item.address,
           id: item.location_id,
-          download_speed: downloadSpeed, 
-          upload_speed: uploadSpeed, 
+          download_speed: downloadSpeed,
+          upload_speed: uploadSpeed,
           technology: techType,
           latitude: item.latitude,
           longitude: item.longitude,
@@ -48,8 +78,8 @@ function Tool() {
         const newMarkers = data.map((item) => ({
           name: item.address,
           id: item.location_id,
-          download_speed: downloadSpeed, 
-          upload_speed: uploadSpeed, 
+          download_speed: downloadSpeed,
+          upload_speed: uploadSpeed,
           technology: techType,
           latitude: item.latitude,
           longitude: item.longitude,
@@ -68,6 +98,7 @@ function Tool() {
     setExpandTable(!expandTable);
     setSelectedOption(null);
     setShowOptions(true);
+    handleCloseTooltip();
   };
 
   const handleOptionClick = (option) => {
@@ -86,7 +117,9 @@ function Tool() {
         <div className={styles.mapContainer}>
           <Map markers={markers} />
           <div className={styles.iconContainer} onClick={toggleUpload}>
-          <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowLeft} className={styles.expandIcon} />
+          <Tooltip title="Click here to upload!" placement="left" open={!expandTable && tooltipOpen} classes={{ tooltip: classes.tooltip }}>
+            <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowLeft} className={styles.expandIcon} />
+            </Tooltip>
           </div>
         </div>
         {expandTable && (
