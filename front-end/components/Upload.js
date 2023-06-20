@@ -26,7 +26,6 @@ export default function Upload({ fetchMarkers }) {
   const [downloadSpeed, setDownloadSpeed] = React.useState('');
   const [uploadSpeed, setUploadSpeed] = React.useState('');
   const [techType, setTechType] = React.useState('');
-  const [ispName, setISPName] = React.useState('');
   const idCounterRef = React.useRef(1); // Counter for generating unique IDs
   const [exportSuccess, setExportSuccess] = React.useState(
     localStorage.getItem('exportSuccess') === 'true' || false
@@ -37,7 +36,7 @@ export default function Upload({ fetchMarkers }) {
     event.preventDefault();
     window.location.href = 'http://localhost:8000/export';
   };
-  
+
   const handleExportClick = (event) => {
     event.preventDefault();
   
@@ -46,7 +45,6 @@ export default function Upload({ fetchMarkers }) {
     storage.forEach((file) => {
       const fileData = {
         file: file[0],
-        ispName: options[selectedIndex] === 'Network' ? ispName : '',
         downloadSpeed: options[selectedIndex] === 'Network' ? downloadSpeed : '',
         uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
         techType: options[selectedIndex] === 'Network' ? techType : '',
@@ -64,7 +62,7 @@ export default function Upload({ fetchMarkers }) {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        fetchMarkers();
+        fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
         setExportSuccess(true); // Set the export success state to true
@@ -75,10 +73,10 @@ export default function Upload({ fetchMarkers }) {
         console.log("going to fetch markers")
         console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
-        fetchMarkers();
+        fetchMarkers(downloadSpeed, uploadSpeed, techType);
       })
       .catch((error) => {
-        fetchMarkers();
+        fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error('Error:', error);
       });
   };
@@ -103,7 +101,6 @@ export default function Upload({ fetchMarkers }) {
       id: idCounterRef.current++,
       name: file.name,
       option: options[selectedIndex], // Track the selected option for each file
-      ispName: options[selectedIndex] === 'Network' ? ispName : '',
       downloadSpeed: options[selectedIndex] === 'Network' ? downloadSpeed : '',
       uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
       techType: options[selectedIndex] === 'Network' ? techType : '',
@@ -175,12 +172,6 @@ export default function Upload({ fetchMarkers }) {
       field: 'option',
       headerName: 'Option',
       width: 100,
-    },
-    {
-      field: 'ispName',
-      headerName: 'ISP Name',
-      width: 100,
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: 'downloadSpeed',
@@ -271,15 +262,7 @@ export default function Upload({ fetchMarkers }) {
       {selectedIndex === 1 && (
         <Box sx={{ marginTop: '1rem' }}>
           <div>
-            <div>
-              <label htmlFor="ispName">ISP Name: </label>
-              <input
-                type="text"
-                id="ispName"
-                value={ispName}
-                onChange={(e) => setISPName(e.target.value)}
-              />
-            </div>
+
             <div>
               <label htmlFor="downloadSpeed">Download Speed: </label>
               <input
@@ -299,7 +282,7 @@ export default function Upload({ fetchMarkers }) {
               />
             </div>
             <div>
-              <label htmlFor="techType">Tech Type: </label>
+              <label htmlFor="techType">Technology Type: </label>
               <input
                 type="text"
                 id="techType"
