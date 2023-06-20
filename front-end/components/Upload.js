@@ -37,6 +37,7 @@ export default function Upload({ fetchMarkers }) {
     window.location.href = 'http://localhost:8000/export';
   };
 
+
   const handleExportClick = (event) => {
     event.preventDefault();
   
@@ -63,6 +64,7 @@ export default function Upload({ fetchMarkers }) {
           throw new Error('Network response was not ok');
         }
         fetchMarkers(downloadSpeed, uploadSpeed, techType);
+        fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
         setExportSuccess(true); // Set the export success state to true
@@ -74,8 +76,10 @@ export default function Upload({ fetchMarkers }) {
         console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
         fetchMarkers(downloadSpeed, uploadSpeed, techType);
+        fetchMarkers(downloadSpeed, uploadSpeed, techType);
       })
       .catch((error) => {
+        fetchMarkers(downloadSpeed, uploadSpeed, techType);
         fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error('Error:', error);
       });
@@ -282,6 +286,7 @@ export default function Upload({ fetchMarkers }) {
               />
             </div>
             <div>
+              <label htmlFor="techType">Technology Type: </label>
               <label htmlFor="techType">Technology Type: </label>
               <input
                 type="text"

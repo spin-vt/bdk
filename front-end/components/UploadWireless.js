@@ -22,6 +22,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [selectedFiles, setSelectedFiles] = React.useState(
     JSON.parse(localStorage.getItem('selectedFiles2')) || []
+    JSON.parse(localStorage.getItem('selectedFiles2')) || []
   );
   const [downloadSpeed, setDownloadSpeed] = React.useState('');
   const [uploadSpeed, setUploadSpeed] = React.useState('');
@@ -48,6 +49,9 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         downloadSpeed: options[selectedIndex] === 'Tower Data' ? downloadSpeed : '',
         uploadSpeed: options[selectedIndex] === 'Tower Data' ? uploadSpeed : '',
         techType: options[selectedIndex] === 'Tower Data' ? techType : '',
+        downloadSpeed: options[selectedIndex] === 'Tower Data' ? downloadSpeed : '',
+        uploadSpeed: options[selectedIndex] === 'Tower Data' ? uploadSpeed : '',
+        techType: options[selectedIndex] === 'Tower Data' ? techType : '',
       };
   
       formData.append('fileData', JSON.stringify(fileData));
@@ -63,6 +67,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
           throw new Error('Network response was not ok');
         }
         fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
+        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
         console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
         setExportSuccess(true); // Set the export success state to true
@@ -74,8 +79,10 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
         fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
+        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType);
       })
       .catch((error) => {
+        fetchMarkersWireless(downloadSpeed, uploadSpeed, techType)
         fetchMarkersWireless(downloadSpeed, uploadSpeed, techType)
         console.error('Error:', error);
       });
@@ -104,12 +111,16 @@ export default function UploadWireless({ fetchMarkersWireless }) {
       downloadSpeed: options[selectedIndex] === 'Tower Data' ? downloadSpeed : '',
       uploadSpeed: options[selectedIndex] === 'Tower Data' ? uploadSpeed : '',
       techType: options[selectedIndex] === 'Tower Data' ? techType : '',
+      downloadSpeed: options[selectedIndex] === 'Tower Data' ? downloadSpeed : '',
+      uploadSpeed: options[selectedIndex] === 'Tower Data' ? uploadSpeed : '',
+      techType: options[selectedIndex] === 'Tower Data' ? techType : '',
     }));
 
     idCounterRef.current += 1;
 
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
+    localStorage.setItem('selectedFiles2', JSON.stringify(updatedFiles));
     localStorage.setItem('selectedFiles2', JSON.stringify(updatedFiles));
   };
 
@@ -140,6 +151,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
     for (let i = 0; i < storage.length; i++) {
         if (storage[i][1] === id) {
             storage.splice(i, 1);
+            idCounterRef.current -= 1
             idCounterRef.current -= 1
             break;
         }
@@ -208,7 +220,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
     // Store the exportSuccess state in local storage whenever it changes
     localStorage.setItem('exportSuccess', exportSuccess);
   }, [exportSuccess]);
-
+  
   
   return (
     <React.Fragment>

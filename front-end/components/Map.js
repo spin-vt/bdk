@@ -4,6 +4,8 @@ import "leaflet.markercluster/dist/leaflet.markercluster";
 import "../styles/Map.module.css";
 import SelectedLocationContext from "./SelectedLocationContext";
 
+
+
 const h3 = require("h3-js");
 
 function Map({markers}) {
@@ -146,8 +148,17 @@ function Map({markers}) {
       clearMapLayers();
       
       const { latitude, longitude } = location;
+
+      const myIcon = L.icon({
+        iconUrl: '/map_marker.svg',
+        iconSize: [38, 95], // size of the icon
+        iconAnchor: [19, 95], // point of the icon which will correspond to marker's location
+        popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
+    });
+      const distinct_marker = L.marker([latitude, longitude], {icon: myIcon}).addTo(mapRef.current);
+
       const h3Index = h3.latLngToCell(latitude, longitude, 7);
-      mapRef.current.setView([latitude, longitude], 13);
+      mapRef.current.setView([latitude, longitude], 20);
 
       polygonsRef.current.forEach((polygon) => {
         if (polygon.options.h3Index === h3Index) {
