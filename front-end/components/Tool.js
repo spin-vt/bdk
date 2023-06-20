@@ -83,7 +83,9 @@ function Tool() {
           technology: techType,
           latitude: item.latitude,
           longitude: item.longitude,
-          served: item.served
+          served: item.served,
+          type: item.type
+
         }));
         console.log(newMarkers)
         console.log("going to set the markers")
