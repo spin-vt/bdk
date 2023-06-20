@@ -46,7 +46,14 @@ export default function UploadWireless({ fetchMarkersWireless }) {
 
   const handleDownloadClick = (event) => {
     event.preventDefault();
-    window.location.href = 'http://localhost:8000/export-wireless';
+    
+    const params = new URLSearchParams({
+      downloadSpeed: downloadSpeed,
+      uploadSpeed: uploadSpeed,
+      techType: techType,
+    });
+    
+    window.location.href = `http://localhost:8000/export-wireless?${params.toString()}`;
   };
   
   const handleExportClick = (event) => {
