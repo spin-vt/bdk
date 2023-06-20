@@ -14,6 +14,18 @@ import { DataGrid } from '@mui/x-data-grid';
 
 const options = ['Fabric', 'Tower Data', 'LTE Data'];
 let storage = [];
+//Map key component
+
+function MapKey() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <span style={{ height: '10px', width: '10px', backgroundColor: 'Purple', display: 'inline-block', marginRight: '5px' }}></span>
+      <span style={{ marginRight: '15px' }}>LTE</span>
+      <span style={{ height: '10px', width: '10px', backgroundColor: 'Yellow', display: 'inline-block', marginRight: '5px' }}></span>
+      <span>Non-LTE</span>
+    </div>
+  );
+}
 
 export default function UploadWireless({ fetchMarkersWireless }) {
   const [open, setOpen] = React.useState(false);
@@ -28,7 +40,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
   const [techType, setTechType] = React.useState('');
   const idCounterRef = React.useRef(1); // Counter for generating unique IDs
   const [exportSuccess, setExportSuccess] = React.useState(
-    localStorage.getItem('exportSuccess') === 'true' || false
+    localStorage.getItem('exportSuccess2') === 'true' || false
   );
   const [buttonGroupWidth, setButtonGroupWidth] = React.useState(null);
 
@@ -213,7 +225,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
 
   React.useEffect(() => {
     // Store the exportSuccess state in local storage whenever it changes
-    localStorage.setItem('exportSuccess', exportSuccess);
+    localStorage.setItem('exportSuccess2', exportSuccess);
   }, [exportSuccess]);
   
   
@@ -324,6 +336,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
             Download CSV
           </Button>
         )}
+        <MapKey />
       </Box>
     </React.Fragment>
   );

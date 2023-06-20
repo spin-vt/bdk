@@ -4,8 +4,6 @@ import "leaflet.markercluster/dist/leaflet.markercluster";
 import "../styles/Map.module.css";
 import SelectedLocationContext from "./SelectedLocationContext";
 
-
-
 const h3 = require("h3-js");
 
 function Map({ markers }) {
@@ -104,27 +102,28 @@ function Map({ markers }) {
         if (currentZoom >= 10) {
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
-            if (marker.served === true) {
-              markerLayer = L.circleMarker(
-                [marker.latitude, marker.longitude],
-                {
-                  radius: 5,
-                  color: "green",
-                  fillColor: "green",
-                  fillOpacity: 1,
-                }
-              ).addTo(map);
+
+            let color;
+            if (marker.type === 'lte') {
+              color = 'purple';
+            } else if (marker.type === 'non-lte') {
+              color = 'yellow';
+            } else if (marker.served === true) {
+              color = 'green';
             } else {
-              markerLayer = L.circleMarker(
-                [marker.latitude, marker.longitude],
-                {
-                  radius: 5,
-                  color: "red",
-                  fillColor: "red",
-                  fillOpacity: 1,
-                }
-              ).addTo(map);
+              color = 'red';
             }
+
+            markerLayer = L.circleMarker(
+              [marker.latitude, marker.longitude],
+              {
+                radius: 5,
+                color: color,
+                fillColor: color,
+                fillOpacity: 1,
+              }
+            ).addTo(map);
+
             markerLayer.bindPopup(`
               <strong>Name:</strong> ${marker.name} <br/>
               <strong>ID:</strong> ${marker.id} <br/>
@@ -133,10 +132,11 @@ function Map({ markers }) {
               <strong>Technology:</strong> ${marker.technology} <br/>
               <strong>Latitude:</strong> ${marker.latitude} <br/>
               <strong>Longitude:</strong> ${marker.longitude} <br/>
-              <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
+              <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'} <br/>
+              <strong>Type:</strong> ${marker.type}
             `);
-
-            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+            
+            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "blue"});
             markerLayersRef.current.push(markerLayer);
           });
         }
@@ -167,7 +167,7 @@ function Map({ markers }) {
 
       polygonsRef.current.forEach((polygon) => {
         if (polygon.options.h3Index === h3Index) {
-          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "blue"});
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
             if (marker.served === true) {
@@ -199,7 +199,8 @@ function Map({ markers }) {
               <strong>Technology:</strong> ${marker.technology} <br/>
               <strong>Latitude:</strong> ${marker.latitude} <br/>
               <strong>Longitude:</strong> ${marker.longitude} <br/>
-              <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'}
+              <strong>Served:</strong> ${marker.served ? 'Yes' : 'No'} <br/>
+              <strong>Type:</strong> ${marker.type}
             `);
 
             markerLayersRef.current.push(markerLayer);

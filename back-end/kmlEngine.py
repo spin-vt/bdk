@@ -84,22 +84,33 @@ def get_precise_wireless_data():
     session = ScopedSession()
 
     results = session.query(wireless).all()
-    # Get location IDs from kml_data
-    location_ids = [r.location_id for r in results]
+    results2 = session.query(wireless2).all()
+
+    # Create sets of location_ids for both results
+    location_ids1 = {r.location_id for r in results}
+    location_ids2 = {r.location_id for r in results2}
+
+    # Merge location_ids from both results
+    location_ids = location_ids1 | location_ids2
 
     # Query bdk_data using location IDs to get latitudes and longitudes
-    lte_results = session.query(processData.Data).filter(processData.Data.location_id.in_(location_ids)).all()
+    results = session.query(processData.Data).filter(processData.Data.location_id.in_(location_ids)).all()
 
-    # Map location IDs to latitudes and longitudes
-    latitudes = {r.location_id: r.latitude for r in lte_results}
-    longitudes = {r.location_id: r.longitude for r in lte_results}
-    addresses = {r.location_id: r.address_primary for r in lte_results}
+    # Map location IDs to latitudes and longitudes for results
+    latitudes = {r.location_id: r.latitude for r in results}
+    longitudes = {r.location_id: r.longitude for r in results}
+    addresses = {r.location_id: r.address_primary for r in results}
 
-    data = [{'location_id': r.location_id,
-             'served': True,
-             'latitude': latitudes.get(r.location_id),
-             'address': addresses.get(r.location_id),
-             'longitude': longitudes.get(r.location_id)} for r in results]
+    data = [
+        {
+            'location_id': r.location_id,
+            'served': True,
+            'latitude': latitudes.get(r.location_id),
+            'address': addresses.get(r.location_id),
+            'longitude': longitudes.get(r.location_id),
+            'type': 'non-lte' if r.location_id in location_ids2 else 'lte'
+        } for r in results
+    ]
 
     return data
 
