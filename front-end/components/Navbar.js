@@ -246,10 +246,6 @@ export default function Navbar() {
           <Box display="flex" alignItems="center">
             {username ? (
               <Box display="flex" alignItems="center">
-                  <Button href="/uploadpage" color="inherit">
-                    <UploadIcon />
-                    <Typography variant="body1" className={classes.button_lowercase_text}>Upload</Typography>
-                  </Button>
                 <IconButton  ref={buttonRef} color="inherit" onClick={handleMenuOpen} >
                   <AccountCircleIcon />
                   <Typography variant="body1">{username}</Typography>
