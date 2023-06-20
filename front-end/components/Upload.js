@@ -15,6 +15,19 @@ import { DataGrid } from '@mui/x-data-grid';
 const options = ['Fabric', 'Network'];
 let storage = [];
 
+//Map key component
+
+function MapKey() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <span style={{ height: '10px', width: '10px', backgroundColor: 'Green', display: 'inline-block', marginRight: '5px' }}></span>
+      <span style={{ marginRight: '15px' }}>Served</span>
+      <span style={{ height: '10px', width: '10px', backgroundColor: 'Red', display: 'inline-block', marginRight: '5px' }}></span>
+      <span>Unserved</span>
+    </div>
+  );
+}
+
 export default function Upload({ fetchMarkers }) {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
@@ -318,6 +331,7 @@ export default function Upload({ fetchMarkers }) {
             Download CSV
           </Button>
         )}
+        <MapKey/>
       </Box>
     </React.Fragment>
   );
