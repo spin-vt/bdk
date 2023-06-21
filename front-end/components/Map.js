@@ -8,17 +8,10 @@ import { makeStyles } from '@material-ui/core/styles';
 import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
 
 const useStyles = makeStyles({
-  toolbarContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    maxWidth: "50vw",
-    // zIndex: 1000,
-
-  },
   expandToolbarButton: {
     top: '20px',
     position: 'absolute',  // adjust as needed
-    minHeight: '8vh',
+    minHeight: '6vh',
     left: '50%',  // center the Toolbar
     transform: "translateX(-50%)",
     zIndex: 1000,
@@ -29,21 +22,34 @@ const useStyles = makeStyles({
       backgroundColor: '#303f9f',
     },
     borderRadius: '30px',
-    paddingLeft: '30px',
-    paddingRight: '30px',
+    paddingLeft: '20px',
+    paddingRight: '20px',
 
   },
-  collapseToolbarButton: {
-    // ... any specific styles for the collapse button
-    backgroundColor: '#f50057', // Material-UI secondary color
+  collapseToolbarContainer: {
+    display: 'flex',
+    alignItems: 'center', // this will align items vertically in the center
+    justifyContent: 'center',
+    top: '85px',
+    position: 'absolute',  // adjust as needed
+    minHeight: '3vh',
+    maxWidth: '8vw',
+    left: '50%',  // center the Toolbar
+    transform: "translateX(-50%)",
+    zIndex: 1000,
+    backgroundColor: '#F46060', // Material-UI secondary color
     color: '#fff', // white text
     '&:hover': {
-      backgroundColor: '#c51162', // darker shade for hover state
+      backgroundColor: '#DE3232', // darker shade for hover state
     },
+    border: '0px',
+    borderRadius: '10px',
+    paddingLeft: '10px',
+    paddingRight: '10px',
   },
   toolbar: {
     position: 'absolute',  // adjust as needed
-    minHeight: '8vh',
+    maxHeight: '5vh',
     left: '50%',  // center the Toolbar
     transform: "translateX(-50%)",
     width: "50vw",
@@ -51,6 +57,7 @@ const useStyles = makeStyles({
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     zIndex: 1000,
     top: '20px',
+    justifyContent: 'center',
 
   }
 });
@@ -352,8 +359,8 @@ function Map({ markers }) {
           </button>
         )}
         {isToolbarExpanded && (
-          <div className={classes.toolbar}>
-            <Toolbar >
+          <div >
+            <Toolbar className={classes.toolbar}>
               <FormControlLabel
                 control={<Switch checked={showServed} onChange={handleServedChange} />}
                 label="Show Served"
@@ -366,8 +373,9 @@ function Map({ markers }) {
               />
 
             </Toolbar>
-            <button className={classes.collapseToolbarButton} onClick={() => { setIsToolbarExpanded(false); setShowExpandButton(true); }}>
-              <KeyboardDoubleArrowUpIcon/>
+
+            <button className={classes.collapseToolbarContainer} onClick={() => { setIsToolbarExpanded(false); setShowExpandButton(true); }}>
+              <KeyboardDoubleArrowUpIcon />
               Collapse
             </button>
           </div>
