@@ -55,8 +55,8 @@ import json
 app = Flask(__name__)
 CORS(app)
 
-celery = Celery(app.name, broker='redis://redis:6379/0')
-app.config['CELERY_RESULT_BACKEND'] = 'redis://redis:6379/0'
+celery = Celery(app.name, broker='redis://localhost:6379/0')
+app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 celery.conf.update(app.config)
 
 import os
