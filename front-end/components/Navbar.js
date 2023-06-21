@@ -25,24 +25,47 @@ import LoginIcon from '@mui/icons-material/Login';
 import UploadIcon from '@mui/icons-material/Upload';
 import Searchbar from '../components/Searchbar';
 
+
 const useStyles = makeStyles((theme) => ({
+  appBar: {
+    backgroundImage: 'linear-gradient(to right, #3A7BD5, #3A6073)', // Gradient color
+    position: 'sticky', // Make the AppBar sticky
+    boxShadow: '0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)',
+  },
   drawer: {
     width: '240px',
     flexShrink: 0,
   },
   drawerPaper: {
     width: '240px',
-    backgroundColor: '#F0F0F0',  // A modern, light grey color
+    backgroundColor: '#EBF5FA',  // A modern, light blue color
   },
   listItemElem: {
     display: 'flex',  // Add flex display
     alignItems: 'center',  // Vertically align items in the center
+    padding: theme.spacing(1),
+    borderRadius: '4px',
+    transition: 'background-color 0.3s',
+    '&:hover': {
+      backgroundColor: '#E0F7FA',
+    },
   },
   icon: {
     marginRight: theme.spacing(1),  // Add right margin to the icon
+    color: '#0A539E',  // Blue color for icons
   },
   button_lowercase_text: {
     textTransform: 'none',
+  },
+  title: {
+    fontWeight: 700,  // Make the title bold
+    color: '#FFFFFF',  // White color for the title
+  },
+  menuItem: {
+    transition: 'color 0.3s',
+    '&:hover': {
+      color: '#3A7BD5',
+    },
   },
 }));
 
@@ -226,7 +249,7 @@ export default function Navbar() {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static" sx={{ bgcolor: "#303030" }}>
+      <AppBar position="static" className={classes.appBar}>
         <Toolbar>
           <IconButton
             size="large"
@@ -236,12 +259,12 @@ export default function Navbar() {
             sx={{ mr: 2 }}
             onClick={handleDrawerOpen}
           >
-            <MenuIcon />
+            <MenuIcon className={classes.menuItem}/>
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }} className={classes.title}>
             Broadband Data Collection Helper
           </Typography>
-          <Searchbar/>
+          <Searchbar className={classes.menuItem}/>
  
           <Box display="flex" alignItems="center">
             {username ? (
@@ -279,15 +302,15 @@ export default function Navbar() {
             )}
           </Box>
         </Toolbar>
-      </AppBar>
-      <Drawer 
-        anchor="left" open={isDrawerOpen} 
-        onClose={handleDrawerClose} 
-        className={classes.drawer}
-        classes={{
-        paper: classes.drawerPaper,
-      }}>
-        <List>
+        </AppBar>
+    <Drawer 
+      anchor="left" open={isDrawerOpen} 
+      onClose={handleDrawerClose} 
+      className={classes.drawer}
+      classes={{
+      paper: classes.drawerPaper,
+    }}>
+      <List>
         <Link href={menuTopItem.href}>
           <ListItem button onClick={handleDrawerClose}>
             <div className={classes.listItemElem}>
