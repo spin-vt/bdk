@@ -26,20 +26,30 @@ import UploadIcon from '@mui/icons-material/Upload';
 import Searchbar from '../components/Searchbar';
 
 const useStyles = makeStyles((theme) => ({
+  appBar: {
+    backgroundColor: '#0A539E',  // Change the color to fit blue and white theme
+    position: 'sticky', // Make the AppBar sticky
+  },
   drawer: {
     width: '240px',
     flexShrink: 0,
   },
   drawerPaper: {
     width: '240px',
-    backgroundColor: '#F0F0F0',  // A modern, light grey color
+    backgroundColor: '#EBF5FA',  // A modern, light blue color
   },
   listItemElem: {
     display: 'flex',  // Add flex display
     alignItems: 'center',  // Vertically align items in the center
   },
+  listItemButton: {
+    '&:hover': {
+      backgroundColor: '#E0F7FA',
+    },
+  },
   icon: {
     marginRight: theme.spacing(1),  // Add right margin to the icon
+    color: '#0A539E',  // Blue color for icons
   },
   button_lowercase_text: {
     textTransform: 'none',
@@ -226,7 +236,7 @@ export default function Navbar() {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static" sx={{ bgcolor: "#303030" }}>
+      <AppBar position="static" className={classes.appBar}>
         <Toolbar>
           <IconButton
             size="large"
@@ -279,15 +289,15 @@ export default function Navbar() {
             )}
           </Box>
         </Toolbar>
-      </AppBar>
-      <Drawer 
-        anchor="left" open={isDrawerOpen} 
-        onClose={handleDrawerClose} 
-        className={classes.drawer}
-        classes={{
-        paper: classes.drawerPaper,
-      }}>
-        <List>
+        </AppBar>
+    <Drawer 
+      anchor="left" open={isDrawerOpen} 
+      onClose={handleDrawerClose} 
+      className={classes.drawer}
+      classes={{
+      paper: classes.drawerPaper,
+    }}>
+      <List>
         <Link href={menuTopItem.href}>
           <ListItem button onClick={handleDrawerClose}>
             <div className={classes.listItemElem}>
