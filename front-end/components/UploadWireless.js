@@ -65,22 +65,6 @@ function MapKey() {
 }
 
 export default function UploadWireless({ fetchMarkersWireless }) {
-  React.useEffect(() => {
-    window.addEventListener('beforeunload', (ev) => {
-      ev.preventDefault();
-      localStorage.clear();
-      return null;
-    });
-  
-    return () => {
-      window.removeEventListener('beforeunload', (ev) => {
-        ev.preventDefault();
-        localStorage.clear();
-        return null;
-      });
-    };
-  }, []);
-  
   const classes = useStyles();
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
