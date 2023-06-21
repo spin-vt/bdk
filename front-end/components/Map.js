@@ -341,22 +341,14 @@ function Map({ markers }) {
           polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
-            if (marker.served === true) {
+            if (marker.served === true && showServed) {
               markerLayer = L.circleMarker([marker.latitude, marker.longitude], {
                 radius: 5,
                 color: "green",
                 fillColor: "green",
                 fillOpacity: 1,
               }).addTo(mapRef.current);
-            } else {
-              markerLayer = L.circleMarker([marker.latitude, marker.longitude], {
-                radius: 5,
-                color: "red",
-                fillColor: "red",
-                fillOpacity: 1,
-              }).addTo(mapRef.current);
-            }
-            markerLayer.bindPopup(`
+              markerLayer.bindPopup(`
               <strong>Name:</strong> ${marker.name} <br/>
               <strong>ID:</strong> ${marker.id} <br/>
               <strong>Download Speed:</strong> ${marker.download_speed} <br/>
@@ -364,11 +356,33 @@ function Map({ markers }) {
               <strong>Technology:</strong> ${marker.technology} <br/>
               <strong>Latitude:</strong> ${marker.latitude} <br/>
               <strong>Longitude:</strong> ${marker.longitude} <br/>
-              <strong>Served:</strong> ${marker.served ? "Yes" : "No"} <br/>
+              <strong>Served:</strong> ${"Yes"} <br/>
               <strong>Type:</strong> ${marker.type}
             `);
+              markerLayersRef.current.push(markerLayer);
+            } else if (!marker.served && showUnserved) {
+              markerLayer = L.circleMarker([marker.latitude, marker.longitude], {
+                radius: 5,
+                color: "red",
+                fillColor: "red",
+                fillOpacity: 1,
+              }).addTo(mapRef.current);
+              markerLayer.bindPopup(`
+              <strong>Name:</strong> ${marker.name} <br/>
+              <strong>ID:</strong> ${marker.id} <br/>
+              <strong>Download Speed:</strong> ${marker.download_speed} <br/>
+              <strong>Upload Speed:</strong> ${marker.upload_speed} <br/>
+              <strong>Technology:</strong> ${marker.technology} <br/>
+              <strong>Latitude:</strong> ${marker.latitude} <br/>
+              <strong>Longitude:</strong> ${marker.longitude} <br/>
+              <strong>Served:</strong> ${"Yes"} <br/>
+              <strong>Type:</strong> ${marker.type}
+            `);
+              markerLayersRef.current.push(markerLayer);
+            }
 
-            markerLayersRef.current.push(markerLayer);
+
+
           });
         }
       });
@@ -379,7 +393,7 @@ function Map({ markers }) {
         distinctMarkerRef.current = null;
       }
     }
-  }, [location]);
+  }, [location, showServed, showUnserved]);
 
 
   return (
