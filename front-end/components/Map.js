@@ -19,7 +19,7 @@ const useStyles = makeStyles({
     border: '0px',
     color: '#fff', // white text
     '&:hover': {
-      backgroundColor: '#303f9f',
+      backgroundColor: '#73A5C6',
     },
     borderRadius: '30px',
     paddingLeft: '20px',
@@ -37,10 +37,10 @@ const useStyles = makeStyles({
     left: '50%',  // center the Toolbar
     transform: "translateX(-50%)",
     zIndex: 1000,
-    backgroundColor: '#F46060', // Material-UI secondary color
+    backgroundColor: '#3A7BD5', // Material-UI secondary color
     color: '#fff', // white text
     '&:hover': {
-      backgroundColor: '#DE3232', // darker shade for hover state
+      backgroundColor: '#73A5C6', // darker shade for hover state
     },
     border: '0px',
     borderRadius: '10px',
@@ -116,6 +116,11 @@ function Map({ markers }) {
     map.on('zoomend', () => {
       const zoom = map.getZoom();
       if (zoom < 10) {
+        if (distinctMarkerRef.current) {
+          mapRef.current.removeLayer(distinctMarkerRef.current);
+          distinctMarkerRef.current = null;
+        }
+
         polygonsRef.current.forEach((polygon) => {
           const h3Index = polygon.options.h3Index;
           const containsServed = hexIndexToMarkers[h3Index].some(marker => marker.served);

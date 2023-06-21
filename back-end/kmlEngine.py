@@ -371,19 +371,19 @@ def exportWired(download_speed, upload_speed, tech_type):
     PROVIDER_ID = 000 #will be done at later date 
     BRAND_NAME = 'Test' #will be done at later date 
     
-    tech_types = {
-    'Copper Wire': 10,
-    'Coaxial Cable / HFC': 40,
-    'Optical Carrier / Fiber to the Premises': 50,
-    'Geostationary Satellite': 60,
-    'Non-geostationary Satellite': 61,
-    'Unlicensed Terrestrial Fixed Wireless': 70,
-    'Licensed Terrestrial Fixed Wireless': 71,
-    'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
-    'Other': 0,
-    }
+    # tech_types = {
+    # 'Copper Wire': 10,
+    # 'Coaxial Cable / HFC': 40,
+    # 'Optical Carrier / Fiber to the Premises': 50,
+    # 'Geostationary Satellite': 60,
+    # 'Non-geostationary Satellite': 61,
+    # 'Unlicensed Terrestrial Fixed Wireless': 70,
+    # 'Licensed Terrestrial Fixed Wireless': 71,
+    # 'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
+    # 'Other': 0,
+    # }
 
-    TECHNOLOGY_CODE = tech_types.get(tech_type, "Null")
+    TECHNOLOGY_CODE = tech_type
     MAX_DOWNLOAD_SPEED = download_speed
     MAX_UPLOAD_SPEED = upload_speed
 
@@ -426,19 +426,19 @@ def exportWireless(download_speed, upload_speed, tech_type):
     PROVIDER_ID = 000 #will be done at later date 
     BRAND_NAME = 'Test' #will be done at later date 
     
-    tech_types = {
-    'Copper Wire': 10,
-    'Coaxial Cable / HFC': 40,
-    'Optical Carrier / Fiber to the Premises': 50,
-    'Geostationary Satellite': 60,
-    'Non-geostationary Satellite': 61,
-    'Unlicensed Terrestrial Fixed Wireless': 70,
-    'Licensed Terrestrial Fixed Wireless': 71,
-    'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
-    'Other': 0,
-    }
+    # tech_types = {
+    # 'Copper Wire': 10,
+    # 'Coaxial Cable / HFC': 40,
+    # 'Optical Carrier / Fiber to the Premises': 50,
+    # 'Geostationary Satellite': 60,
+    # 'Non-geostationary Satellite': 61,
+    # 'Unlicensed Terrestrial Fixed Wireless': 70,
+    # 'Licensed Terrestrial Fixed Wireless': 71,
+    # 'Licensed-by-Rule Terrestrial Fixed Wireless': 72,
+    # 'Other': 0,
+    # }
 
-    TECHNOLOGY_CODE = tech_types.get(tech_type, "Null")
+    TECHNOLOGY_CODE = tech_type
     MAX_DOWNLOAD_SPEED = download_speed
     MAX_UPLOAD_SPEED = upload_speed
 
