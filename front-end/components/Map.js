@@ -3,15 +3,90 @@ import L from "leaflet";
 import "leaflet.markercluster/dist/leaflet.markercluster";
 import "../styles/Map.module.css";
 import SelectedLocationContext from "./SelectedLocationContext";
-import ReactLoading from "react-loading";
+import { Toolbar, Switch, FormControlLabel } from '@material-ui/core';
+import { makeStyles } from '@material-ui/core/styles';
+import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
+
+const useStyles = makeStyles({
+  expandToolbarButton: {
+    top: '20px',
+    position: 'absolute',  // adjust as needed
+    minHeight: '6vh',
+    left: '50%',  // center the Toolbar
+    transform: "translateX(-50%)",
+    zIndex: 1000,
+    backgroundColor: '#0691DA',
+    border: '0px',
+    color: '#fff', // white text
+    '&:hover': {
+      backgroundColor: '#303f9f',
+    },
+    borderRadius: '30px',
+    paddingLeft: '20px',
+    paddingRight: '20px',
+
+  },
+  collapseToolbarContainer: {
+    display: 'flex',
+    alignItems: 'center', // this will align items vertically in the center
+    justifyContent: 'center',
+    top: '85px',
+    position: 'absolute',  // adjust as needed
+    minHeight: '3vh',
+    maxWidth: '8vw',
+    left: '50%',  // center the Toolbar
+    transform: "translateX(-50%)",
+    zIndex: 1000,
+    backgroundColor: '#F46060', // Material-UI secondary color
+    color: '#fff', // white text
+    '&:hover': {
+      backgroundColor: '#DE3232', // darker shade for hover state
+    },
+    border: '0px',
+    borderRadius: '10px',
+    paddingLeft: '10px',
+    paddingRight: '10px',
+  },
+  toolbar: {
+    position: 'absolute',  // adjust as needed
+    maxHeight: '5vh',
+    left: '50%',  // center the Toolbar
+    transform: "translateX(-50%)",
+    width: "50vw",
+    borderRadius: '50px',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 1000,
+    top: '20px',
+    justifyContent: 'center',
+
+  }
+});
+
 
 const h3 = require("h3-js");
 
 function Map({ markers }) {
+
+  const classes = useStyles();
   const mapRef = useRef(null);
   const [hexIndexToMarkers, setHexIndexToMarkers] = useState({});
   const polygonsRef = useRef([]);
   const markerLayersRef = useRef([]);
+
+  const [showServed, setShowServed] = useState(true);
+  const [showUnserved, setShowUnserved] = useState(true);
+
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
+  const [showExpandButton, setShowExpandButton] = useState(true);
+
+  const handleServedChange = (event) => {
+    setShowServed(event.target.checked);
+  }
+
+  const handleUnservedChange = (event) => {
+    setShowUnserved(event.target.checked);
+  }
+
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
   const [computing, setComputing] = useState(false);
@@ -36,15 +111,39 @@ function Map({ markers }) {
     map.setView([37.0902, -95.7129], 5);
     mapRef.current = map;
 
-    map.on("zoomend", () => {
+
+
+    map.on('zoomend', () => {
       const zoom = map.getZoom();
       if (zoom < 10) {
         polygonsRef.current.forEach((polygon) => {
-          polygon.setStyle({
-            fillOpacity: 0.5,
-            fillColor: "blue",
-            color: "blue",
-          });
+          const h3Index = polygon.options.h3Index;
+          const containsServed = hexIndexToMarkers[h3Index].some(marker => marker.served);
+          const containsUnserved = hexIndexToMarkers[h3Index].some(marker => !marker.served);
+          if (containsUnserved && !showUnserved) {
+            if (!containsServed) {
+              polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+            }
+            else {
+              if (!showServed) {
+                polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+              }
+            }
+          }
+          else if (containsServed && !showServed) {
+            if (!containsUnserved) {
+              polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+            }
+            else {
+              if (!showUnserved) {
+                polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+              }
+            }
+          }
+          else {
+            polygon.setStyle({ fillOpacity: 0.5, fillColor: "blue", color: "blue" });
+          }
+
         });
 
         markerLayersRef.current.forEach((markerLayer) => {
@@ -60,7 +159,7 @@ function Map({ markers }) {
         mapRef.current = null;
       }
     };
-  }, []);
+  }, [hexIndexToMarkers, showServed, showUnserved]);
 
   useEffect(() => {
     clearMapLayers();
@@ -109,9 +208,11 @@ function Map({ markers }) {
             } else if (marker.type === "non-lte") {
               color = "yellow";
             } else if (marker.served === true) {
-              color = "green";
+              color = 'green';
+              if (!showServed) return;
             } else {
-              color = "red";
+              color = 'red';
+              if (!showUnserved) return;
             }
 
             markerLayer = L.circleMarker([marker.latitude, marker.longitude], {
@@ -133,17 +234,45 @@ function Map({ markers }) {
               <strong>Type:</strong> ${marker.type}
             `);
 
-            polygon.setStyle({
-              fillOpacity: 0,
-              fillColor: "transparent",
-              color: "blue",
-            });
+            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "blue" });
             markerLayersRef.current.push(markerLayer);
           });
         }
       });
     });
-  }, [hexIndexToMarkers]);
+  }, [hexIndexToMarkers, showServed, showUnserved]);
+
+  useEffect(() => {
+    polygonsRef.current.forEach((polygon) => {
+      const h3Index = polygon.options.h3Index;
+      const containsServed = hexIndexToMarkers[h3Index].some(marker => marker.served);
+      const containsUnserved = hexIndexToMarkers[h3Index].some(marker => !marker.served);
+
+      if (containsUnserved && !showUnserved) {
+        if (!containsServed) {
+          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+        }
+        else {
+          if (!showServed) {
+            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+          }
+        }
+      }
+      else if (containsServed && !showServed) {
+        if (!containsUnserved) {
+          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+        }
+        else {
+          if (!showUnserved) {
+            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
+          }
+        }
+      }
+      else {
+        polygon.setStyle({ fillOpacity: 0.5, fillColor: "blue", color: "blue" });
+      }
+    });
+  }, [showServed, showUnserved, hexIndexToMarkers]);
 
   useEffect(() => {
     console.log(location);
@@ -169,11 +298,7 @@ function Map({ markers }) {
 
       polygonsRef.current.forEach((polygon) => {
         if (polygon.options.h3Index === h3Index) {
-          polygon.setStyle({
-            fillOpacity: 0,
-            fillColor: "transparent",
-            color: "blue",
-          });
+          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "blue" });
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
             if (marker.served === true) {
@@ -207,7 +332,8 @@ function Map({ markers }) {
           });
         }
       });
-    } else {
+    }
+    else {
       if (distinctMarkerRef.current) {
         mapRef.current.removeLayer(distinctMarkerRef.current);
         distinctMarkerRef.current = null;
@@ -215,20 +341,41 @@ function Map({ markers }) {
     }
   }, [location]);
 
+
   return (
     <div>
-      {computing && (
-        <div className="loading-spinner-overlay">
-          <ReactLoading
-            className="loading-spinner"
-            type="spin"
-            color="blue"
-            height={50}
-            width={50}
-          />
-        </div>
-      )}
-      <div id="map" className="map-container" style={{ height: "100vh" }}></div>
+      <div className={classes.toolbarContainer}>
+        {showExpandButton && (
+          <button className={classes.expandToolbarButton} onClick={() => { setIsToolbarExpanded(true); setShowExpandButton(false); }}>
+            Show Toolbar
+          </button>
+        )}
+        {isToolbarExpanded && (
+          <div >
+            <Toolbar className={classes.toolbar}>
+              <FormControlLabel
+                control={<Switch checked={showServed} onChange={handleServedChange} />}
+                label="Show Served"
+                id="served-toggle"
+              />
+              <FormControlLabel
+                control={<Switch checked={showUnserved} onChange={handleUnservedChange} />}
+                label="Show Unserved"
+                id="unserved-toggle"
+              />
+
+            </Toolbar>
+
+            <button className={classes.collapseToolbarContainer} onClick={() => { setIsToolbarExpanded(false); setShowExpandButton(true); }}>
+              <KeyboardDoubleArrowUpIcon />
+              Collapse
+            </button>
+          </div>
+        )}
+      </div>
+      <div>
+        <div id="map" className="map-container" style={{ height: "100vh" }}></div>
+      </div>
     </div>
   );
 }
