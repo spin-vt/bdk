@@ -25,10 +25,12 @@ import LoginIcon from '@mui/icons-material/Login';
 import UploadIcon from '@mui/icons-material/Upload';
 import Searchbar from '../components/Searchbar';
 
+
 const useStyles = makeStyles((theme) => ({
   appBar: {
-    backgroundColor: '#0A539E',  // Change the color to fit blue and white theme
+    backgroundImage: 'linear-gradient(to right, #3A7BD5, #3A6073)', // Gradient color
     position: 'sticky', // Make the AppBar sticky
+    boxShadow: '0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)',
   },
   drawer: {
     width: '240px',
@@ -41,8 +43,9 @@ const useStyles = makeStyles((theme) => ({
   listItemElem: {
     display: 'flex',  // Add flex display
     alignItems: 'center',  // Vertically align items in the center
-  },
-  listItemButton: {
+    padding: theme.spacing(1),
+    borderRadius: '4px',
+    transition: 'background-color 0.3s',
     '&:hover': {
       backgroundColor: '#E0F7FA',
     },
@@ -53,6 +56,16 @@ const useStyles = makeStyles((theme) => ({
   },
   button_lowercase_text: {
     textTransform: 'none',
+  },
+  title: {
+    fontWeight: 700,  // Make the title bold
+    color: '#FFFFFF',  // White color for the title
+  },
+  menuItem: {
+    transition: 'color 0.3s',
+    '&:hover': {
+      color: '#3A7BD5',
+    },
   },
 }));
 
@@ -246,12 +259,12 @@ export default function Navbar() {
             sx={{ mr: 2 }}
             onClick={handleDrawerOpen}
           >
-            <MenuIcon />
+            <MenuIcon className={classes.menuItem}/>
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }} className={classes.title}>
             Broadband Data Collection Helper
           </Typography>
-          <Searchbar/>
+          <Searchbar className={classes.menuItem}/>
  
           <Box display="flex" alignItems="center">
             {username ? (

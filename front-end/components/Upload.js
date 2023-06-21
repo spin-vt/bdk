@@ -340,7 +340,7 @@ export default function Upload({ fetchMarkers }) {
               onChange={(e) => setUploadSpeed(e.target.value)}
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={12} sm={2}>
             <label htmlFor="techType">Technology Type: </label>
             <FormControl variant="outlined" className={classes.formControl}>
               <Select
