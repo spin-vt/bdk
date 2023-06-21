@@ -79,6 +79,9 @@ function Map({ markers }) {
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(true);
 
+  const [lastPosition, setLastPosition] = useState([37.0902, -95.7129]);
+  const [lastZoom, setLastZoom] = useState(5);
+
   const handleServedChange = (event) => {
     setShowServed(event.target.checked);
   }
@@ -105,16 +108,18 @@ function Map({ markers }) {
     }
   };
 
+
   useEffect(() => {
     const map = L.map("map");
     L.tileLayer("http://{s}.tile.osm.org/{z}/{x}/{y}.png").addTo(map);
-    map.setView([37.0902, -95.7129], 5);
+    map.setView(lastPosition, lastZoom);  // replace with saved position and zoom
     mapRef.current = map;
 
 
 
     map.on('zoomend', () => {
       const zoom = map.getZoom();
+      setLastZoom(map.getZoom());
       if (zoom < 10) {
         if (distinctMarkerRef.current) {
           mapRef.current.removeLayer(distinctMarkerRef.current);
@@ -178,6 +183,7 @@ function Map({ markers }) {
       }
     };
   }, [hexIndexToMarkers, showServed, showUnserved]);
+
 
   useEffect(() => {
     clearMapLayers();
@@ -394,6 +400,15 @@ function Map({ markers }) {
       }
     }
   }, [location, showServed, showUnserved]);
+
+  useEffect(() => {
+    mapRef.current.on('moveend', () => {
+      setLastPosition(mapRef.current.getCenter());
+    });
+    mapRef.current.on('zoomend', () => {
+      setLastZoom(mapRef.current.getZoom());
+    });
+  }, [lastPosition, lastZoom]);
 
 
   return (
