@@ -133,6 +133,9 @@ function Map({ markers }) {
               if (!showServed) {
                 polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
               }
+              else {
+                polygon.setStyle({ fillOpacity: 0.5, fillColor: "green", color: "green" });
+              }
             }
           }
           else if (containsServed && !showServed) {
@@ -143,10 +146,20 @@ function Map({ markers }) {
               if (!showUnserved) {
                 polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
               }
+              else {
+                polygon.setStyle({ fillOpacity: 0.5, fillColor: "red", color: "red" });
+              }
             }
           }
           else {
-            polygon.setStyle({ fillOpacity: 0.5, fillColor: "blue", color: "blue" });
+            let color = 'blue';  // default color when polygon contains both served and unserved
+            if (containsServed && !containsUnserved) {
+              color = 'green';  // only contains served points
+            } else if (containsUnserved && !containsServed) {
+              color = 'red';  // only contains unserved points
+            }
+
+            polygon.setStyle({ fillOpacity: 0.5, fillColor: color, color: color });
           }
 
         });
@@ -192,9 +205,18 @@ function Map({ markers }) {
       const hexBoundary = h3.cellToBoundary(h3Index);
       const latLngs = hexBoundary.map((coord) => L.latLng(coord[0], coord[1]));
 
+      const containsServed = hexIndexToMarkers[h3Index].some(marker => marker.served);
+      const containsUnserved = hexIndexToMarkers[h3Index].some(marker => !marker.served);
+
+      let color = 'blue';  // default color when polygon contains both served and unserved
+      if (containsServed && !containsUnserved) {
+        color = 'green';  // only contains served points
+      } else if (containsUnserved && !containsServed) {
+        color = 'red';  // only contains unserved points
+      }
       const polygon = L.polygon(latLngs, {
-        color: "blue",
-        fillColor: "blue",
+        color: color,
+        fillColor: color,
         fillOpacity: 0.5,
         h3Index,
       }).addTo(map);
@@ -239,7 +261,7 @@ function Map({ markers }) {
               <strong>Type:</strong> ${marker.type}
             `);
 
-            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "blue" });
+            polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: color });
             markerLayersRef.current.push(markerLayer);
           });
         }
@@ -261,6 +283,9 @@ function Map({ markers }) {
           if (!showServed) {
             polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
           }
+          else {
+            polygon.setStyle({ fillOpacity: 0.5, fillColor: "green", color: "green" });
+          }
         }
       }
       else if (containsServed && !showServed) {
@@ -271,10 +296,20 @@ function Map({ markers }) {
           if (!showUnserved) {
             polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
           }
+          else {
+            polygon.setStyle({ fillOpacity: 0.5, fillColor: "red", color: "red" });
+          }
         }
       }
       else {
-        polygon.setStyle({ fillOpacity: 0.5, fillColor: "blue", color: "blue" });
+        let color = 'blue';  // default color when polygon contains both served and unserved
+        if (containsServed && !containsUnserved) {
+          color = 'green';  // only contains served points
+        } else if (containsUnserved && !containsServed) {
+          color = 'red';  // only contains unserved points
+        }
+
+        polygon.setStyle({ fillOpacity: 0.5, fillColor: color, color: color });
       }
     });
   }, [showServed, showUnserved, hexIndexToMarkers]);
@@ -303,7 +338,7 @@ function Map({ markers }) {
 
       polygonsRef.current.forEach((polygon) => {
         if (polygon.options.h3Index === h3Index) {
-          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "blue" });
+          polygon.setStyle({ fillOpacity: 0, fillColor: "transparent", color: "transparent" });
           hexIndexToMarkers[h3Index].forEach((marker) => {
             let markerLayer;
             if (marker.served === true) {
