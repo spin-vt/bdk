@@ -39,7 +39,7 @@ const useStyles = makeStyles({
 });
 
 const options = ['Fabric', 'Network'];
-let storage = [];
+let storage = JSON.parse(localStorage.getItem('storage')) || [];
 
 const tech_types = {
   'Copper Wire': 10,
@@ -67,6 +67,22 @@ function MapKey() {
 }
 
 export default function Upload({ fetchMarkers }) {
+  React.useEffect(() => {
+    window.addEventListener('beforeunload', (ev) => {
+      ev.preventDefault();
+      localStorage.clear();
+      return null;
+    });
+  
+    return () => {
+      window.removeEventListener('beforeunload', (ev) => {
+        ev.preventDefault();
+        localStorage.clear();
+        return null;
+      });
+    };
+  }, []);
+
   const classes = useStyles();
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
@@ -101,7 +117,10 @@ export default function Upload({ fetchMarkers }) {
     event.preventDefault();
   
     const formData = new FormData();
-  
+    console.log(storage.length)
+    console.log(storage[0])
+    console.log(storage[1])
+
     storage.forEach((file) => {
       const fileData = {
         file: file[0],
@@ -171,6 +190,7 @@ export default function Upload({ fetchMarkers }) {
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
     localStorage.setItem('selectedFiles', JSON.stringify(updatedFiles));
+    localStorage.setItem('storage', JSON.stringify(storage)); // update local storage for storage array
   };
 
   const handleClick = () => {
@@ -200,6 +220,7 @@ export default function Upload({ fetchMarkers }) {
     for (let i = 0; i < storage.length; i++) {
         if (storage[i][1] === id) {
             storage.splice(i, 1);
+            localStorage.setItem('storage', JSON.stringify(storage)); // update local storage for storage array
             break;
         }
     }
