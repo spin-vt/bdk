@@ -43,6 +43,7 @@
     "react-leaflet-marker-layer": "^0.1.4",
     "react-leaflet-markercluster": "^3.0.0-rc1",
     "react-leaflet-vectorgrid": "^2.2.1",
+    "react-loading": "^2.0.3",
     "react-swipeable-views": "^0.14.0",
     "sweetalert2": "^11.7.12",
     "yup": "^1.2.0"
