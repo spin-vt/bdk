@@ -329,7 +329,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
         <Box sx={{ marginTop: '1rem' }}>
         <Grid container spacing={3}>
           <Grid item xs={12} sm={4}>
-            <label htmlFor="downloadSpeed">Download Speed (Mgps): </label>
+            <label htmlFor="downloadSpeed">Download Speed (MBps): </label>
             <input
               type="text"
               id="downloadSpeed"
@@ -338,7 +338,7 @@ export default function UploadWireless({ fetchMarkersWireless }) {
             />
           </Grid>
           <Grid item xs={12} sm={4}>
-            <label htmlFor="uploadSpeed">Upload Speed (Mgps): </label>
+            <label htmlFor="uploadSpeed">Upload Speed (MBps): </label>
             <input
               type="text"
               id="uploadSpeed"

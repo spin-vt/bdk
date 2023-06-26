@@ -30,6 +30,11 @@ class kml_data(Base):
     __tablename__ = 'KML'
     location_id = Column(Integer, primary_key=True)
     served = Column(Boolean)
+    wireless = Column(Boolean)
+    lte = Column(Boolean)
+    username = Column(String)
+    maxDownloadNetwork = Column(String)
+    maxDownloadSpeed = Column(Integer)
 
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
@@ -66,13 +71,9 @@ def check_num_records_greater_zero():
 def get_precise_wireless_data(): 
     session = ScopedSession()
 
-    results = session.query(wireless).all()
-    results2 = session.query(wireless2).all()
+    results = session.query(kml_data).all()
 
-    location_ids1 = {r.location_id for r in results}
-    location_ids2 = {r.location_id for r in results2}
-
-    location_ids = location_ids1 | location_ids2
+    location_ids = {r.location_id for r in results}
 
     results = session.query(fabricUpload.Data).filter(fabricUpload.Data.location_id.in_(location_ids)).all()
 
@@ -87,30 +88,35 @@ def get_precise_wireless_data():
             'latitude': latitudes.get(r.location_id),
             'address': addresses.get(r.location_id),
             'longitude': longitudes.get(r.location_id),
-            'type': 'non-lte' if r.location_id in location_ids2 else 'lte'
+            'type': 'lte' if r.lte in location_ids else 'non-lte'
         } for r in results
     ]
 
     return data
 
-def get_precise_data():
+def get_wired_data():
     session = ScopedSession()
 
     results = session.query(kml_data).all()
 
     location_ids = [r.location_id for r in results]
 
-    bdk_results = session.query(fabricUpload.Data).filter(fabricUpload.Data.location_id.in_(location_ids)).all()
+    fabric_results = session.query(fabricUpload.Data).filter(fabricUpload.Data.location_id.in_(location_ids)).all()
 
-    latitudes = {r.location_id: r.latitude for r in bdk_results}
-    longitudes = {r.location_id: r.longitude for r in bdk_results}
-    addresses = {r.location_id: r.address_primary for r in bdk_results}
+    latitudes = {r.location_id: r.latitude for r in fabric_results}
+    longitudes = {r.location_id: r.longitude for r in fabric_results}
+    addresses = {r.location_id: r.address_primary for r in fabric_results}
 
     data = [{'location_id': r.location_id,
              'served': r.served,
              'latitude': latitudes.get(r.location_id),
              'address': addresses.get(r.location_id),
-             'longitude': longitudes.get(r.location_id)} for r in results]
+             'longitude': longitudes.get(r.location_id),
+             'wireless': r.wireless,
+            'lte': r.lte,
+            'username': r.username,
+            'maxDownloadNetwork': r.maxDownloadNetwork,
+            'maxDownloadSpeed': r.maxDownloadSpeed} for r in results]
 
     return data
 
@@ -131,7 +137,7 @@ def check_mismatches():
                     session.add(new_record)
             session.commit()
 
-def wired_locations(fabric_fn, coverage_fn, lte_fn):
+def wireless_locations(fabric_fn, coverage_fn, lte_fn):
     df = pandas.read_csv(fabric_fn) 
 
     fabric = geopandas.GeoDataFrame(
@@ -174,7 +180,7 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
     batch = [] 
     for _, row in lte_fabric.iterrows():
         try:
-            newData = wireless(
+            newData = kml_data(
                 location_id = int(row.location_id),
             )
             
@@ -205,7 +211,7 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
 
     for _, row in nonlte_fabric.iterrows():
         try:
-            newData = wireless2(
+            newData = kml_data(
                 location_id = int(row.location_id),
             )
             
@@ -231,7 +237,7 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
     session.close()
 
         
-def filter_locations(Fabric_FN, Fiber_FN):
+def served_wired(Fabric_FN, Fiber_FN):
 
     df = pandas.read_csv(Fabric_FN)
 
@@ -264,7 +270,12 @@ def filter_locations(Fabric_FN, Fiber_FN):
         try:
             newData = kml_data(
                 location_id = int(row.location_id),
-                served = True
+                served = True,
+                wireless = False,
+                lte = False,
+                username = "vineet",
+                maxDownloadNetwork = -1,
+                maxDownloadSpeed = -1
             )
             
             batch.append(newData)
@@ -298,7 +309,12 @@ def filter_locations(Fabric_FN, Fiber_FN):
         try:
             newData = kml_data(
                 location_id = int(row.location_id),
-                served = False
+                served = False,
+                wireless = False,
+                lte = False,
+                username = "vineet",
+                maxDownloadNetwork = -1,
+                maxDownloadSpeed = -1,
             )
             
             batch.append(newData)
@@ -402,7 +418,7 @@ def exportWireless(download_speed, upload_speed, tech_type):
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    cursor.execute("SELECT location_id FROM lte")
+    cursor.execute("SELECT location_id FROM KML")
     result = cursor.fetchall()
 
     cursor.close()
@@ -454,7 +470,7 @@ def exportWireless2(download_speed, upload_speed, tech_type):
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    cursor.execute('SELECT location_id FROM "non-lte"')
+    cursor.execute('SELECT location_id FROM "KML"')
     result = cursor.fetchall()
 
     cursor.close()

@@ -28,11 +28,14 @@ from sqlalchemy import inspect
 from threading import Lock
 import csv
 import zipfile
+import sqlite3
+from flask import Response
 
 import fabricUpload
 import kmlComputation
 from fabricUpload import Data
 from coordinateCluster import get_bounding_boxes
+import vectorTile
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -70,7 +73,7 @@ DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 logging.basicConfig(level=logging.DEBUG)
-
+db_lock = Lock()
 
 @celery.task(bind=True)
 def process_input_file(self, file_name, task_id):
@@ -82,7 +85,7 @@ def process_input_file(self, file_name, task_id):
 @celery.task(bind=True)
 def provide_kml_locations(self, names):
     try:
-        result = kmlComputation.filter_locations(names[0], names[1])
+        result = kmlComputation.served_wired(names[0], names[1])
         self.update_state(state='PROCESSED')
         return result
     except Exception as e:
@@ -140,7 +143,7 @@ def submit_fiber_form():
             return make_response('Error: No file uploaded', 400)
 
         inspector = inspect(engine)
-        if inspector.has_table('bdk') and inspector.has_table('kml'):
+        if inspector.has_table('Fabric') and inspector.has_table('KML'):
             response_data = {'Status': "Ok"}
             return json.dumps(response_data)
 
@@ -240,7 +243,7 @@ def search_location():
             cursor.execute(
                 """
                 SELECT address_primary, city, state, zip_code, latitude, longitude
-                FROM bdk 
+                FROM Fabric
                 WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s AND UPPER(state) = %s
                 LIMIT 1
                 """,
@@ -257,7 +260,7 @@ def search_location():
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM bdk 
+                    FROM Fabric 
                     WHERE UPPER(address_primary) LIKE %s AND UPPER(state) = %s
                     LIMIT 3
                     """,
@@ -268,7 +271,7 @@ def search_location():
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM bdk 
+                    FROM Fabric 
                     WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s
                     LIMIT 3
                     """,
@@ -280,7 +283,7 @@ def search_location():
         cursor.execute(
             """
             SELECT address_primary, city, state, zip_code, latitude, longitude
-            FROM bdk 
+            FROM Fabric 
             WHERE UPPER(address_primary) LIKE %s 
             LIMIT 5
             """,
@@ -413,7 +416,69 @@ def export_wireless():
         return send_file('wirelessCSVs.zip', as_attachment=True)
     else:
         return jsonify(response_data)
+    
+import subprocess
 
+@app.route('/tiles', methods=['POST'])
+def tiles():
+    network_data = kmlComputation.get_wired_data()
+
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {},
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [point['longitude'], point['latitude']]
+                }
+            }
+            for point in network_data
+        ]
+    }
+
+    with open('data.geojson', 'w') as f:
+        json.dump(geojson, f)
+
+    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
+    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+
+    if result.stderr:
+        print("Tippecanoe stderr:", result.stderr.decode())
+    
+    vectorTile.add_values_to_VT("./output.mbtiles")
+    response_data = {'Status': 'Ok'}
+    return json.dumps(response_data)
+
+@app.route("/tiles/<zoom>/<x>/<y>.pbf")
+def serve_tile(zoom, x, y):
+    zoom = int(zoom)
+    x = int(x)
+    y = int(y)
+    y = (2**zoom - 1) - y
+
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    cursor = conn.cursor()
+
+    with db_lock:
+            cursor.execute(
+                """
+                SELECT tile_data
+                FROM "VT"
+                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s
+                """, 
+                (int(zoom), int(x), int(y))
+            )
+    tile = cursor.fetchone()
+
+    if tile is None:
+        return Response('No tile found', status=404)
+        
+    response = make_response(bytes(tile[0]))    
+    response.headers['Content-Type'] = 'application/x-protobuf'
+    response.headers['Content-Encoding'] = 'gzip'  
+    return response
 
 if __name__ == '__main__':
     Base.metadata.create_all(engine)

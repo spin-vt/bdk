@@ -19,3 +19,4 @@ front-end/Map_marker.svg:Zone.Identifier
 *.mbtiles
 *.geojson
 *.pmtiles
+.env

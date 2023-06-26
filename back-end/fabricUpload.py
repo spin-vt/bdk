@@ -11,7 +11,7 @@ import os
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 db_host = os.getenv('postgres', 'localhost')
 
-NUMBER_THREADS = 4
+NUMBER_THREADS = 8
 BATCH_SIZE = 50000
 
 Base = declarative_base()
@@ -36,16 +36,15 @@ class Data(Base):
     h3_9 = Column(String)
     latitude = Column(Float)
     longitude = Column(Float)
-
+    username = Column(String)
 
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=0)
+Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 inspector = inspect(engine)
 if not inspector.has_table('Fabric'):
     Base.metadata.create_all(engine)
-
-Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 db_lock = Lock()
 
@@ -77,6 +76,7 @@ def process_rows(rows):
             h3_9 = row[13] if row[13] != '' else None
             latitude = float(row[14]) if row[14] != '' else None
             longitude = float(row[15]) if row[15] != '' else None
+            username = "vineet"
 
             new_data = Data(
                 location_id=location_id,
@@ -94,7 +94,8 @@ def process_rows(rows):
                 block_geoid=block_geoid,
                 h3_9=h3_9,
                 latitude=latitude,
-                longitude=longitude
+                longitude=longitude,
+                username=username
             )
             batch.append(new_data)
 
@@ -127,6 +128,6 @@ def open_and_read(file_name):
         next(csv_reader)
         all_rows = list(csv_reader)
         row_chunks = list(chunked(all_rows, 20000))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=NUMBER_THREADS) as executor:
             futures = [executor.submit(process_rows, chunk) for chunk in row_chunks]
             concurrent.futures.wait(futures)
