@@ -10,7 +10,7 @@ import pyproj
 from shapely.ops import transform
 import fiona
 from sqlalchemy import inspect
-import processData
+import fabricUpload
 from sqlalchemy import Column, Integer, Float, Boolean, String, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 import pandas as pd
@@ -27,32 +27,15 @@ Base = declarative_base()
 BATCH_SIZE = 50000
 
 class kml_data(Base):
-    __tablename__ = 'kml'
+    __tablename__ = 'KML'
     location_id = Column(Integer, primary_key=True)
     served = Column(Boolean)
-
-class wireless(Base):
-    __tablename__ = 'lte'
-    location_id = Column(Integer, primary_key=True)
-
-class wireless2(Base):
-    __tablename__ = 'non-lte'
-    location_id = Column(Integer, primary_key=True)
 
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
-# Check if the table exists
 inspector = inspect(engine)
-if not inspector.has_table('kml'):
-    Base.metadata.create_all(engine)
-
-inspector = inspect(engine)
-if not inspector.has_table('lte'):
-    Base.metadata.create_all(engine)
-
-inspector = inspect(engine)
-if not inspector.has_table('non-lte'):
+if not inspector.has_table('KML'):
     Base.metadata.create_all(engine)
 
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -86,17 +69,13 @@ def get_precise_wireless_data():
     results = session.query(wireless).all()
     results2 = session.query(wireless2).all()
 
-    # Create sets of location_ids for both results
     location_ids1 = {r.location_id for r in results}
     location_ids2 = {r.location_id for r in results2}
 
-    # Merge location_ids from both results
     location_ids = location_ids1 | location_ids2
 
-    # Query bdk_data using location IDs to get latitudes and longitudes
-    results = session.query(processData.Data).filter(processData.Data.location_id.in_(location_ids)).all()
+    results = session.query(fabricUpload.Data).filter(fabricUpload.Data.location_id.in_(location_ids)).all()
 
-    # Map location IDs to latitudes and longitudes for results
     latitudes = {r.location_id: r.latitude for r in results}
     longitudes = {r.location_id: r.longitude for r in results}
     addresses = {r.location_id: r.address_primary for r in results}
@@ -119,18 +98,14 @@ def get_precise_data():
 
     results = session.query(kml_data).all()
 
-    # Get location IDs from kml_data
     location_ids = [r.location_id for r in results]
 
-    # Query bdk_data using location IDs to get latitudes and longitudes
-    bdk_results = session.query(processData.Data).filter(processData.Data.location_id.in_(location_ids)).all()
+    bdk_results = session.query(fabricUpload.Data).filter(fabricUpload.Data.location_id.in_(location_ids)).all()
 
-    # Map location IDs to latitudes and longitudes
     latitudes = {r.location_id: r.latitude for r in bdk_results}
     longitudes = {r.location_id: r.longitude for r in bdk_results}
     addresses = {r.location_id: r.address_primary for r in bdk_results}
 
-    # Combine kml_data and bdk_data to create data dictionary
     data = [{'location_id': r.location_id,
              'served': r.served,
              'latitude': latitudes.get(r.location_id),
@@ -143,13 +118,13 @@ def check_mismatches():
     with db_lock:
         with ScopedSession() as session:
             table1_ids = set([row[0] for row in session.query(kml_data.location_id)])
-            table2_ids = set([row[0] for row in session.query(processData.Data.location_id)])
+            table2_ids = set([row[0] for row in session.query(fabricUpload.Data.location_id)])
             mismatched_ids = table1_ids.symmetric_difference(table2_ids)
             for id in mismatched_ids:
                 record1 = session.query(kml_data).filter_by(location_id=id).first()
-                record2 = session.query(processData.Data).filter_by(location_id=id).first()
+                record2 = session.query(fabricUpload.Data).filter_by(location_id=id).first()
                 if record1 and not record2:
-                    new_record = processData.Data(location_id=id, served=False)
+                    new_record = fabricUpload.Data(location_id=id, served=False)
                     session.add(new_record)
                 elif not record1 and record2:
                     new_record = kml_data(location_id=id, served=False)
@@ -157,14 +132,13 @@ def check_mismatches():
             session.commit()
 
 def wired_locations(fabric_fn, coverage_fn, lte_fn):
-    df = pandas.read_csv(fabric_fn) ##Changed fabric (v2)
+    df = pandas.read_csv(fabric_fn) 
 
     fabric = geopandas.GeoDataFrame(
         df.drop(['latitude', 'longitude'], axis=1),
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
     
-    # Enable KML support
     fiona.drvsupport.supported_drivers['kml'] = 'rw'
     fiona.drvsupport.supported_drivers['KML'] = 'rw'
     
@@ -172,35 +146,25 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
     wireless_coverage = wireless_coverage.to_crs("EPSG:4326")
     fabric_in_wireless = geopandas.sjoin(fabric,wireless_coverage,how="inner")
 
-    # filter for only data where bsl_flag is true
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     print(len(fabric_in_wireless), len(bsl_fabric_in_wireless))
 
-    # Create a dataset for 2.5GHz tower points
-
-    # first, load in the 2.5GHz tower approximation that Wesley drew
     lte_coverage = geopandas.read_file(lte_fn)
 
-    lte_fabric = gpd.GeoDataFrame()  # Initialize an empty GeoDataFrame
+    lte_fabric = gpd.GeoDataFrame() 
 
-    # next, get all points within this coverage
     lte_fabric = bsl_fabric_in_wireless[bsl_fabric_in_wireless.geometry.within(lte_coverage['geometry'][0])]
 
     nonlte_fabric = bsl_fabric_in_wireless[~bsl_fabric_in_wireless.geometry.within(lte_coverage['geometry'][0])]
 
-    #need to double check the accuracy
     for i in range(1, len(lte_coverage)):
-        # on each iteration, only keep the points within
         lte_fabric = pd.concat([lte_fabric, bsl_fabric_in_wireless[bsl_fabric_in_wireless.geometry.within(lte_coverage['geometry'][i])]])
-        # on each iteration, only keep the points not inside each polygon
         nonlte_fabric = nonlte_fabric[~nonlte_fabric.geometry.within(lte_coverage['geometry'][i])]
 
-    # convert lte_fabric back to a GeoDataFrame
     lte_fabric = gpd.GeoDataFrame(lte_fabric, crs="EPSG:4326")
 
-    # remove duplicate rows from both
     lte_fabric = lte_fabric.drop_duplicates()
     nonlte_fabric = nonlte_fabric.drop_duplicates()
 
@@ -221,7 +185,7 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
                         session.bulk_save_objects(batch)
                         session.commit()
                     except IntegrityError:
-                        session.rollback()  # Rollback the transaction on unique constraint violation
+                        session.rollback()  
                 batch = []
 
         except Exception as e:
@@ -233,7 +197,7 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
                 session.bulk_save_objects(batch)
                 session.commit()
             except IntegrityError:
-                session.rollback()  # Rollback the transaction on unique constraint violation
+                session.rollback()  
     session.close()
     
     session = Session()
@@ -252,7 +216,7 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
                         session.bulk_save_objects(batch)
                         session.commit()
                     except IntegrityError:
-                        session.rollback()  # Rollback the transaction on unique constraint violation
+                        session.rollback()  
                 batch = []
         except Exception as e:
             logging.error(f"Error occurred while inserting data: {e}")
@@ -263,43 +227,37 @@ def wired_locations(fabric_fn, coverage_fn, lte_fn):
                 session.bulk_save_objects(batch)
                 session.commit()
             except IntegrityError:
-                session.rollback()  # Rollback the transaction on unique constraint violation
+                session.rollback() 
     session.close()
 
         
 def filter_locations(Fabric_FN, Fiber_FN):
 
-    df = pandas.read_csv(Fabric_FN) ##Changed fabric (v2)
+    df = pandas.read_csv(Fabric_FN)
 
     fabric = geopandas.GeoDataFrame(
         df.drop(['latitude', 'longitude'], axis=1),
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
 
-    # Enable KML support
     fiona.drvsupport.supported_drivers['kml'] = 'rw'
     fiona.drvsupport.supported_drivers['KML'] = 'rw'
 
-    buffer_meters = 100  # meters
+    buffer_meters = 100 
     gdf_fiber = geopandas.read_file(Fiber_FN, driver='KML', encoding='utf-8')
     fiber_paths = gdf_fiber[gdf_fiber.geom_type == 'LineString']
 
     fiber_paths = fiber_paths.to_crs('epsg:4326')
 
-    # Project the fiber map to build a buffer object for a spatial join
     fiber_paths_buffer = fiber_paths.to_crs("EPSG:5070")
     fiber_paths_buffer['geometry'] = fiber_paths_buffer.buffer(buffer_meters)
     fiber_paths_buffer = fiber_paths_buffer.to_crs("EPSG:4326")
 
-    # Now, get points within the buffer and plot
     fabric_near_fiber = geopandas.sjoin(fabric, fiber_paths_buffer, how="inner")
 
-    # Filter out any rows where bsl_flag is False
-    bsl_fabric_near_fiber = fabric_near_fiber[fabric_near_fiber['bsl_flag']] #keep if bsl_flag is true
+    bsl_fabric_near_fiber = fabric_near_fiber[fabric_near_fiber['bsl_flag']] 
 
-    # Drop any duplicate rows
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates()
-    # Set served to True for fabric points present in fabric_near_fiber
     batch = [] 
     session = Session()
     for _, row in bsl_fabric_near_fiber.iterrows():
@@ -317,10 +275,9 @@ def filter_locations(Fabric_FN, Fiber_FN):
                         session.bulk_save_objects(batch)
                         session.commit()
                     except IntegrityError:
-                        session.rollback()  # Rollback the transaction on unique constraint violation
+                        session.rollback()  
                 
                 batch = []
-            # add_values_to_db(location_id, served)
         except Exception as e:
             logging.error(f"Error occurred while inserting data: {e}")
 
@@ -330,12 +287,11 @@ def filter_locations(Fabric_FN, Fiber_FN):
                 session.bulk_save_objects(batch)
                 session.commit()
             except IntegrityError:
-                session.rollback()  # Rollback the transaction on unique constraint violation
+                session.rollback() 
     session.close()
 
     session = Session()
     batch = [] 
-    # Set served to False for fabric points not present in fabric_near_fiber
     not_served_fabric = fabric[~fabric['location_id'].isin(bsl_fabric_near_fiber['location_id'])]
     not_served_fabric = not_served_fabric.drop_duplicates()
     for _, row in not_served_fabric.iterrows():
@@ -352,9 +308,8 @@ def filter_locations(Fabric_FN, Fiber_FN):
                         session.bulk_save_objects(batch)
                         session.commit()
                     except IntegrityError:
-                        session.rollback()  # Rollback the transaction on unique constraint violation
+                        session.rollback()  
                 batch = []
-            # add_values_to_db(location_id, served)
         except Exception as e:
             logging.error(f"Error occurred while inserting data: {e}")
             
@@ -364,12 +319,12 @@ def filter_locations(Fabric_FN, Fiber_FN):
                 session.bulk_save_objects(batch)
                 session.commit()
             except IntegrityError:
-                session.rollback()  # Rollback the transaction on unique constraint violation
+                session.rollback()  
     session.close()
 
 def exportWired(download_speed, upload_speed, tech_type): 
-    PROVIDER_ID = 000 #will be done at later date 
-    BRAND_NAME = 'Test' #will be done at later date 
+    PROVIDER_ID = 000 
+    BRAND_NAME = 'Test' 
     
     # tech_types = {
     # 'Copper Wire': 10,
@@ -387,20 +342,17 @@ def exportWired(download_speed, upload_speed, tech_type):
     MAX_DOWNLOAD_SPEED = download_speed
     MAX_UPLOAD_SPEED = upload_speed
 
-    LATENCY = 0 #will be done at later date 
-    BUSINESS_CODE = 0 #will be done at later date 
+    LATENCY = 0 
+    BUSINESS_CODE = 0
 
     availability_csv = pandas.DataFrame()
 
-    # Establish PostgreSQL connection
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    # Retrieve location_id from PostgreSQL table 'kml'
     cursor.execute("SELECT location_id FROM kml WHERE served = true")
     result = cursor.fetchall()
 
-    # Close cursor and connection
     cursor.close()
     conn.close()
 
@@ -423,8 +375,8 @@ def exportWired(download_speed, upload_speed, tech_type):
     return filename
 
 def exportWireless(download_speed, upload_speed, tech_type): 
-    PROVIDER_ID = 000 #will be done at later date 
-    BRAND_NAME = 'Test' #will be done at later date 
+    PROVIDER_ID = 000 
+    BRAND_NAME = 'Test' 
     
     # tech_types = {
     # 'Copper Wire': 10,
@@ -442,20 +394,17 @@ def exportWireless(download_speed, upload_speed, tech_type):
     MAX_DOWNLOAD_SPEED = download_speed
     MAX_UPLOAD_SPEED = upload_speed
 
-    LATENCY = 0 #will be done at later date 
-    BUSINESS_CODE = 0 #will be done at later date 
+    LATENCY = 0
+    BUSINESS_CODE = 0 
 
     availability_csv = pandas.DataFrame()
 
-    # Establish PostgreSQL connection
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    # Retrieve location_id from PostgreSQL table 'kml'
     cursor.execute("SELECT location_id FROM lte")
     result = cursor.fetchall()
 
-    # Close cursor and connection
     cursor.close()
     conn.close()
 
@@ -478,8 +427,8 @@ def exportWireless(download_speed, upload_speed, tech_type):
     return filename
 
 def exportWireless2(download_speed, upload_speed, tech_type): 
-    PROVIDER_ID = 000 #will be done at later date 
-    BRAND_NAME = 'Test' #will be done at later date 
+    PROVIDER_ID = 000 
+    BRAND_NAME = 'Test' 
     
     tech_types = {
     'Copper Wire': 10,
@@ -497,20 +446,17 @@ def exportWireless2(download_speed, upload_speed, tech_type):
     MAX_DOWNLOAD_SPEED = download_speed
     MAX_UPLOAD_SPEED = upload_speed
 
-    LATENCY = 0 #will be done at later date 
-    BUSINESS_CODE = 0 #will be done at later date 
+    LATENCY = 0 
+    BUSINESS_CODE = 0 
 
     availability_csv = pandas.DataFrame()
 
-    # Establish PostgreSQL connection
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    # Retrieve location_id from PostgreSQL table 'kml'
     cursor.execute('SELECT location_id FROM "non-lte"')
     result = cursor.fetchall()
 
-    # Close cursor and connection
     cursor.close()
     conn.close()
 

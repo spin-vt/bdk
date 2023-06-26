@@ -18,7 +18,7 @@ Base = declarative_base()
 
 
 class Data(Base):
-    __tablename__ = 'bdk'
+    __tablename__ = 'Fabric'
 
     location_id = Column(Integer, primary_key=True)
     address_primary = Column(String)
@@ -41,9 +41,8 @@ class Data(Base):
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
-# Check if the table exists
 inspector = inspect(engine)
-if not inspector.has_table('bdk'):
+if not inspector.has_table('Fabric'):
     Base.metadata.create_all(engine)
 
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)

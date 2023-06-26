@@ -5,7 +5,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import SelectedLocationContext from "./SelectedLocationContext";
 import debounce from "lodash.debounce";
 
-function SearchBar() {
+function Searchbar() {
   const [open, setOpen] = React.useState(false);
   const [options, setOptions] = React.useState([]);
   const [searchInput, setSearchInput] = useState("");
@@ -123,4 +123,4 @@ function SearchBar() {
   );
 }
 
-export default SearchBar;
+export default Searchbar;

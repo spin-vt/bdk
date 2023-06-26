@@ -1,32 +1,38 @@
 import logging
 import time
-from logging.handlers import RotatingFileHandler
-from logging import getLogger, INFO
 import os
-import processData
+import json
 import uuid
-import servicePlan
-import kmlEngine
-import filterPointsFunction
+from logging.handlers import RotatingFileHandler
+from logging import getLogger
 import pandas as pd
 import psycopg2
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import ProgrammingError
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
-from flask_jwt_extended.exceptions import NoAuthorizationError
-from processData import Data
-from sqlalchemy import or_
-import csv
-from threading import Lock
-from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy import create_engine, Column, Integer, String, Float, or_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.exc import ProgrammingError
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, abort, jsonify, request, make_response, send_file
+from flask_cors import CORS
+from flask_jwt_extended import (
+    JWTManager,
+    create_access_token,
+    jwt_required,
+    get_jwt_identity,
+    decode_token
+)
+from flask_jwt_extended.exceptions import NoAuthorizationError
+from celery import Celery
 import concurrent.futures
 from sqlalchemy import inspect
+from threading import Lock
+import csv
+import zipfile
+
+import fabricUpload
+import kmlComputation
+from fabricUpload import Data
+from coordinateCluster import get_bounding_boxes
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -35,7 +41,6 @@ console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - 
 console_handler.setFormatter(console_formatter)
 logger = getLogger(__name__)
 
-# Add RotatingFileHandler for file logging
 file_handler = RotatingFileHandler(filename='app.log', maxBytes=1000000, backupCount=1)
 file_handler.setLevel(logging.DEBUG)
 file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -44,14 +49,6 @@ logger.addHandler(file_handler)
 
 logger.addHandler(console_handler)
 
-from flask import Flask, abort, jsonify, request, make_response
-from flask_cors import CORS
-from celery import Celery
-
-locations_served_dict = {}
-
-import json
-
 app = Flask(__name__)
 CORS(app)
 
@@ -59,11 +56,8 @@ celery = Celery(app.name, broker='redis://localhost:6379/0')
 app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 celery.conf.update(app.config)
 
-import os
-
 db_host = os.getenv('postgres', 'localhost')
 
-# configure the logger to print out log messages to the console and file
 logging.basicConfig(level=logging.DEBUG)
 
 app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
@@ -71,28 +65,24 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgres:db123@{db_host}:
 app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
 jwt = JWTManager(app)
 
-# CORS(app)
-
 Base = declarative_base()
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
-
-
-@celery.task(bind=True)
-def process_input_file(self, file_name, task_id):
-    result = processData.open_and_read(file_name)
-    # Notify the submit_fiber_form method that the worker has finished processing
-    self.update_state(state='PROCESSED')
-    return result
-
 
 logging.basicConfig(level=logging.DEBUG)
 
 
 @celery.task(bind=True)
+def process_input_file(self, file_name, task_id):
+    result = fabricUpload.open_and_read(file_name)
+    self.update_state(state='PROCESSED')
+    return result
+
+
+@celery.task(bind=True)
 def provide_kml_locations(self, names):
     try:
-        result = kmlEngine.filter_locations(names[0], names[1])
+        result = kmlComputation.filter_locations(names[0], names[1])
         self.update_state(state='PROCESSED')
         return result
     except Exception as e:
@@ -103,39 +93,19 @@ def provide_kml_locations(self, names):
 
 @app.route("/is-db-altered")
 def is_db_altered():
-    if len(kmlEngine.get_precise_data(10)) > 0:
+    if len(kmlComputation.get_precise_data(10)) > 0:
         return jsonify({"Status": "Success", "Message": "Data has been added to db"})
     else:
         return jsonify({"Status": "Failure", "Message": "Data has not been added to db"})
 
-
-@app.route("/location-data-range/<lat>/<long>/<range>", methods=['GET'])
-def get_locations_in_range(lat, long, range):
-    return jsonify(kmlEngine.get_locations_in_range(lat, long, range))
-
-
 @app.route("/served-data", methods=['GET'])
 def get_number_records():
-    return jsonify(kmlEngine.get_precise_data())
+    return jsonify(kmlComputation.get_precise_data())
+
 
 @app.route("/served-data-wireless", methods=['GET'])
 def get_number_records_wireless():
-    return jsonify(kmlEngine.get_precise_wireless_data())
-    # response_data = {'Status': "Ok"}
-    # return json.dumps(response_data)
-
-
-@app.route('/pointsWithin/<minLat>/<maxLat>/<minLng>/<maxLng>', methods=['GET'])
-def get_points(minLat, minLng, maxLat, maxLng):
-    print(minLat + " " + minLng + " " + maxLat + " " + maxLng)
-    points = filterPointsFunction.get_points_within_box(minLat, minLng, maxLat, maxLng)
-    return jsonify(points)
-
-
-import uuid
-import time
-import os
-import json
+    return jsonify(kmlComputation.get_precise_wireless_data())
 
 @app.route('/submit-wireless-form', methods=['POST', 'GET'])
 def submit_wireless_form():
@@ -149,11 +119,12 @@ def submit_wireless_form():
 
         if len(files) <= 0:
             return make_response('Error: No file uploaded', 400)
-        
+
         inspector = inspect(engine)
         if inspector.has_table('lte') and inspector.has_table('non-lte'):
             response_data = {'Status': "Ok"}
             return json.dumps(response_data)
+
 
 @app.route('/submit-fiber-form', methods=['POST', 'GET'])
 def submit_fiber_form():
@@ -167,7 +138,7 @@ def submit_fiber_form():
 
         if len(files) <= 0:
             return make_response('Error: No file uploaded', 400)
-        
+
         inspector = inspect(engine)
         if inspector.has_table('bdk') and inspector.has_table('kml'):
             response_data = {'Status': "Ok"}
@@ -179,26 +150,19 @@ def submit_fiber_form():
             names.append(file_name)
 
             if file_name.endswith('.csv'):
-                # Process CSV file
                 file.save(file_name)
 
-                # Generate a unique task ID
                 task_id = str(uuid.uuid4())
 
-                # Start the task
                 task = process_input_file.apply_async(args=[file_name, task_id])
 
-                # Check the task status periodically
                 while not task.ready():
                     time.sleep(1)
-
-                # Check if the task has finished processing
 
                 response_data = {'Status': "Ok"}
 
             elif file_name.endswith('.kml'):
-                # Process KML file
-                if not processData.check_num_records_greater_zero():
+                if not fabricUpload.check_num_records_greater_zero():
                     return make_response('Error: Records not in database', 400)
 
                 file.save(file_name)
@@ -230,8 +194,6 @@ def submit_fiber_form():
         return json.dumps(response_data)
 
 
-# Example of what an endpoint looks like
-# You can add more routes with similar template logic
 @app.route('/')
 def home():
     response_body = {
@@ -240,56 +202,6 @@ def home():
     }
 
     return response_body
-
-
-@app.route("/submit-service-plan", methods=['POST'])
-def post_to_service_plan_table():
-    download_speed = request.form.get('downloadSpeed')
-    upload_speed = request.form.get('uploadSpeed')
-    tech_type = request.form.get('techType')
-    isp_name = request.form.get('ispName')
-
-    if kmlEngine.check_num_records_greater_zero():
-        response_data = {'Status': "Success"}
-        return jsonify(response_data)
-
-    return jsonify({'error': 'An error occurred while processing the request.'}), 400
-
-
-@app.route("/get-visualization/<isp_name>/")
-def get_visualization(isp_name):
-    with open("locale-data.json") as f:
-        data = json.load(f)
-
-        status = "Failure"
-        filtered_data = {}
-
-        filtered_data = [d for d in data["data"] if d["user_account"] == isp_name]
-
-        if filtered_data:
-            status = "Success"
-
-        response_body = [
-            ("status", status),
-            ("data", filtered_data)
-        ]
-
-        return jsonify(response_body)
-
-
-@app.route("/locale-data-all/")
-def get_all_data():
-    with open("locale-data.json") as f:
-        data = json.load(f)
-        data = json.loads(json.dumps(data))
-    response_body = {
-        "status": "success",
-        "data": data
-    }
-    return jsonify(response_body)
-
-
-from coordinateCluster import get_bounding_boxes
 
 @app.route("/api/coordinates", methods=['POST'])
 def get_bounding_coordinates():
@@ -308,55 +220,8 @@ def get_bounding_coordinates():
     return jsonify(coordinates)
 
 
-from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, decode_token
-from flask_jwt_extended.exceptions import NoAuthorizationError
-from processData import Data
-from sqlalchemy import or_
-import csv
-from threading import Lock
-from sqlalchemy import create_engine, Column, Integer, String, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
-import concurrent.futures
-from sqlalchemy import inspect
-
-app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
-app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
-jwt = JWTManager(app)
-
-# CORS(app)
-# List of all two-letter state abbreviations
-states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
-
-Base = declarative_base()
-DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-engine = create_engine(DATABASE_URL)
-
-# Check if the table exists
-inspector = inspect(engine)
-if not inspector.has_table('User'):
-    try:
-        Base.metadata.create_all(engine)
-    except ProgrammingError as e:
-        logging.exception("Error creating 'User' table: %s", str(e))
-
-db_lock = Lock()
-
-
-class User(Base):
-    __tablename__ = 'User'
-
-    id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True)
-    password = Column(String(256))
-
-
 @app.route('/api/search', methods=['GET'])
 def search_location():
-    # Establish PostgreSQL connection
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
@@ -364,12 +229,10 @@ def search_location():
 
     results = []
 
-
     if query:
         query_split = query.split()
 
         if len(query_split) >= 3:
-            # Assume the last two items correspond to city and state
             primary_address = " ".join(query_split[:-2]).upper()
             city = query_split[-2].upper().strip()
             state = query_split[-1].upper().strip()
@@ -387,11 +250,10 @@ def search_location():
             results.extend(cursor.fetchall())
 
         if len(query_split) >= 2:
-            # Assume the last item is a city if it doesn't have two characters; otherwise, it's a state
             primary_address = " ".join(query_split[:-1]).upper()
             city_or_state = query_split[-1].upper().strip()
 
-            if city_or_state in states:  # Assume it's a state
+            if city_or_state in states:  
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
@@ -402,7 +264,7 @@ def search_location():
                     ('%' + primary_address + '%', city_or_state,)
                 )
 
-            else:  # Assume it's a city
+            else:  
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
@@ -415,7 +277,6 @@ def search_location():
 
             results.extend(cursor.fetchall())
 
-        # Use the entire string as the primary address
         cursor.execute(
             """
             SELECT address_primary, city, state, zip_code, latitude, longitude
@@ -428,10 +289,17 @@ def search_location():
 
         results.extend(cursor.fetchall())
 
-    results_dict = [{"address": result[0], "city": result[1], "state": result[2], "zipcode": result[3], "latitude": result[4], "longitude": result[5]} for result in results]
+    results_dict = [
+        {
+            "address": result[0],
+            "city": result[1],
+            "state": result[2],
+            "zipcode": result[3],
+            "latitude": result[4],
+            "longitude": result[5]
+        } for result in results
+    ]
 
-    # Convert SQLAlchemy results to dictionary format for jsonify
-    # Close cursor and connection
     cursor.close()
     conn.close()
     return jsonify(results_dict)
@@ -443,11 +311,9 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
-    # Establish PostgreSQL connection
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    # Check if the username already exists
     cursor.execute("SELECT username FROM \"User\" WHERE username = %s", (username,))
     existing_user = cursor.fetchone()
 
@@ -456,45 +322,35 @@ def register():
         conn.close()
         return jsonify({'status': 'error', 'message': 'Username already exists.'})
 
-    # Generate hashed password
     hashed_password = generate_password_hash(password, method='sha256')
 
-    # Insert new user into the users table
     cursor.execute("INSERT INTO \"User\" (username, password) VALUES (%s, %s) RETURNING id", (username, hashed_password))
     new_user_id = cursor.fetchone()[0]
 
-    # Commit the transaction and close the cursor and connection
     conn.commit()
     cursor.close()
     conn.close()
 
-    # Create the access token
     access_token = create_access_token(identity={'id': new_user_id, 'username': username})
 
     response = make_response(jsonify({'status': 'success', 'token': access_token}))
-    # Set access token as a secure HTTP only cookie
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
     return response
 
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    # Get the data from the request
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
 
-    # Establish PostgreSQL connection
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    # Query your database for the user
     cursor.execute("SELECT * FROM \"User\" WHERE username = %s", (username,))
     user = cursor.fetchone()
 
-    # Check the user's password
     if user is not None and check_password_hash(user[2], password):
-        # If the password is valid, log the user in
         user_id = user[0]
         access_token = create_access_token(identity={'id': user_id, 'username': username})
         cursor.close()
@@ -521,9 +377,6 @@ def get_user_info():
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
-from flask import send_file
-import zipfile
-
 @app.route('/export', methods=['GET'])
 def export():
     response_data = {'Status': 'Failure'}
@@ -531,15 +384,15 @@ def export():
     download_speed = request.args.get('downloadSpeed', default='', type=str)
     upload_speed = request.args.get('uploadSpeed', default='', type=str)
     tech_type = request.args.get('techType', default='', type=str)
-    
-    # Pass these parameters into your exportWired() function
-    filename = kmlEngine.exportWired(download_speed, upload_speed, tech_type)
-    
+
+    filename = kmlComputation.exportWired(download_speed, upload_speed, tech_type)
+
     if filename:
         response_data = {'Status': "Success"}
         return send_file(filename, as_attachment=True)
     else:
         return jsonify(response_data)
+
 
 @app.route('/export-wireless', methods=['GET'])
 def export_wireless():
@@ -548,21 +401,20 @@ def export_wireless():
     download_speed = request.args.get('downloadSpeed', default='', type=str)
     upload_speed = request.args.get('uploadSpeed', default='', type=str)
     tech_type = request.args.get('techType', default='', type=str)
-    
-    # Pass these parameters into your exportWired() function
-    filename = kmlEngine.exportWireless(download_speed, upload_speed, tech_type)
-    filename2 = kmlEngine.exportWireless2(download_speed, upload_speed, tech_type)
-    
+
+    filename = kmlComputation.exportWireless(download_speed, upload_speed, tech_type)
+    filename2 = kmlComputation.exportWireless2(download_speed, upload_speed, tech_type)
+
     if filename and filename2:
-        # Creating a zip file
         with zipfile.ZipFile('wirelessCSVs.zip', 'w') as zipf:
-            zipf.write(filename, os.path.basename(filename)) 
+            zipf.write(filename, os.path.basename(filename))
             zipf.write(filename2, os.path.basename(filename2))
 
         return send_file('wirelessCSVs.zip', as_attachment=True)
     else:
         return jsonify(response_data)
-    
+
+
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
     app.run(port=8000, debug=True)

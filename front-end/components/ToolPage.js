@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import Map from "./Map";
-import Upload from "./Upload";
+import Upload from "./UploadWired";
 import UploadWireless from "./UploadWireless"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";

@@ -15,4 +15,7 @@ nonlte/
 *.csv
 *.zip
 back-end/clusterCoordinate.json
-Map_marker.svg:Zone.Identifier
+front-end/Map_marker.svg:Zone.Identifier
+*.mbtiles
+*.geojson
+*.pmtiles

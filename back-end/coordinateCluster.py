@@ -4,9 +4,6 @@ import pandas as pd
 import json
 
 def get_bounding_boxes(filename, zoom_level):
-    # Adjust the epsilon parameter based on the zoom level
-    # The actual value to use will depend on your specific use case
-    # Here we assume a linear relationship between zoom level and epsilon
     epsilon = 0.5 / zoom_level
     df = pd.read_csv(filename)
     coords = df[['latitude', 'longitude']].values
@@ -15,7 +12,6 @@ def get_bounding_boxes(filename, zoom_level):
     cluster_labels = clustering.labels_
     unique_labels = set(cluster_labels)
 
-    # Exclude noise (-1 label)
     clusters = [coords[cluster_labels == i] for i in unique_labels if i != -1]
 
     bounding_boxes = []

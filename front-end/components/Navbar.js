@@ -23,7 +23,7 @@ import ContactMailIcon from '@mui/icons-material/ContactMail';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LoginIcon from '@mui/icons-material/Login';
 import UploadIcon from '@mui/icons-material/Upload';
-import Searchbar from '../components/Searchbar';
+import Searchbar from './Searchbar'
 
 
 const useStyles = makeStyles((theme) => ({
