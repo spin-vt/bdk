@@ -33,7 +33,7 @@ class kml_data(Base):
     wireless = Column(Boolean)
     lte = Column(Boolean)
     username = Column(String)
-    coveredLocations = Column(String)
+    # coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
 
@@ -279,7 +279,7 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
                     wireless = False,
                     lte = False,
                     username = "vineet",
-                    coveredLocations = Fiber_FN,
+                    # coveredLocations = Fiber_FN,
                     maxDownloadNetwork = Fiber_FN,
                     maxDownloadSpeed = int(download)
                 )
@@ -287,8 +287,8 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
                 batch.append(newData)
             else:  # If the location_id exists
                 existing_data.served = True
-                if Fiber_FN not in existing_data.coveredLocations:
-                    existing_data.coveredLocations += ", " + Fiber_FN
+                # if Fiber_FN not in existing_data.coveredLocations:
+                #     existing_data.coveredLocations += ", " + Fiber_FN
 
                 if int(download) > existing_data.maxDownloadSpeed: 
                     existing_data.maxDownloadNetwork = Fiber_FN

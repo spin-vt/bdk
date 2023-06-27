@@ -262,7 +262,7 @@ def search_location():
             cursor.execute(
                 """
                 SELECT address_primary, city, state, zip_code, latitude, longitude
-                FROM Fabric
+                FROM "Fabric"
                 WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s AND UPPER(state) = %s
                 LIMIT 1
                 """,
@@ -279,7 +279,7 @@ def search_location():
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM Fabric 
+                    FROM "Fabric"
                     WHERE UPPER(address_primary) LIKE %s AND UPPER(state) = %s
                     LIMIT 3
                     """,
@@ -290,7 +290,7 @@ def search_location():
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM Fabric 
+                    FROM "Fabric" 
                     WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s
                     LIMIT 3
                     """,
@@ -302,7 +302,7 @@ def search_location():
         cursor.execute(
             """
             SELECT address_primary, city, state, zip_code, latitude, longitude
-            FROM Fabric 
+            FROM "Fabric" 
             WHERE UPPER(address_primary) LIKE %s 
             LIMIT 5
             """,
@@ -438,42 +438,42 @@ def export_wireless():
 
 @app.route('/tiles', methods=['POST'])
 def tiles():
-    # network_data = kmlComputation.get_wired_data()
+    network_data = kmlComputation.get_wired_data()
 
-    # geojson = {
-    #     "type": "FeatureCollection",
-    #     "features": [
-    #         {
-    #             "type": "Feature",
-    #             "properties": {
-    #                 "location_id": point['location_id'],
-    #                 "served": point['served'],
-    #                 "address": point['address'],
-    #                 "wireless": point['wireless'],
-    #                 'lte': point['lte'],
-    #                 'username': point['username'],
-    #                 'maxDownloadNetwork': point['maxDownloadNetwork'],
-    #                 'maxDownloadSpeed': point['maxDownloadSpeed']
-    #             },
-    #             "geometry": {
-    #                 "type": "Point",
-    #                 "coordinates": [point['longitude'], point['latitude']]
-    #             }
-    #         }
-    #         for point in network_data
-    #     ]
-    # }
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "location_id": point['location_id'],
+                    "served": point['served'],
+                    "address": point['address'],
+                    "wireless": point['wireless'],
+                    'lte': point['lte'],
+                    'username': point['username'],
+                    'maxDownloadNetwork': point['maxDownloadNetwork'],
+                    'maxDownloadSpeed': point['maxDownloadSpeed']
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [point['longitude'], point['latitude']]
+                }
+            }
+            for point in network_data
+        ]
+    }
 
-    # with open('data.geojson', 'w') as f:
-    #     json.dump(geojson, f)
+    with open('data.geojson', 'w') as f:
+        json.dump(geojson, f)
 
-    # command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
-    # result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
+    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
-    # if result.stderr:
-    #     print("Tippecanoe stderr:", result.stderr.decode())
+    if result.stderr:
+        print("Tippecanoe stderr:", result.stderr.decode())
     
-    # vectorTile.add_values_to_VT("./output.mbtiles")
+    vectorTile.add_values_to_VT("./output.mbtiles")
     response_data = {'Status': 'Ok'}
     return json.dumps(response_data)
 

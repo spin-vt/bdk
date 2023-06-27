@@ -20,6 +20,9 @@ function Searchbar() {
         longitude: option.longitude,
       });
     }
+    else {
+      setLocation(null);
+    }
   };
 
   // React.useEffect(() => {
@@ -58,9 +61,6 @@ function Searchbar() {
     }
   }, [open]);
 
-  React.useEffect(() => {
-    console.log(options);
-  }, [options]);
   return (
     <Autocomplete
       id="searchbar"
