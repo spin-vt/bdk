@@ -237,7 +237,7 @@ def wireless_locations(fabric_fn, coverage_fn, lte_fn):
                 session.rollback() 
     session.close()
 
-        
+
 def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
 
     df = pandas.read_csv(Fabric_FN)
@@ -287,10 +287,16 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
                 batch.append(newData)
             else:  # If the location_id exists
                 existing_data.served = True
-                # if Fiber_FN not in existing_data.coveredLocations:
-                #     existing_data.coveredLocations += ", " + Fiber_FN
 
-                if int(download) > existing_data.maxDownloadSpeed: 
+                if existing_data.coveredLocations == "": 
+                    existing_data.coveredLocations = Fiber_FN
+                else:
+                    covered_locations_list = existing_data.coveredLocations.split(', ')
+                    if Fiber_FN not in covered_locations_list:
+                        covered_locations_list.append(Fiber_FN)
+                        existing_data.coveredLocations = ", ".join(covered_locations_list)
+
+                if int(download) > int(existing_data.maxDownloadSpeed): 
                     existing_data.maxDownloadNetwork = Fiber_FN
                     existing_data.maxDownloadSpeed = int(download)
 
@@ -316,45 +322,44 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
     session.commit()
     session.close()
 
-    if flag: 
-        return
-    
-    session = Session()
-    batch = [] 
-    not_served_fabric = fabric[~fabric['location_id'].isin(bsl_fabric_near_fiber['location_id'])]
-    not_served_fabric = not_served_fabric.drop_duplicates()
-    for _, row in not_served_fabric.iterrows():
-        try:
-            newData = kml_data(
-                location_id = int(row.location_id),
-                served = False,
-                wireless = False,
-                lte = False,
-                username = "vineet",
-                maxDownloadNetwork = -1,
-                maxDownloadSpeed = -1,
-            )
-            
-            batch.append(newData)
-            if len(batch) >= BATCH_SIZE:
-                with db_lock:
-                    try:
-                        session.bulk_save_objects(batch)
-                        session.commit()
-                    except IntegrityError:
-                        session.rollback()  
-                batch = []
-        except Exception as e:
-            logging.error(f"Error occurred while inserting data: {e}")
-            
-    if batch:
-        with db_lock:
+    if not flag: 
+        session = Session()
+        batch = [] 
+        not_served_fabric = fabric[~fabric['location_id'].isin(bsl_fabric_near_fiber['location_id'])]
+        not_served_fabric = not_served_fabric.drop_duplicates()
+        for _, row in not_served_fabric.iterrows():
             try:
-                session.bulk_save_objects(batch)
-                session.commit()
-            except IntegrityError:
-                session.rollback()  
-    session.close()
+                newData = kml_data(
+                    location_id = int(row.location_id),
+                    served = False,
+                    wireless = False,
+                    lte = False,
+                    username = "vineet",
+                    coveredLocations = "",
+                    maxDownloadNetwork = -1,
+                    maxDownloadSpeed = -1
+                )
+                
+                batch.append(newData)
+                if len(batch) >= BATCH_SIZE:
+                    with db_lock:
+                        try:
+                            session.bulk_save_objects(batch)
+                            session.commit()
+                        except IntegrityError:
+                            session.rollback()  
+                    batch = []
+            except Exception as e:
+                logging.error(f"Error occurred while inserting data: {e}")
+                
+        if batch:
+            with db_lock:
+                try:
+                    session.bulk_save_objects(batch)
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()  
+        session.close()
 
 def exportWired(download_speed, upload_speed, tech_type): 
     PROVIDER_ID = 000 
@@ -512,7 +517,8 @@ def exportWireless2(download_speed, upload_speed, tech_type):
     availability_csv.to_csv(filename, index=False)
     return filename
 
-# if __name__ == "__main__":
-# #     exportWired()
+if __name__ == "__main__":
+    served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./ash.kml", False, 0, 0, 0)
+    served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./Domebo.kml", True, 20, 0, 0)
 # #     filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
 #     wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")
