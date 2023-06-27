@@ -30,6 +30,7 @@ import csv
 import zipfile
 import sqlite3
 from flask import Response
+import subprocess
 
 import fabricUpload
 import kmlComputation
@@ -44,11 +45,11 @@ console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - 
 console_handler.setFormatter(console_formatter)
 logger = getLogger(__name__)
 
-file_handler = RotatingFileHandler(filename='app.log', maxBytes=1000000, backupCount=1)
-file_handler.setLevel(logging.DEBUG)
-file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(file_formatter)
-logger.addHandler(file_handler)
+# file_handler = RotatingFileHandler(filename='app.log', maxBytes=1000000, backupCount=1)
+# file_handler.setLevel(logging.DEBUG)
+# file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# file_handler.setFormatter(file_formatter)
+# logger.addHandler(file_handler)
 
 logger.addHandler(console_handler)
 
@@ -83,9 +84,13 @@ def process_input_file(self, file_name, task_id):
 
 
 @celery.task(bind=True)
-def provide_kml_locations(self, names):
+def provide_kml_locations(self, names, downloadSpeed, uploadSpeed, techType):
     try:
-        result = kmlComputation.served_wired(names[0], names[1])
+        flag = False
+        for i in range(1, len(names)): 
+            if i > 1: 
+                flag = True
+            result = kmlComputation.served_wired(names[0], names[i], flag, downloadSpeed, uploadSpeed, techType)
         self.update_state(state='PROCESSED')
         return result
     except Exception as e:
@@ -103,7 +108,7 @@ def is_db_altered():
 
 @app.route("/served-data", methods=['GET'])
 def get_number_records():
-    return jsonify(kmlComputation.get_precise_data())
+    return jsonify(kmlComputation.get_wired_data())
 
 
 @app.route("/served-data-wireless", methods=['GET'])
@@ -142,15 +147,29 @@ def submit_fiber_form():
         if len(files) <= 0:
             return make_response('Error: No file uploaded', 400)
 
-        inspector = inspect(engine)
-        if inspector.has_table('Fabric') and inspector.has_table('KML'):
-            response_data = {'Status': "Ok"}
-            return json.dumps(response_data)
+        # The file data associated with each file
+        file_data_list = request.form.getlist('fileData')
 
-        for file in files:
+        # inspector = inspect(engine)
+        # if inspector.has_table('Fabric') and inspector.has_table('KML'):
+        #     response_data = {'Status': "Ok"}
+        #     return json.dumps(response_data)
+        
+        fabricName = ""
+
+        for file, file_data_str in zip(files, file_data_list):
             print(file)
             file_name = file.filename
+            fabricName = file_name
             names.append(file_name)
+
+            # Parse the fileData JSON string to a dictionary
+            file_data = json.loads(file_data_str)
+
+            # Extract the data associated with the file
+            downloadSpeed = file_data.get('downloadSpeed', '')
+            uploadSpeed = file_data.get('uploadSpeed', '')
+            techType = file_data.get('techType', '')
 
             if file_name.endswith('.csv'):
                 file.save(file_name)
@@ -170,7 +189,7 @@ def submit_fiber_form():
 
                 file.save(file_name)
                 task_id = str(uuid.uuid4())
-                task = provide_kml_locations.apply_async(args=[names])
+                task = provide_kml_locations.apply_async(args=[names, downloadSpeed, uploadSpeed, techType])
                 logging.info("Started KML processing task with ID %s", task_id)
 
                 while not task.ready():
@@ -416,38 +435,45 @@ def export_wireless():
         return send_file('wirelessCSVs.zip', as_attachment=True)
     else:
         return jsonify(response_data)
-    
-import subprocess
 
 @app.route('/tiles', methods=['POST'])
 def tiles():
-    network_data = kmlComputation.get_wired_data()
+    # network_data = kmlComputation.get_wired_data()
 
-    geojson = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {},
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [point['longitude'], point['latitude']]
-                }
-            }
-            for point in network_data
-        ]
-    }
+    # geojson = {
+    #     "type": "FeatureCollection",
+    #     "features": [
+    #         {
+    #             "type": "Feature",
+    #             "properties": {
+    #                 "location_id": point['location_id'],
+    #                 "served": point['served'],
+    #                 "address": point['address'],
+    #                 "wireless": point['wireless'],
+    #                 'lte': point['lte'],
+    #                 'username': point['username'],
+    #                 'maxDownloadNetwork': point['maxDownloadNetwork'],
+    #                 'maxDownloadSpeed': point['maxDownloadSpeed']
+    #             },
+    #             "geometry": {
+    #                 "type": "Point",
+    #                 "coordinates": [point['longitude'], point['latitude']]
+    #             }
+    #         }
+    #         for point in network_data
+    #     ]
+    # }
 
-    with open('data.geojson', 'w') as f:
-        json.dump(geojson, f)
+    # with open('data.geojson', 'w') as f:
+    #     json.dump(geojson, f)
 
-    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+    # command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
+    # result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
-    if result.stderr:
-        print("Tippecanoe stderr:", result.stderr.decode())
+    # if result.stderr:
+    #     print("Tippecanoe stderr:", result.stderr.decode())
     
-    vectorTile.add_values_to_VT("./output.mbtiles")
+    # vectorTile.add_values_to_VT("./output.mbtiles")
     response_data = {'Status': 'Ok'}
     return json.dumps(response_data)
 

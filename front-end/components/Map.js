@@ -51,13 +51,33 @@ function Map({ markers }) {
         'source': 'custom',
         'paint': {
           'circle-radius': 3,
-          'circle-color': '#800080'
+          'circle-color': [
+            'case',
+            ['==', ['get', 'served'], true], // if 'served' property is true
+            '#00FF00', // make the circle color green
+            '#FF0000' // else make the circle color purple
+          ]
         },
         'source-layer': 'data'  
       });
       console.log("Sending markers to create tiles")
       sendMarkers();
-    });
+
+      map.current.on('click', 'custom', function (e) {
+        let featureProperties = e.features[0].properties;
+
+        let content = '<h1>Marker Information</h1>';
+        for (let property in featureProperties) {
+          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+        }
+
+        new maplibregl.Popup({ closeOnClick: false })
+          .setLngLat(e.lngLat)
+          .setHTML(content)
+          .addTo(map.current);
+        }); 
+      });
+      
   }, [markers]);
 
   return (

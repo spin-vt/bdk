@@ -11,7 +11,7 @@ from shapely.ops import transform
 import fiona
 from sqlalchemy import inspect
 import fabricUpload
-from sqlalchemy import Column, Integer, Float, Boolean, String, create_engine, text
+from sqlalchemy import Column, Integer, Float, Boolean, String, ARRAY, create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 import pandas as pd
 from sqlalchemy.exc import IntegrityError
@@ -33,6 +33,7 @@ class kml_data(Base):
     wireless = Column(Boolean)
     lte = Column(Boolean)
     username = Column(String)
+    coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
 
@@ -237,7 +238,7 @@ def wireless_locations(fabric_fn, coverage_fn, lte_fn):
     session.close()
 
         
-def served_wired(Fabric_FN, Fiber_FN):
+def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
 
     df = pandas.read_csv(Fabric_FN)
 
@@ -266,19 +267,32 @@ def served_wired(Fabric_FN, Fiber_FN):
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates()
     batch = [] 
     session = Session()
+
     for _, row in bsl_fabric_near_fiber.iterrows():
         try:
-            newData = kml_data(
-                location_id = int(row.location_id),
-                served = True,
-                wireless = False,
-                lte = False,
-                username = "vineet",
-                maxDownloadNetwork = -1,
-                maxDownloadSpeed = -1
-            )
-            
-            batch.append(newData)
+            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
+
+            if existing_data is None:  # If the location_id doesn't exist in db
+                newData = kml_data(
+                    location_id = int(row.location_id),
+                    served = True,
+                    wireless = False,
+                    lte = False,
+                    username = "vineet",
+                    coveredLocations = Fiber_FN,
+                    maxDownloadNetwork = Fiber_FN,
+                    maxDownloadSpeed = int(download)
+                )
+                
+                batch.append(newData)
+            else:  # If the location_id exists
+                existing_data.served = True
+                if Fiber_FN not in existing_data.coveredLocations:
+                    existing_data.coveredLocations += ", " + Fiber_FN
+
+                if int(download) > existing_data.maxDownloadSpeed: 
+                    existing_data.maxDownloadNetwork = Fiber_FN
+                    existing_data.maxDownloadSpeed = int(download)
 
             if len(batch) >= BATCH_SIZE:
                 with db_lock:
@@ -286,7 +300,7 @@ def served_wired(Fabric_FN, Fiber_FN):
                         session.bulk_save_objects(batch)
                         session.commit()
                     except IntegrityError:
-                        session.rollback()  
+                        session.rollback()
                 
                 batch = []
         except Exception as e:
@@ -299,8 +313,12 @@ def served_wired(Fabric_FN, Fiber_FN):
                 session.commit()
             except IntegrityError:
                 session.rollback() 
+    session.commit()
     session.close()
 
+    if flag: 
+        return
+    
     session = Session()
     batch = [] 
     not_served_fabric = fabric[~fabric['location_id'].isin(bsl_fabric_near_fiber['location_id'])]
@@ -366,7 +384,7 @@ def exportWired(download_speed, upload_speed, tech_type):
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    cursor.execute("SELECT location_id FROM kml WHERE served = true")
+    cursor.execute('SELECT location_id FROM "KML" WHERE served = true')
     result = cursor.fetchall()
 
     cursor.close()
@@ -418,7 +436,7 @@ def exportWireless(download_speed, upload_speed, tech_type):
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    cursor.execute("SELECT location_id FROM KML")
+    cursor.execute('SELECT location_id FROM "KML"')
     result = cursor.fetchall()
 
     cursor.close()

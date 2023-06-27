@@ -102,8 +102,6 @@ export default function Upload({ fetchMarkers }) {
   
     const formData = new FormData();
     console.log(storage.length)
-    console.log(storage[0])
-    console.log(storage[1])
 
     storage.forEach((file) => {
       const fileData = {
