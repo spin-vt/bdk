@@ -84,13 +84,9 @@ def process_input_file(self, file_name, task_id):
 
 
 @celery.task(bind=True)
-def provide_kml_locations(self, names, downloadSpeed, uploadSpeed, techType):
+def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag):
     try:
-        flag = False
-        for i in range(1, len(names)): 
-            if i > 1: 
-                flag = True
-            result = kmlComputation.served_wired(names[0], names[i], flag, downloadSpeed, uploadSpeed, techType)
+        result = kmlComputation.served_wired(fabric, network, flag, downloadSpeed, uploadSpeed, techType)
         self.update_state(state='PROCESSED')
         return result
     except Exception as e:
@@ -99,12 +95,12 @@ def provide_kml_locations(self, names, downloadSpeed, uploadSpeed, techType):
         raise
 
 
-@app.route("/is-db-altered")
-def is_db_altered():
-    if len(kmlComputation.get_precise_data(10)) > 0:
-        return jsonify({"Status": "Success", "Message": "Data has been added to db"})
-    else:
-        return jsonify({"Status": "Failure", "Message": "Data has not been added to db"})
+# @app.route("/is-db-altered")
+# def is_db_altered():
+#     if len(kmlComputation.get_precise_data(10)) > 0:
+#         return jsonify({"Status": "Success", "Message": "Data has been added to db"})
+#     else:
+#         return jsonify({"Status": "Failure", "Message": "Data has not been added to db"})
 
 @app.route("/served-data", methods=['GET'])
 def get_number_records():
@@ -156,11 +152,12 @@ def submit_fiber_form():
         #     return json.dumps(response_data)
         
         fabricName = ""
+        flag = False
 
         for file, file_data_str in zip(files, file_data_list):
             print(file)
+            print(file_data_str)
             file_name = file.filename
-            fabricName = file_name
             names.append(file_name)
 
             # Parse the fileData JSON string to a dictionary
@@ -173,6 +170,7 @@ def submit_fiber_form():
 
             if file_name.endswith('.csv'):
                 file.save(file_name)
+                fabricName = file_name
 
                 task_id = str(uuid.uuid4())
 
@@ -189,13 +187,14 @@ def submit_fiber_form():
 
                 file.save(file_name)
                 task_id = str(uuid.uuid4())
-                task = provide_kml_locations.apply_async(args=[names, downloadSpeed, uploadSpeed, techType])
+                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag])
                 logging.info("Started KML processing task with ID %s", task_id)
 
                 while not task.ready():
                     time.sleep(1)
 
                 logging.info("KML processing task %s completed", task_id)
+                flag = True
                 result = task.result
                 dict_values = result
 

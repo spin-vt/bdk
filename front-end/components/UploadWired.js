@@ -40,6 +40,7 @@ const useStyles = makeStyles({
 
 const options = ['Fabric', 'Network'];
 let storage = JSON.parse(localStorage.getItem('storage')) || [];
+let storage2 = [];
 
 const tech_types = {
   'Copper Wire': 10,
@@ -103,17 +104,15 @@ export default function Upload({ fetchMarkers }) {
     const formData = new FormData();
     console.log(storage.length)
 
-    storage.forEach((file) => {
-      const fileData = {
-        file: file[0],
-        downloadSpeed: options[selectedIndex] === 'Network' ? downloadSpeed : '',
-        uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
-        techType: options[selectedIndex] === 'Network' ? techType : '',
-      };
-  
-      formData.append('fileData', JSON.stringify(fileData));
-      formData.append('file', file[0]);
-    });
+    storage2.forEach((file) => {
+      const fileObj = file[0];
+      const newFile = file[1];
+        
+      console.log(JSON.stringify(newFile))
+      formData.append('fileData', JSON.stringify(newFile));
+      formData.append('file', fileObj);
+      });
+    
   
     fetch('http://localhost:8000/submit-fiber-form', {
       method: 'POST',
@@ -123,7 +122,7 @@ export default function Upload({ fetchMarkers }) {
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
-        fetchMarkers(downloadSpeed, uploadSpeed, techType);
+        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.log("will show new buttons soon 1")
         console.log('Status:', response); // log the status
         setExportSuccess(true); // Set the export success state to true
@@ -134,10 +133,10 @@ export default function Upload({ fetchMarkers }) {
         console.log("going to fetch markers")
         console.log("Will show new buttons soon 2")
         setExportSuccess(true); // Set the export success state to true
-        fetchMarkers(downloadSpeed, uploadSpeed, techType);
+        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
       })
       .catch((error) => {
-        fetchMarkers(downloadSpeed, uploadSpeed, techType);
+        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error('Error:', error);
       });
   };
@@ -156,8 +155,6 @@ export default function Upload({ fetchMarkers }) {
   }, [exportSuccess, buttonGroupRef]);
 
   const handleFileChange = (event) => {
-    storage.push([event.target.files[0], idCounterRef.current]);
-
       const newFiles = Object.values(event.target.files).map((file) => ({
       id: idCounterRef.current++,
       name: file.name,
@@ -166,8 +163,17 @@ export default function Upload({ fetchMarkers }) {
       uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
       techType: options[selectedIndex] === 'Network' ? techType : '',
     }));
-    
-    idCounterRef.current += 1;
+
+    const newFile = {
+      id: idCounterRef.current,
+      name: event.target.files[0].name,
+      option: options[selectedIndex],
+      downloadSpeed: options[selectedIndex] === 'Network' ? downloadSpeed : '',
+      uploadSpeed: options[selectedIndex] === 'Network' ? uploadSpeed : '',
+      techType: options[selectedIndex] === 'Network' ? techType : '',
+    };
+    storage2.push([event.target.files[0], newFile]);
+    storage.push([event.target.files[0], newFiles]);
 
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
