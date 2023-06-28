@@ -134,7 +134,6 @@ def create_tiles():
         print("Tippecanoe stderr:", result.stderr.decode())
     
     val = add_values_to_VT("./output.mbtiles")
-    print(val)
 
 if __name__ == "__main__":
     add_values_to_VT("./output.mbtiles")

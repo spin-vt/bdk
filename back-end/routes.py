@@ -45,11 +45,11 @@ console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - 
 console_handler.setFormatter(console_formatter)
 logger = getLogger(__name__)
 
-# file_handler = RotatingFileHandler(filename='app.log', maxBytes=1000000, backupCount=1)
-# file_handler.setLevel(logging.DEBUG)
-# file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# file_handler.setFormatter(file_formatter)
-# logger.addHandler(file_handler)
+file_handler = RotatingFileHandler(filename='app.log', maxBytes=1000000, backupCount=1)
+file_handler.setLevel(logging.DEBUG)
+file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
 
 logger.addHandler(console_handler)
 
@@ -76,6 +76,14 @@ engine = create_engine(DATABASE_URL)
 logging.basicConfig(level=logging.DEBUG)
 db_lock = Lock()
 
+states = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", 
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", 
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", 
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", 
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
+]
+
 @celery.task(bind=True)
 def process_input_file(self, file_name, task_id):
     result = fabricUpload.open_and_read(file_name)
@@ -84,13 +92,9 @@ def process_input_file(self, file_name, task_id):
 
 
 @celery.task(bind=True)
-def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag):
+def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag, networkType):
     try:
-        print(fabric)
-        print(network)
-        print(flag)
-        print(downloadSpeed)
-        result = kmlComputation.served_wired(fabric, network, flag, downloadSpeed, uploadSpeed, techType)
+        result = kmlComputation.add_network_data(fabric, network, flag, downloadSpeed, uploadSpeed, techType, networkType)
         self.update_state(state='PROCESSED')
         return result
     except Exception as e:
@@ -98,25 +102,12 @@ def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, tec
         self.update_state(state='FAILED')
         raise
 
-
-# @app.route("/is-db-altered")
-# def is_db_altered():
-#     if len(kmlComputation.get_precise_data(10)) > 0:
-#         return jsonify({"Status": "Success", "Message": "Data has been added to db"})
-#     else:
-#         return jsonify({"Status": "Failure", "Message": "Data has not been added to db"})
-
 @app.route("/served-data", methods=['GET'])
 def get_number_records():
     return jsonify(kmlComputation.get_wired_data())
 
-
-@app.route("/served-data-wireless", methods=['GET'])
-def get_number_records_wireless():
-    return jsonify(kmlComputation.get_precise_wireless_data())
-
-@app.route('/submit-wireless-form', methods=['POST', 'GET'])
-def submit_wireless_form():
+@app.route('/submit-data', methods=['POST', 'GET'])
+def submit_data():
     if request.method == 'POST':
         names = []
 
@@ -128,26 +119,6 @@ def submit_wireless_form():
         if len(files) <= 0:
             return make_response('Error: No file uploaded', 400)
 
-        inspector = inspect(engine)
-        if inspector.has_table('lte') and inspector.has_table('non-lte'):
-            response_data = {'Status': "Ok"}
-            return json.dumps(response_data)
-
-
-@app.route('/submit-fiber-form', methods=['POST', 'GET'])
-def submit_fiber_form():
-    if request.method == 'POST':
-        names = []
-
-        if 'file' not in request.files:
-            return make_response('Error: No file uploaded', 400)
-
-        files = request.files.getlist('file')
-
-        if len(files) <= 0:
-            return make_response('Error: No file uploaded', 400)
-
-        # The file data associated with each file
         file_data_list = request.form.getlist('fileData')
 
         # inspector = inspect(engine)
@@ -159,18 +130,15 @@ def submit_fiber_form():
         flag = False
 
         for file, file_data_str in zip(files, file_data_list):
-            # print(file)
-            # print(file_data_str)
             file_name = file.filename
             names.append(file_name)
 
-            # Parse the fileData JSON string to a dictionary
             file_data = json.loads(file_data_str)
 
-            # Extract the data associated with the file
             downloadSpeed = file_data.get('downloadSpeed', '')
             uploadSpeed = file_data.get('uploadSpeed', '')
             techType = file_data.get('techType', '')
+            networkType = file_data.get('networkType', '')
 
             if file_name.endswith('.csv'):
                 file.save(file_name)
@@ -187,13 +155,17 @@ def submit_fiber_form():
 
             elif file_name.endswith('.kml'):
                 if not fabricUpload.check_num_records_greater_zero():
-                    return make_response('Error: Records not in database', 400)
+                    return make_response('Error: Fabric records not in database', 400)
 
                 file.save(file_name)
                 task_id = str(uuid.uuid4())
-                print(fabricName)
-                print(file_name)
-                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag])
+
+                if networkType == "Wired": 
+                    networkType = 0
+                else: 
+                    networkType = 1
+
+                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag, networkType])
                 logging.info("Started KML processing task with ID %s %s %s", task_id, fabricName, file_name)
 
                 while not task.ready():
@@ -201,15 +173,14 @@ def submit_fiber_form():
 
                 logging.info("KML processing task %s completed", task_id)
                 flag = True
-                result = task.result
-                dict_values = result
+                # result = task.result
+                # dict_values = result
                 vectorTile.create_tiles()
 
-                if result is None:
+                if task is False:
                     logging.error("KML processing task %s failed with error: %s", task_id, task.traceback)
                     response_data = {'Status': 'Error'}
                 else:
-                    locations_served_dict = result
                     response_data = {'Status': 'Ok'}
 
         for name in names:
@@ -413,7 +384,7 @@ def export():
     upload_speed = request.args.get('uploadSpeed', default='', type=str)
     tech_type = request.args.get('techType', default='', type=str)
 
-    filename = kmlComputation.exportWired(download_speed, upload_speed, tech_type)
+    filename = kmlComputation.export(download_speed, upload_speed, tech_type)
 
     if filename:
         response_data = {'Status': "Success"}
@@ -441,53 +412,6 @@ def export_wireless():
         return send_file('wirelessCSVs.zip', as_attachment=True)
     else:
         return jsonify(response_data)
-
-# @app.route('/tiles', methods=['POST'])
-# def tiles():
-#     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
-#     cursor = conn.cursor()
-#     cursor.execute('DELETE FROM "VT"')  # Assuming your table name is VT
-#     conn.commit()
-#     conn.close()
-#     network_data = kmlComputation.get_wired_data()
-#     geojson = {
-#         "type": "FeatureCollection",
-#         "features": [
-#             {
-#                 "type": "Feature",
-#                 "properties": {
-#                     "location_id": point['location_id'],
-#                     "served": point['served'],
-#                     "address": point['address'],
-#                     "wireless": point['wireless'],
-#                     'lte': point['lte'],
-#                     'username': point['username'],
-#                     'network_coverages': point['coveredLocations'],
-#                     'maxDownloadNetwork': point['maxDownloadNetwork'],
-#                     'maxDownloadSpeed': point['maxDownloadSpeed']
-#                 },
-#                 "geometry": {
-#                     "type": "Point",
-#                     "coordinates": [point['longitude'], point['latitude']]
-#                 }
-#             }
-#             for point in network_data
-#         ]
-#     }
-
-#     with open('data.geojson', 'w') as f:
-#         json.dump(geojson, f)
-
-#     command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
-#     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
-
-#     if result.stderr:
-#         print("Tippecanoe stderr:", result.stderr.decode())
-    
-#     val = vectorTile.add_values_to_VT("./output.mbtiles")
-#     print(val)
-    # response_data = {'Status': 'Ok'}
-    # return json.dumps(response_data)
 
 @app.route("/tiles/<zoom>/<x>/<y>.pbf")
 def serve_tile(zoom, x, y):
