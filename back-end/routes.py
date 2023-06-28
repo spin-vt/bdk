@@ -86,6 +86,10 @@ def process_input_file(self, file_name, task_id):
 @celery.task(bind=True)
 def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag):
     try:
+        print(fabric)
+        print(network)
+        print(flag)
+        print(downloadSpeed)
         result = kmlComputation.served_wired(fabric, network, flag, downloadSpeed, uploadSpeed, techType)
         self.update_state(state='PROCESSED')
         return result
@@ -155,8 +159,8 @@ def submit_fiber_form():
         flag = False
 
         for file, file_data_str in zip(files, file_data_list):
-            print(file)
-            print(file_data_str)
+            # print(file)
+            # print(file_data_str)
             file_name = file.filename
             names.append(file_name)
 
@@ -187,8 +191,10 @@ def submit_fiber_form():
 
                 file.save(file_name)
                 task_id = str(uuid.uuid4())
+                print(fabricName)
+                print(file_name)
                 task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag])
-                logging.info("Started KML processing task with ID %s", task_id)
+                logging.info("Started KML processing task with ID %s %s %s", task_id, fabricName, file_name)
 
                 while not task.ready():
                     time.sleep(1)
@@ -437,34 +443,34 @@ def export_wireless():
 
 @app.route('/tiles', methods=['POST'])
 def tiles():
-    # network_data = kmlComputation.get_wired_data()
+    network_data = kmlComputation.get_wired_data()
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "location_id": point['location_id'],
+                    "served": point['served'],
+                    "address": point['address'],
+                    "wireless": point['wireless'],
+                    'lte': point['lte'],
+                    'username': point['username'],
+                    'network_coverages': point['coveredLocations'],
+                    'maxDownloadNetwork': point['maxDownloadNetwork'],
+                    'maxDownloadSpeed': point['maxDownloadSpeed']
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [point['longitude'], point['latitude']]
+                }
+            }
+            for point in network_data
+        ]
+    }
 
-    # geojson = {
-    #     "type": "FeatureCollection",
-    #     "features": [
-    #         {
-    #             "type": "Feature",
-    #             "properties": {
-    #                 "location_id": point['location_id'],
-    #                 "served": point['served'],
-    #                 "address": point['address'],
-    #                 "wireless": point['wireless'],
-    #                 'lte': point['lte'],
-    #                 'username': point['username'],
-    #                 'maxDownloadNetwork': point['maxDownloadNetwork'],
-    #                 'maxDownloadSpeed': point['maxDownloadSpeed']
-    #             },
-    #             "geometry": {
-    #                 "type": "Point",
-    #                 "coordinates": [point['longitude'], point['latitude']]
-    #             }
-    #         }
-    #         for point in network_data
-    #     ]
-    # }
-
-    # with open('data.geojson', 'w') as f:
-    #     json.dump(geojson, f)
+    with open('data.geojson', 'w') as f:
+        json.dump(geojson, f)
 
     # command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
     # result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
@@ -472,7 +478,8 @@ def tiles():
     # if result.stderr:
     #     print("Tippecanoe stderr:", result.stderr.decode())
     
-    # vectorTile.add_values_to_VT("./output.mbtiles")
+    # val = vectorTile.add_values_to_VT("./output.mbtiles")
+    # print(val)
     response_data = {'Status': 'Ok'}
     return json.dumps(response_data)
 
