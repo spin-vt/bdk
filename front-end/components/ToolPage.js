@@ -1,7 +1,6 @@
 import React, { useState, useRef } from "react";
 import Map from "./Map";
-import Upload from "./UploadWired";
-import UploadWireless from "./UploadWireless"
+import Upload from "./Upload";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
@@ -13,9 +12,9 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import Tooltip from '@mui/material/Tooltip';
 import { makeStyles } from '@material-ui/core/styles';
-import Grow from '@mui/material/Grow';  // Import Grow for transition effect
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'; // Fiber icon
-import WifiIcon from '@mui/icons-material/Wifi';  // Wifi icon
+import Grow from '@mui/material/Grow';  
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'; 
+import WifiIcon from '@mui/icons-material/Wifi'; 
 
 const useStyles = makeStyles((theme) => ({
   sidebar: {
@@ -78,8 +77,7 @@ function Tool() {
   const [expandTable, setExpandTable] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [showOptions, setShowOptions] = useState(true);
-    // New state for transition effect
-    const [checked, setChecked] = useState(false);
+  const [checked, setChecked] = useState(false);
 
     const handleChange = () => {
       setChecked((prev) => !prev);
@@ -91,58 +89,6 @@ function Tool() {
   const handleCloseTooltip = () => {   // new function to close tooltip
     setTooltipOpen(false);
   }
-
-  // const fetchMarkers = (downloadSpeed, uploadSpeed, techType) => {
-  //   fetch("http://localhost:8000/served-data", {
-  //     method: "GET",
-  //   })
-  //     .then((response) => response.json())
-  //     .then((data) => {
-  //       const newMarkers = data.map((item) => ({
-  //         name: item.address,
-  //         id: item.location_id,
-  //         download_speed: downloadSpeed,
-  //         upload_speed: uploadSpeed,
-  //         technology: techType,
-  //         latitude: item.latitude,
-  //         longitude: item.longitude,
-  //         served: item.served
-  //       }));
-  //       console.log(newMarkers)
-  //       console.log("going to set the markers")
-  //       setMarkers(newMarkers);
-  //     })
-  //     .catch((error) => {
-  //       console.log(error);
-  //     });
-  // };
-
-  const fetchMarkersWireless = (downloadSpeed, uploadSpeed, techType) => {
-    fetch("http://localhost:8000/served-data-wireless", {
-      method: "GET",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        const newMarkers = data.map((item) => ({
-          name: item.address,
-          id: item.location_id,
-          download_speed: downloadSpeed,
-          upload_speed: uploadSpeed,
-          technology: techType,
-          latitude: item.latitude,
-          longitude: item.longitude,
-          served: item.served,
-          type: item.type
-
-        }));
-        console.log(newMarkers)
-        console.log("going to set the markers")
-        setMarkers(newMarkers);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
 
   const toggleUpload = () => {
     setExpandTable(!expandTable);
@@ -161,66 +107,33 @@ function Tool() {
     setShowOptions(true);
   };
 
-  // keep your useStyles function as previously suggested
-
-return (
-  <div className={styles.toolContainer}>
-    <div className={styles.content}>
-      <div className={styles.mapContainer}>
-        <Map markers={markers} />
-        <div className={styles.iconContainer} onClick={toggleUpload}>
-          <Tooltip title="Click here to upload!" placement="left" open={!expandTable && tooltipOpen} classes={{ tooltip: classes.tooltip }}>
-            <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowLeft} className={styles.expandIcon} />
-          </Tooltip>
-        </div>
-      </div>
-      {expandTable && (
-        <div className={`${classes.sidebar}`}>
-          <div className={styles.sidebarContent}>
-            {showOptions ? (
-              <div>
-                <Typography variant="h4" className={classes.dataTypeHeading}>
-                  Select your data type:
-                </Typography>
-                <Button variant="outlined" style={{marginTop: '1vh', marginLeft: "2vw", marginRight:"1vw"}} className={classes.dataTypeButton} onClick={() => handleOptionClick('fiber')}>
-                  Fiber
-                </Button>
-                <Button variant="outlined" style={{marginTop: '1vh'}} className={classes.dataTypeButton} onClick={() => handleOptionClick('wireless')}>
-                  Wireless
-                </Button>
-              </div>
-            ) : (
-              <div>
-                <div className={classes.backButtonContainer}>
-                  <Button variant="text" className={`${classes.backButton} ${styles.backButtonIcon}`} onClick={handleBack}>
-                    <FontAwesomeIcon icon={faArrowLeft} className={styles.backButtonIcon} />
-                    <Typography variant="h4">Go back</Typography>
-                  </Button>
-                </div>
-                {selectedOption === 'fiber' && (
-                  <div>
-                    <Typography variant="h4" className={classes.uploadHeading}>
-                      Fiber Upload Component
-                    </Typography>
-                    <Upload fetchMarkers={[]} />
-                  </div>
-                )}
-                {selectedOption === 'wireless' && (
-                  <div>
-                    <Typography variant="h4" className={classes.uploadHeading}>
-                      Wireless Upload Component
-                    </Typography>
-                    <UploadWireless fetchMarkersWireless={fetchMarkersWireless} />
-                  </div>
-                )}
-              </div>
-            )}
+  return (
+    <div className={styles.toolContainer}>
+      <div className={styles.content}>
+        <div className={styles.mapContainer}>
+          <Map markers={markers} />
+          <div className={styles.iconContainer} onClick={toggleUpload}>
+            <Tooltip title="Click here to upload!" placement="left" open={!expandTable}>
+              <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowRight} className={styles.expandIcon} />
+            </Tooltip>
           </div>
         </div>
-      )}
+        {expandTable && (
+          <div className={`${classes.sidebar}`}>
+            <IconButton onClick={toggleUpload} style={{position: 'absolute', right: '10px', top: '10px'}}>
+              <CloseIcon />
+            </IconButton>
+            <div className={styles.sidebarContent}>
+              <Typography variant="h4" className={classes.uploadHeading}>
+                Upload Component
+              </Typography>
+              <Upload fetchMarkers={[]} />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 }
 
 export default Tool;

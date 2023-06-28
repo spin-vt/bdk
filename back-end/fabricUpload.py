@@ -102,6 +102,7 @@ def process_rows(rows):
             if len(batch) >= BATCH_SIZE:
                 with db_lock:
                     session.bulk_save_objects(batch)
+                    logging.error("commit was done")
                     session.commit()
                 batch = []
 
