@@ -160,7 +160,7 @@ function Map({ markers }) {
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       //look in .env for actual key (API_TILER_KEY)
-      style: 'https://api.maptiler.com/maps/streets/style.json?key=KlAp457eWT4JMghBJSMm',
+      style: 'https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN',
       center: [-98.35, 39.50],
       zoom: 4
     });

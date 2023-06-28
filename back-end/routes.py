@@ -86,6 +86,10 @@ def process_input_file(self, file_name, task_id):
 @celery.task(bind=True)
 def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag):
     try:
+        print(fabric)
+        print(network)
+        print(flag)
+        print(downloadSpeed)
         result = kmlComputation.served_wired(fabric, network, flag, downloadSpeed, uploadSpeed, techType)
         self.update_state(state='PROCESSED')
         return result
@@ -155,8 +159,8 @@ def submit_fiber_form():
         flag = False
 
         for file, file_data_str in zip(files, file_data_list):
-            print(file)
-            print(file_data_str)
+            # print(file)
+            # print(file_data_str)
             file_name = file.filename
             names.append(file_name)
 
@@ -187,8 +191,10 @@ def submit_fiber_form():
 
                 file.save(file_name)
                 task_id = str(uuid.uuid4())
+                print(fabricName)
+                print(file_name)
                 task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag])
-                logging.info("Started KML processing task with ID %s", task_id)
+                logging.info("Started KML processing task with ID %s %s %s", task_id, fabricName, file_name)
 
                 while not task.ready():
                     time.sleep(1)
@@ -443,7 +449,6 @@ def tiles():
     conn.commit()
     conn.close()
     network_data = kmlComputation.get_wired_data()
-
     geojson = {
         "type": "FeatureCollection",
         "features": [
@@ -456,6 +461,7 @@ def tiles():
                     "wireless": point['wireless'],
                     'lte': point['lte'],
                     'username': point['username'],
+                    'network_coverages': point['coveredLocations'],
                     'maxDownloadNetwork': point['maxDownloadNetwork'],
                     'maxDownloadSpeed': point['maxDownloadSpeed']
                 },
@@ -477,7 +483,8 @@ def tiles():
     if result.stderr:
         print("Tippecanoe stderr:", result.stderr.decode())
     
-    vectorTile.add_values_to_VT("./output.mbtiles")
+    # val = vectorTile.add_values_to_VT("./output.mbtiles")
+    # print(val)
     response_data = {'Status': 'Ok'}
     return json.dumps(response_data)
 

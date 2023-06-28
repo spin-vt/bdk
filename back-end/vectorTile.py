@@ -88,3 +88,6 @@ def add_values_to_VT(mbtiles_file_path):
             os.remove(mbtiles_file_path)
 
     return 1
+
+if __name__ == "__main__":
+    add_values_to_VT("./output.mbtiles")

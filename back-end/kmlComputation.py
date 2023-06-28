@@ -19,6 +19,9 @@ import geopandas as gpd
 from datetime import datetime
 import psycopg2
 import os
+import json 
+import subprocess
+import vectorTile
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 db_host = os.getenv('postgres', 'localhost')
@@ -116,6 +119,7 @@ def get_wired_data():
              'wireless': r.wireless,
             'lte': r.lte,
             'username': r.username,
+            'coveredLocations' : r.coveredLocations,
             'maxDownloadNetwork': r.maxDownloadNetwork,
             'maxDownloadSpeed': r.maxDownloadSpeed} for r in results]
 
@@ -239,7 +243,6 @@ def wireless_locations(fabric_fn, coverage_fn, lte_fn):
 
 
 def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
-
     df = pandas.read_csv(Fabric_FN)
 
     fabric = geopandas.GeoDataFrame(
@@ -270,12 +273,20 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
 
     for _, row in bsl_fabric_near_fiber.iterrows():
         try:
+            if row.location_id == '': 
+                continue
+
             existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
+            print("hi")
+
+            if download == "": 
+                download = 0
 
             if download == "": 
                 download = 0
                 
             if existing_data is None:  # If the location_id doesn't exist in db
+                print("this is sad")
                 newData = kml_data(
                     location_id = int(row.location_id),
                     served = True,
@@ -286,7 +297,7 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
                     maxDownloadNetwork = Fiber_FN,
                     maxDownloadSpeed = int(download)
                 )
-                
+                print("appending new data row")
                 batch.append(newData)
             else:  # If the location_id exists
                 existing_data.served = True
@@ -520,8 +531,44 @@ def exportWireless2(download_speed, upload_speed, tech_type):
     availability_csv.to_csv(filename, index=False)
     return filename
 
+def test():  
+    network_data = get_wired_data()  
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "location_id": point['location_id'],
+                    "served": point['served'],
+                    "address": point['address'],
+                    "wireless": point['wireless'],
+                    'lte': point['lte'],
+                    'username': point['username'],
+                    'network_coverages': point['coveredLocations'],
+                    'maxDownloadNetwork': point['maxDownloadNetwork'],
+                    'maxDownloadSpeed': point['maxDownloadSpeed']
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [point['longitude'], point['latitude']]
+                }
+            }
+            for point in network_data
+        ]
+    }
+
+    with open('data.geojson', 'w') as f:
+        json.dump(geojson, f)
+    
+    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
+    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+
+    if result.stderr:
+        print("Tippecanoe stderr:", result.stderr.decode())
+    
+    val = vectorTile.add_values_to_VT("./output.mbtiles")
+    print(val)
+
 # if __name__ == "__main__":
-#     served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./ash.kml", False, 0, 0, 0)
-#     served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./Domebo.kml", True, 20, 0, 0)
-# #     filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
-#     wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")
+#     test()
