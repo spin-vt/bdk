@@ -36,7 +36,7 @@ class kml_data(Base):
     wireless = Column(Boolean)
     lte = Column(Boolean)
     username = Column(String)
-    coveredLocations = Column(String)
+    # coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
 
@@ -290,7 +290,7 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
                     wireless = False,
                     lte = False,
                     username = "vineet",
-                    coveredLocations = Fiber_FN,
+                    # coveredLocations = Fiber_FN,
                     maxDownloadNetwork = Fiber_FN,
                     maxDownloadSpeed = int(download)
                 )
