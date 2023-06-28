@@ -76,6 +76,9 @@ engine = create_engine(DATABASE_URL)
 logging.basicConfig(level=logging.DEBUG)
 db_lock = Lock()
 
+# List of all two-letter state abbreviations
+states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
+
 @celery.task(bind=True)
 def process_input_file(self, file_name, task_id):
     result = fabricUpload.open_and_read(file_name)
@@ -518,29 +521,38 @@ def serve_tile(zoom, x, y):
     response.headers['Content-Encoding'] = 'gzip'  
     return response
 
-@app.route('/delete-markers', methods=['DELETE'])
-def delete_markers():
-
-    marker_ids = request.json['ids']
+@app.route('/toggle-markers', methods=['POST'])
+def toggle_markers():
+    markers = request.json
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    with db_lock:
-        for marker_id in marker_ids:
-            cursor.execute(
-                """
-                DELETE FROM "KML"
-                WHERE location_id = %s
-                """, 
-                (marker_id,)
-            )
-    conn.commit()
+    try:
+        with db_lock:
+            for marker in markers:
+                cursor.execute(
+                    """
+                    UPDATE "KML"
+                    SET "served" = %s
+                    WHERE "location_id" = %s
+                    """, 
+                    (marker['served'], marker['id'],)
+                )
+        conn.commit()
+        vectorTile.create_tiles()
+        message = 'Markers toggled successfully'
+        status_code = 200
 
-    cursor.close()
-    conn.close()
-    
-    vectorTile.create_tiles()
-    return jsonify(message='Markers deleted successfully'), 200
+    except Exception as e:
+        conn.rollback()  # rollback transaction on error
+        message = str(e)  # send the error message to client
+        status_code = 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return jsonify(message=message), status_code
 
 if __name__ == '__main__':
     Base.metadata.create_all(engine)

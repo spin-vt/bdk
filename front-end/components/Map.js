@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import SelectedLocationContext from "./SelectedLocationContext";
-import { Toolbar, Switch, FormControlLabel } from '@material-ui/core';
+import { Toolbar, Switch, FormControlLabel, Button } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
 import MapboxDraw from '@mapbox/mapbox-gl-draw'
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import * as turf from '@turf/turf';
+import LoadingEffect from "./LoadingEffect";
 
 
 const useStyles = makeStyles({
@@ -44,8 +45,6 @@ const useStyles = makeStyles({
     display: 'flex',
     alignItems: 'center', // this will align items vertically in the center
     justifyContent: 'center',
-    // maxHeight: '5vh',
-    // maxWidth: ' 8vw',
     zIndex: 1000,
     backgroundColor: '#3A7BD5',
     color: '#fff',
@@ -74,10 +73,6 @@ const useStyles = makeStyles({
 
 function Map({ markers }) {
 
-
-
-
-  console.log(markers.length);
   const classes = useStyles();
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -88,12 +83,93 @@ function Map({ markers }) {
 
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
 
   const [lastPosition, setLastPosition] = useState([37.0902, -95.7129]);
   const [lastZoom, setLastZoom] = useState(5);
 
   const allMarkersRef = useRef([]); // create a ref for allMarkers
+
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [selectedMarkers, setSelectedMarkers] = useState([]);
+
+  const toggleMarkers = (markers) => {
+    return fetch("http://localhost:8000/toggle-markers", {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(markers)
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data.message);
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
+
+
+  const toggleModalVisibility = () => {
+    setModalVisible(!isModalVisible);
+  };
+
+  const changeToServe = () => {
+    setSelectedMarkers(prevMarkers => prevMarkers.map(marker => ({ ...marker, served: true })));
+  };
+
+  const changeToUnserve = () => {
+    setSelectedMarkers(prevMarkers => prevMarkers.map(marker => ({ ...marker, served: false })));
+  };
+
+
+  const doneWithChanges = () => {
+    setIsLoading(true);
+    const selectedMarkerIds = selectedMarkers.map((marker) => ({ id: marker.id, served: marker.served }));
+  
+    // Send request to server to change the selected markers to served
+    toggleMarkers(selectedMarkerIds)
+    .finally(() => {
+  
+
+      if (map.current.getLayer('custom')) {
+        map.current.removeLayer('custom');
+      }
+
+      if (map.current.getSource('custom')) {
+        map.current.removeSource('custom');
+      }
+
+      map.current.addSource('custom', {
+        type: 'vector',
+        tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+        maxzoom: 16
+      });
+
+      map.current.addLayer({
+        'id': 'custom',
+        'type': 'circle',
+        'source': 'custom',
+        'paint': {
+          'circle-radius': 3,
+          'circle-color':
+            [
+              'case',
+              ['==', ['get', 'served'], true], // if 'served' property is true
+              '#46DF39', // make the circle color green
+              '#FF0000', // else make the circle color red
+            ]
+        },
+        'source-layer': 'data'
+      });
+      setIsLoading(false); // Set loading to false after API call
+    });
+  
+    setSelectedMarkers([]);
+    toggleModalVisibility();
+  };
 
   useEffect(() => {
     const fetchMarkers = () => {
@@ -117,28 +193,11 @@ function Map({ markers }) {
           console.log(error);
         });
     };
-
-    fetchMarkers();
+    if (allMarkersRef.current.length === 0) {
+      fetchMarkers();
+    }
   }, []);
-    
-  
 
-  const deleteMarkers = (markerIds) => {
-    fetch("http://localhost:8000/delete-markers", {
-      method: "DELETE",
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ ids: markerIds })
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log(data.message);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
 
 
 
@@ -221,7 +280,7 @@ function Map({ markers }) {
             [
               'case',
               ['==', ['get', 'served'], true], // if 'served' property is true
-              '#00FF00', // make the circle color green
+              '#46DF39', // make the circle color green
               '#FF0000', // else make the circle color red
             ]
         },
@@ -237,7 +296,7 @@ function Map({ markers }) {
         // Convert drawn polygon to turf polygon
         const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
-        console.log(allMarkersRef.current);
+        // console.log(allMarkersRef.current);
 
         // Iterate over markers and select if they are inside the polygon
         const selectedMarkers = allMarkersRef.current.filter((marker) => {
@@ -245,15 +304,13 @@ function Map({ markers }) {
           return turf.booleanPointInPolygon(point, turfPolygon);
         });
 
-        console.log(selectedMarkers); // Do something with the selected markers
+        // console.log(selectedMarkers); // Do something with the selected markers
 
-        // Get the IDs of selected markers
-        const selectedMarkerIds = selectedMarkers.map(marker => marker.id);
-
-        // Send DELETE request to server
-        deleteMarkers(selectedMarkerIds);
+        setSelectedMarkers(prevMarkers => [...prevMarkers, ...selectedMarkers]); // append new markers to existing selection
 
         allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
+
+        setModalVisible(true); // Show the modal
 
       });
 
@@ -329,6 +386,14 @@ function Map({ markers }) {
   return (
     <div>
       <div>
+        {isLoading && <LoadingEffect isLoading={true}/>}
+        {isModalVisible && (
+          <div className="modal">
+            <Button variant="outlined" onClick={changeToServe}>Change Locations to Served</Button>
+            <Button variant="outlined" onClick={changeToUnserve}>Change Locations to Unserved</Button>
+            <Button variant="contained" onClick={doneWithChanges}>Done with Changes</Button>
+          </div>
+        )}
         {showExpandButton && (
           <button className={classes.expandToolbarButton} onClick={() => { setIsToolbarExpanded(true); setShowExpandButton(false); }}>
             Show Toolbar
