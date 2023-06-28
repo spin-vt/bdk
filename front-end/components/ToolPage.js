@@ -92,30 +92,30 @@ function Tool() {
     setTooltipOpen(false);
   }
 
-  const fetchMarkers = (downloadSpeed, uploadSpeed, techType) => {
-    fetch("http://localhost:8000/served-data", {
-      method: "GET",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        const newMarkers = data.map((item) => ({
-          name: item.address,
-          id: item.location_id,
-          download_speed: downloadSpeed,
-          upload_speed: uploadSpeed,
-          technology: techType,
-          latitude: item.latitude,
-          longitude: item.longitude,
-          served: item.served
-        }));
-        console.log(newMarkers)
-        console.log("going to set the markers")
-        setMarkers(newMarkers);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
+  // const fetchMarkers = (downloadSpeed, uploadSpeed, techType) => {
+  //   fetch("http://localhost:8000/served-data", {
+  //     method: "GET",
+  //   })
+  //     .then((response) => response.json())
+  //     .then((data) => {
+  //       const newMarkers = data.map((item) => ({
+  //         name: item.address,
+  //         id: item.location_id,
+  //         download_speed: downloadSpeed,
+  //         upload_speed: uploadSpeed,
+  //         technology: techType,
+  //         latitude: item.latitude,
+  //         longitude: item.longitude,
+  //         served: item.served
+  //       }));
+  //       console.log(newMarkers)
+  //       console.log("going to set the markers")
+  //       setMarkers(newMarkers);
+  //     })
+  //     .catch((error) => {
+  //       console.log(error);
+  //     });
+  // };
 
   const fetchMarkersWireless = (downloadSpeed, uploadSpeed, techType) => {
     fetch("http://localhost:8000/served-data-wireless", {
@@ -202,7 +202,7 @@ return (
                     <Typography variant="h4" className={classes.uploadHeading}>
                       Fiber Upload Component
                     </Typography>
-                    <Upload fetchMarkers={fetchMarkers} />
+                    <Upload fetchMarkers={[]} />
                   </div>
                 )}
                 {selectedOption === 'wireless' && (

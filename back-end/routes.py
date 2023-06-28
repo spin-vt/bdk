@@ -203,6 +203,7 @@ def submit_fiber_form():
                 flag = True
                 result = task.result
                 dict_values = result
+                vectorTile.create_tiles()
 
                 if result is None:
                     logging.error("KML processing task %s failed with error: %s", task_id, task.traceback)
@@ -441,52 +442,52 @@ def export_wireless():
     else:
         return jsonify(response_data)
 
-@app.route('/tiles', methods=['POST'])
-def tiles():
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM "VT"')  # Assuming your table name is VT
-    conn.commit()
-    conn.close()
-    network_data = kmlComputation.get_wired_data()
-    geojson = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {
-                    "location_id": point['location_id'],
-                    "served": point['served'],
-                    "address": point['address'],
-                    "wireless": point['wireless'],
-                    'lte': point['lte'],
-                    'username': point['username'],
-                    'network_coverages': point['coveredLocations'],
-                    'maxDownloadNetwork': point['maxDownloadNetwork'],
-                    'maxDownloadSpeed': point['maxDownloadSpeed']
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [point['longitude'], point['latitude']]
-                }
-            }
-            for point in network_data
-        ]
-    }
+# @app.route('/tiles', methods=['POST'])
+# def tiles():
+#     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+#     cursor = conn.cursor()
+#     cursor.execute('DELETE FROM "VT"')  # Assuming your table name is VT
+#     conn.commit()
+#     conn.close()
+#     network_data = kmlComputation.get_wired_data()
+#     geojson = {
+#         "type": "FeatureCollection",
+#         "features": [
+#             {
+#                 "type": "Feature",
+#                 "properties": {
+#                     "location_id": point['location_id'],
+#                     "served": point['served'],
+#                     "address": point['address'],
+#                     "wireless": point['wireless'],
+#                     'lte': point['lte'],
+#                     'username': point['username'],
+#                     'network_coverages': point['coveredLocations'],
+#                     'maxDownloadNetwork': point['maxDownloadNetwork'],
+#                     'maxDownloadSpeed': point['maxDownloadSpeed']
+#                 },
+#                 "geometry": {
+#                     "type": "Point",
+#                     "coordinates": [point['longitude'], point['latitude']]
+#                 }
+#             }
+#             for point in network_data
+#         ]
+#     }
 
-    with open('data.geojson', 'w') as f:
-        json.dump(geojson, f)
+#     with open('data.geojson', 'w') as f:
+#         json.dump(geojson, f)
 
-    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+#     command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
+#     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
-    if result.stderr:
-        print("Tippecanoe stderr:", result.stderr.decode())
+#     if result.stderr:
+#         print("Tippecanoe stderr:", result.stderr.decode())
     
-    # val = vectorTile.add_values_to_VT("./output.mbtiles")
-    # print(val)
-    response_data = {'Status': 'Ok'}
-    return json.dumps(response_data)
+#     val = vectorTile.add_values_to_VT("./output.mbtiles")
+#     print(val)
+    # response_data = {'Status': 'Ok'}
+    # return json.dumps(response_data)
 
 @app.route("/tiles/<zoom>/<x>/<y>.pbf")
 def serve_tile(zoom, x, y):
@@ -537,6 +538,8 @@ def delete_markers():
 
     cursor.close()
     conn.close()
+    
+    vectorTile.create_tiles()
     return jsonify(message='Markers deleted successfully'), 200
 
 if __name__ == '__main__':

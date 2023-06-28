@@ -201,23 +201,7 @@ function Map({ markers }) {
 
   }, []);
 
-  const sendMarkers = () => {
-    fetch("http://localhost:8000/tiles", {
-      method: "POST",
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(markers)
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log("Tiles created successfully");
-        location.reload();
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
+
 
   useEffect(() => {
     if (!map.current) return; // Wait for map to initialize
@@ -244,7 +228,6 @@ function Map({ markers }) {
         'source-layer': 'data'
       });
       console.log("Sending markers to create tiles")
-      sendMarkers();
 
 
 
@@ -271,7 +254,6 @@ function Map({ markers }) {
         deleteMarkers(selectedMarkerIds);
 
         allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
-        sendMarkers();
 
       });
 

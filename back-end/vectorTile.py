@@ -23,6 +23,9 @@ from sqlalchemy import DateTime
 from sqlalchemy.sql import func
 import sqlite3
 from sqlalchemy import LargeBinary
+import kmlComputation
+import json
+import subprocess
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 db_host = os.getenv('postgres', 'localhost')
@@ -88,6 +91,50 @@ def add_values_to_VT(mbtiles_file_path):
             os.remove(mbtiles_file_path)
 
     return 1
+
+def create_tiles():
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM "VT"')  # Assuming your table name is VT
+    conn.commit()
+    conn.close()
+    network_data = kmlComputation.get_wired_data()
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "location_id": point['location_id'],
+                    "served": point['served'],
+                    "address": point['address'],
+                    "wireless": point['wireless'],
+                    'lte': point['lte'],
+                    'username': point['username'],
+                    'network_coverages': point['coveredLocations'],
+                    'maxDownloadNetwork': point['maxDownloadNetwork'],
+                    'maxDownloadSpeed': point['maxDownloadSpeed']
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [point['longitude'], point['latitude']]
+                }
+            }
+            for point in network_data
+        ]
+    }
+
+    with open('data.geojson', 'w') as f:
+        json.dump(geojson, f)
+
+    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
+    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+
+    if result.stderr:
+        print("Tippecanoe stderr:", result.stderr.decode())
+    
+    val = add_values_to_VT("./output.mbtiles")
+    print(val)
 
 if __name__ == "__main__":
     add_values_to_VT("./output.mbtiles")
