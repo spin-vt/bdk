@@ -5,6 +5,9 @@ import SelectedLocationContext from "./SelectedLocationContext";
 import { Toolbar, Switch, FormControlLabel } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
+import MapboxDraw from '@mapbox/mapbox-gl-draw'
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
+import * as turf from '@turf/turf';
 
 
 const useStyles = makeStyles({
@@ -12,7 +15,7 @@ const useStyles = makeStyles({
     top: '50%',
     position: 'absolute',
     minHeight: '6vh',
-    left: '20px', 
+    left: '20px',
     zIndex: 1000,
     backgroundColor: '#0691DA',
     border: '0px',
@@ -57,7 +60,7 @@ const useStyles = makeStyles({
   toolbar: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'flex-start', 
+    alignItems: 'flex-start',
     justifyContent: 'center',
     // maxHeight: '10vh',
     // maxWidth: "20vw", // reduce width
@@ -65,15 +68,20 @@ const useStyles = makeStyles({
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     zIndex: 1000,
   },
-  
+
 });
 
 
 function Map({ markers }) {
+
+
+
+
   console.log(markers.length);
   const classes = useStyles();
   const mapContainer = useRef(null);
   const map = useRef(null);
+
 
   const [showServed, setShowServed] = useState(true);
   const [showUnserved, setShowUnserved] = useState(true);
@@ -81,8 +89,58 @@ function Map({ markers }) {
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(true);
 
+
   const [lastPosition, setLastPosition] = useState([37.0902, -95.7129]);
   const [lastZoom, setLastZoom] = useState(5);
+
+  const allMarkersRef = useRef([]); // create a ref for allMarkers
+
+  useEffect(() => {
+    const fetchMarkers = () => {
+      fetch("http://localhost:8000/served-data", {
+        method: "GET",
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          const newMarkers = data.map((item) => ({
+            name: item.address,
+            id: item.location_id,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            served: item.served
+          }));
+          console.log(newMarkers);
+          allMarkersRef.current = newMarkers; // Here's the state update
+          // console.log(newMarkers); // Log newMarkers instead of allMarkers
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    };
+
+    fetchMarkers();
+  }, []);
+    
+  
+
+  const deleteMarkers = (markerIds) => {
+    fetch("http://localhost:8000/delete-markers", {
+      method: "DELETE",
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ ids: markerIds })
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data.message);
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
+
+
 
   const handleServedChange = (event) => {
     setShowServed(event.target.checked);
@@ -97,6 +155,7 @@ function Map({ markers }) {
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
 
+
   useEffect(() => {
     map.current = new maplibregl.Map({
       container: mapContainer.current,
@@ -105,27 +164,60 @@ function Map({ markers }) {
       center: [-98.35, 39.50],
       zoom: 4
     });
+
+    // MapboxDraw requires the canvas's class order to have the class 
+    // "mapboxgl-canvas" first in the list for the key bindings to work
+    map.current.getCanvas().className = 'mapboxgl-canvas maplibregl-canvas';
+    map.current.getContainer().classList.add('mapboxgl-map');
+    const canvasContainer = map.current.getCanvasContainer();
+    canvasContainer.classList.add('mapboxgl-canvas-container');
+    if (canvasContainer.classList.contains('maplibregl-interactive')) {
+      canvasContainer.classList.add('mapboxgl-interactive');
+    }
+
+
+
+    const draw = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: {
+        polygon: true,
+        trash: true
+      }
+    });
+
+
+    const originalOnAdd = draw.onAdd.bind(draw);
+    draw.onAdd = (map) => {
+      const controlContainer = originalOnAdd(map);
+      controlContainer.classList.add('maplibregl-ctrl', 'maplibregl-ctrl-group');
+      return controlContainer;
+    };
+
+
     map.current.addControl(new maplibregl.NavigationControl(), 'top-left');
     map.current.addControl(new maplibregl.GeolocateControl(), 'top-left');
     map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+    map.current.addControl(draw, 'top-left');
+
   }, []);
 
-  // const sendMarkers = () => {
-  //   fetch("http://localhost:8000/tiles", {
-  //     method: "POST",
-  //     headers: {
-  //       'Content-Type': 'application/json'
-  //     },
-  //     body: JSON.stringify(markers)
-  //   })
-  //     .then((response) => response.json())
-  //     .then((data) => {
-  //       console.log("Tiles created successfully");
-  //     })
-  //     .catch((error) => {
-  //       console.log(error);
-  //     });
-  // };
+  const sendMarkers = () => {
+    fetch("http://localhost:8000/tiles", {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(markers)
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("Tiles created successfully");
+        location.reload();
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
 
   useEffect(() => {
     if (!map.current) return; // Wait for map to initialize
@@ -141,19 +233,47 @@ function Map({ markers }) {
         'source': 'custom',
         'paint': {
           'circle-radius': 3,
-          'circle-color': 
-          // [
-            // 'case',
-            // ['==', ['get', 'served'], true], // if 'served' property is true
-            // '#00FF00', // make the circle color green
-            '#FF0000', // else make the circle color red
-          // ]
+          'circle-color':
+            [
+              'case',
+              ['==', ['get', 'served'], true], // if 'served' property is true
+              '#00FF00', // make the circle color green
+              '#FF0000', // else make the circle color red
+            ]
         },
         'source-layer': 'data'
       });
       console.log("Sending markers to create tiles")
-      // sendMarkers();
+      sendMarkers();
 
+
+
+      map.current.on('draw.create', (event) => {
+        const polygon = event.features[0];
+
+        // Convert drawn polygon to turf polygon
+        const turfPolygon = turf.polygon(polygon.geometry.coordinates);
+
+        console.log(allMarkersRef.current);
+
+        // Iterate over markers and select if they are inside the polygon
+        const selectedMarkers = allMarkersRef.current.filter((marker) => {
+          const point = turf.point([marker.longitude, marker.latitude]);
+          return turf.booleanPointInPolygon(point, turfPolygon);
+        });
+
+        console.log(selectedMarkers); // Do something with the selected markers
+
+        // Get the IDs of selected markers
+        const selectedMarkerIds = selectedMarkers.map(marker => marker.id);
+
+        // Send DELETE request to server
+        deleteMarkers(selectedMarkerIds);
+
+        allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
+        sendMarkers();
+
+      });
 
       map.current.on('click', 'custom', function (e) {
         let featureProperties = e.features[0].properties;
@@ -174,7 +294,7 @@ function Map({ markers }) {
   }, [markers]);
 
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) {return};
+    if (!map.current || !map.current.isStyleLoaded()) { return };
 
     console.log(showServed);
     console.log(showUnserved);
@@ -192,6 +312,7 @@ function Map({ markers }) {
       map.current.setLayoutProperty('custom', 'visibility', 'none');
     }
   }, [showServed, showUnserved]);
+
 
   useEffect(() => {
     if (location && map.current) {

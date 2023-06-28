@@ -33,7 +33,7 @@ class kml_data(Base):
     wireless = Column(Boolean)
     lte = Column(Boolean)
     username = Column(String)
-    # coveredLocations = Column(String)
+    coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
 
@@ -272,6 +272,9 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
         try:
             existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
 
+            if download == "": 
+                download = 0
+                
             if existing_data is None:  # If the location_id doesn't exist in db
                 newData = kml_data(
                     location_id = int(row.location_id),
@@ -279,7 +282,7 @@ def served_wired(Fabric_FN, Fiber_FN, flag, download, upload, tech):
                     wireless = False,
                     lte = False,
                     username = "vineet",
-                    # coveredLocations = Fiber_FN,
+                    coveredLocations = Fiber_FN,
                     maxDownloadNetwork = Fiber_FN,
                     maxDownloadSpeed = int(download)
                 )
@@ -517,8 +520,8 @@ def exportWireless2(download_speed, upload_speed, tech_type):
     availability_csv.to_csv(filename, index=False)
     return filename
 
-if __name__ == "__main__":
-    served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./ash.kml", False, 0, 0, 0)
-    served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./Domebo.kml", True, 20, 0, 0)
+# if __name__ == "__main__":
+#     served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./ash.kml", False, 0, 0, 0)
+#     served_wired("./FCC_Active_BSL_12312022_ver1.csv", "./Domebo.kml", True, 20, 0, 0)
 # #     filter_locations("./FCC_Active_BSL_12312022_ver1.csv", "./Ash Ave Fiber Path.kml")
 #     wired_locations("./FCC_Active_BSL_12312022_ver1.csv", "./filled_full_poly.kml", "./25GHz_coverage.geojson")

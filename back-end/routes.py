@@ -437,6 +437,11 @@ def export_wireless():
 
 @app.route('/tiles', methods=['POST'])
 def tiles():
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM "VT"')  # Assuming your table name is VT
+    conn.commit()
+    conn.close()
     network_data = kmlComputation.get_wired_data()
 
     geojson = {
@@ -504,6 +509,28 @@ def serve_tile(zoom, x, y):
     response.headers['Content-Type'] = 'application/x-protobuf'
     response.headers['Content-Encoding'] = 'gzip'  
     return response
+
+@app.route('/delete-markers', methods=['DELETE'])
+def delete_markers():
+
+    marker_ids = request.json['ids']
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    cursor = conn.cursor()
+
+    with db_lock:
+        for marker_id in marker_ids:
+            cursor.execute(
+                """
+                DELETE FROM "KML"
+                WHERE location_id = %s
+                """, 
+                (marker_id,)
+            )
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+    return jsonify(message='Markers deleted successfully'), 200
 
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
