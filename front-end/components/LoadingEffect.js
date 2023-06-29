@@ -18,7 +18,7 @@ const useStyles = makeStyles({
 export default function LoadingEffect({ isLoading }) {
     const classes = useStyles();
     const [progress, setProgress] = useState(0);
-    const loadingTimeInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const loadingTimeInMs = 3 * 60 * 1000; // 3 minutes in milliseconds
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
