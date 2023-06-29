@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import SelectedLocationContext from "./SelectedLocationContext";
 import { Toolbar, Switch, FormControlLabel, Button } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
@@ -13,32 +13,32 @@ import LoadingEffect from "./LoadingEffect";
 
 const useStyles = makeStyles({
   expandToolbarButton: {
-    top: "50%",
-    position: "absolute",
-    minHeight: "6vh",
-    left: "20px",
+    top: '50%',
+    position: 'absolute',
+    minHeight: '6vh',
+    left: '20px',
     zIndex: 1000,
-    backgroundColor: "#0691DA",
-    border: "0px",
-    color: "#fff",
-    "&:hover": {
-      backgroundColor: "#73A5C6",
+    backgroundColor: '#0691DA',
+    border: '0px',
+    color: '#fff',
+    '&:hover': {
+      backgroundColor: '#73A5C6',
     },
-    borderRadius: "30px",
-    paddingLeft: "20px",
-    paddingRight: "20px",
+    borderRadius: '30px',
+    paddingLeft: '20px',
+    paddingRight: '20px',
     transform: `translateY(-50%)`,
   },
   wrapper: {
-    position: "absolute",
-    left: "30px",
-    top: "50%",
+    position: 'absolute',
+    left: '30px',
+    top: '50%',
     transform: `translateY(-50%)`,
     zIndex: 1000,
-    display: "grid",
-    alignItems: "column", // this will align items vertically in the center
-    justifyContent: "center",
-    maxHeight: "50vh",
+    display: 'grid',
+    alignItems: 'column', // this will align items vertically in the center
+    justifyContent: 'center',
+    maxHeight: '50vh',
     maxWidth: "10vw",
   },
   collapseToolbarContainer: {
@@ -46,28 +46,30 @@ const useStyles = makeStyles({
     alignItems: 'center', // this will align items vertically in the center
     justifyContent: 'center',
     zIndex: 1000,
-    backgroundColor: "#3A7BD5",
-    color: "#fff",
-    "&:hover": {
-      backgroundColor: "#73A5C6",
+    backgroundColor: '#3A7BD5',
+    color: '#fff',
+    '&:hover': {
+      backgroundColor: '#73A5C6',
     },
-    border: "0px",
-    borderRadius: "10px",
-    paddingLeft: "10px",
-    paddingRight: "10px",
+    border: '0px',
+    borderRadius: '10px',
+    paddingLeft: '10px',
+    paddingRight: '10px',
   },
   toolbar: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "center",
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
     // maxHeight: '10vh',
     // maxWidth: "20vw", // reduce width
-    borderRadius: "20px",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    borderRadius: '20px',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     zIndex: 1000,
   },
+
 });
+
 
 function Map({ markers }) {
 
@@ -75,11 +77,13 @@ function Map({ markers }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
 
+
   const [showServed, setShowServed] = useState(true);
   const [showUnserved, setShowUnserved] = useState(true);
 
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
 
   const [lastPosition, setLastPosition] = useState([37.0902, -95.7129]);
@@ -200,64 +204,71 @@ function Map({ markers }) {
   const handleServedChange = (event) => {
     setShowServed(event.target.checked);
     console.log(showServed);
-  };
+  }
 
   const handleUnservedChange = (event) => {
     setShowUnserved(event.target.checked);
     console.log(showUnserved);
-  };
+  }
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
 
+
   useEffect(() => {
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style:
-        "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
-      center: [-98.35, 39.5],
-      zoom: 4,
+      //look in .env for actual key (API_TILER_KEY)
+      style: 'https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN',
+      center: [-98.35, 39.50],
+      zoom: 4
     });
 
-    map.current.getCanvas().className = "mapboxgl-canvas maplibregl-canvas";
-    map.current.getContainer().classList.add("mapboxgl-map");
+    // MapboxDraw requires the canvas's class order to have the class 
+    // "mapboxgl-canvas" first in the list for the key bindings to work
+    map.current.getCanvas().className = 'mapboxgl-canvas maplibregl-canvas';
+    map.current.getContainer().classList.add('mapboxgl-map');
     const canvasContainer = map.current.getCanvasContainer();
-    canvasContainer.classList.add("mapboxgl-canvas-container");
-    if (canvasContainer.classList.contains("maplibregl-interactive")) {
-      canvasContainer.classList.add("mapboxgl-interactive");
+    canvasContainer.classList.add('mapboxgl-canvas-container');
+    if (canvasContainer.classList.contains('maplibregl-interactive')) {
+      canvasContainer.classList.add('mapboxgl-interactive');
     }
+
+
 
     const draw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {
         polygon: true,
-        trash: true,
-      },
+        trash: true
+      }
     });
+
 
     const originalOnAdd = draw.onAdd.bind(draw);
     draw.onAdd = (map) => {
       const controlContainer = originalOnAdd(map);
-      controlContainer.classList.add(
-        "maplibregl-ctrl",
-        "maplibregl-ctrl-group"
-      );
+      controlContainer.classList.add('maplibregl-ctrl', 'maplibregl-ctrl-group');
       return controlContainer;
     };
 
-    map.current.addControl(new maplibregl.NavigationControl(), "top-left");
-    map.current.addControl(new maplibregl.GeolocateControl(), "top-left");
-    map.current.addControl(new maplibregl.ScaleControl(), "bottom-left");
-    map.current.addControl(draw, "top-left");
+
+    map.current.addControl(new maplibregl.NavigationControl(), 'top-left');
+    map.current.addControl(new maplibregl.GeolocateControl(), 'top-left');
+    map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
+    map.current.addControl(draw, 'top-left');
+
   }, []);
 
+
+
   useEffect(() => {
-    if (!map.current) return; 
-    map.current.on("load", function () {
-      map.current.addSource("custom", {
-        type: "vector",
+    if (!map.current) return; // Wait for map to initialize
+    map.current.on('load', function () {
+      map.current.addSource('custom', {
+        type: 'vector',
         tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-        maxzoom: 16,
+        maxzoom: 16
       });
       map.current.addLayer({
         'id': 'custom',
@@ -273,17 +284,21 @@ function Map({ markers }) {
               '#FF0000', // else make the circle color red
             ]
         },
-        "source-layer": "data",
+        'source-layer': 'data'
       });
-      console.log("Sending markers to create tiles");
+      console.log("Sending markers to create tiles")
 
-      map.current.on("draw.create", (event) => {
+
+
+      map.current.on('draw.create', (event) => {
         const polygon = event.features[0];
 
+        // Convert drawn polygon to turf polygon
         const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
         // console.log(allMarkersRef.current);
 
+        // Iterate over markers and select if they are inside the polygon
         const selectedMarkers = allMarkersRef.current.filter((marker) => {
           const point = turf.point([marker.longitude, marker.latitude]);
           return turf.booleanPointInPolygon(point, turfPolygon);
@@ -299,10 +314,10 @@ function Map({ markers }) {
 
       });
 
-      map.current.on("click", "custom", function (e) {
+      map.current.on('click', 'custom', function (e) {
         let featureProperties = e.features[0].properties;
 
-        let content = "<h1>Marker Information</h1>";
+        let content = '<h1>Marker Information</h1>';
         for (let property in featureProperties) {
           content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
         }
@@ -312,30 +327,31 @@ function Map({ markers }) {
           .setHTML(content)
           .addTo(map.current);
       });
+
     });
+
   }, [markers]);
 
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) {
-      return;
-    }
+    if (!map.current || !map.current.isStyleLoaded()) { return };
 
     console.log(showServed);
     console.log(showUnserved);
 
     if (showServed && !showUnserved) {
-      map.current.setLayoutProperty("custom", "visibility", "visible");
-      map.current.setFilter("custom", ["==", ["get", "served"], true]);
+      map.current.setLayoutProperty('custom', 'visibility', 'visible');
+      map.current.setFilter('custom', ['==', ['get', 'served'], true]);
     } else if (!showServed && showUnserved) {
-      map.current.setLayoutProperty("custom", "visibility", "visible");
-      map.current.setFilter("custom", ["==", ["get", "served"], false]);
+      map.current.setLayoutProperty('custom', 'visibility', 'visible');
+      map.current.setFilter('custom', ['==', ['get', 'served'], false]);
     } else if (showServed && showUnserved) {
-      map.current.setLayoutProperty("custom", "visibility", "visible");
-      map.current.setFilter("custom", null);
+      map.current.setLayoutProperty('custom', 'visibility', 'visible');
+      map.current.setFilter('custom', null);
     } else {
-      map.current.setLayoutProperty("custom", "visibility", "none");
+      map.current.setLayoutProperty('custom', 'visibility', 'none');
     }
   }, [showServed, showUnserved]);
+
 
   useEffect(() => {
     if (location && map.current) {
@@ -347,24 +363,25 @@ function Map({ markers }) {
 
       distinctMarkerRef.current = new maplibregl.Marker({
         color: "#FFFFFF",
-        draggable: false,
-      })
-        .setLngLat([longitude, latitude])
+        draggable: false
+      }).setLngLat([longitude, latitude])
         .addTo(map.current);
 
       console.log(distinctMarkerRef.current);
 
       map.current.flyTo({
         center: [longitude, latitude],
-        zoom: 16,
+        zoom: 16
       });
-    } else {
+    }
+    else {
       if (distinctMarkerRef.current) {
         distinctMarkerRef.current.remove();
         distinctMarkerRef.current = null;
       }
     }
   }, [location]);
+
 
   return (
     <div>
@@ -378,13 +395,7 @@ function Map({ markers }) {
           </div>
         )}
         {showExpandButton && (
-          <button
-            className={classes.expandToolbarButton}
-            onClick={() => {
-              setIsToolbarExpanded(true);
-              setShowExpandButton(false);
-            }}
-          >
+          <button className={classes.expandToolbarButton} onClick={() => { setIsToolbarExpanded(true); setShowExpandButton(false); }}>
             Show Toolbar
           </button>
         )}
@@ -392,31 +403,19 @@ function Map({ markers }) {
           <div className={classes.wrapper}>
             <Toolbar className={classes.toolbar}>
               <FormControlLabel
-                control={
-                  <Switch checked={showServed} onChange={handleServedChange} />
-                }
+                control={<Switch checked={showServed} onChange={handleServedChange} />}
                 label="Show Served"
                 id="served-toggle"
               />
               <FormControlLabel
-                control={
-                  <Switch
-                    checked={showUnserved}
-                    onChange={handleUnservedChange}
-                  />
-                }
+                control={<Switch checked={showUnserved} onChange={handleUnservedChange} />}
                 label="Show Unserved"
                 id="unserved-toggle"
               />
+
             </Toolbar>
 
-            <button
-              className={classes.collapseToolbarContainer}
-              onClick={() => {
-                setIsToolbarExpanded(false);
-                setShowExpandButton(true);
-              }}
-            >
+            <button className={classes.collapseToolbarContainer} onClick={() => { setIsToolbarExpanded(false); setShowExpandButton(true); }}>
               <KeyboardDoubleArrowUpIcon />
               Collapse
             </button>

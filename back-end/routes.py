@@ -175,14 +175,14 @@ def submit_data():
                 flag = True
                 # result = task.result
                 # dict_values = result
-                vectorTile.create_tiles()
 
                 if task is False:
                     logging.error("KML processing task %s failed with error: %s", task_id, task.traceback)
                     response_data = {'Status': 'Error'}
                 else:
                     response_data = {'Status': 'Ok'}
-
+                    
+        vectorTile.create_tiles()
         for name in names:
             os.remove(name)
 
