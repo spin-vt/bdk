@@ -304,6 +304,29 @@ def search_location():
     conn.close()
     return jsonify(results_dict)
 
+Base = declarative_base()
+DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
+engine = create_engine(DATABASE_URL)
+
+# Check if the table exists
+inspector = inspect(engine)
+if not inspector.has_table('User'):
+    try:
+        Base.metadata.create_all(engine)
+    except ProgrammingError as e:
+        logging.exception("Error creating 'User' table: %s", str(e))
+
+db_lock = Lock()
+
+
+class User(Base):
+    __tablename__ = 'User'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True)
+    password = Column(String(256))
+
+
 
 @app.route('/api/register', methods=['POST'])
 def register():
