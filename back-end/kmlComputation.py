@@ -22,6 +22,7 @@ import os
 import json 
 import subprocess
 import vectorTile
+from sqlalchemy import and_
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 db_host = os.getenv('postgres', 'localhost')
@@ -53,33 +54,45 @@ Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 db_lock = Lock()
 
-def get_wireless_data(): 
-    session = ScopedSession()
+def get_wired_data(): 
+    session = ScopedSession() 
 
-    results = session.query(kml_data).all()
+    try:
+        # Define a relationship between kml_data and fabricUpload.Data
+        results = session.query(
+            kml_data.location_id, 
+            kml_data.served, 
+            fabricUpload.Data.latitude, 
+            fabricUpload.Data.address_primary, 
+            fabricUpload.Data.longitude,
+            kml_data.wireless,
+            kml_data.lte,
+            kml_data.username,
+            kml_data.coveredLocations,
+            kml_data.maxDownloadNetwork,
+            kml_data.maxDownloadSpeed
+        ).join(
+            fabricUpload.Data,
+            kml_data.location_id == fabricUpload.Data.location_id
+        ).all()
 
-    location_ids = {r.location_id for r in results}
-
-    results = session.query(fabricUpload.Data).filter(fabricUpload.Data.location_id.in_(location_ids)).all()
-
-    latitudes = {r.location_id: r.latitude for r in results}
-    longitudes = {r.location_id: r.longitude for r in results}
-    addresses = {r.location_id: r.address_primary for r in results}
-
-    data = [
-        {
-            'location_id': r.location_id,
-            'served': True,
-            'latitude': latitudes.get(r.location_id),
-            'address': addresses.get(r.location_id),
-            'longitude': longitudes.get(r.location_id),
-            'type': 'lte' if r.lte in location_ids else 'non-lte'
-        } for r in results
-    ]
+        data = [{'location_id': r[0],
+                'served': r[1],
+                'latitude': r[2],
+                'address': r[3],
+                'longitude': r[4],
+                'wireless': r[5],
+                'lte': r[6],
+                'username': r[7],
+                'coveredLocations' : r[8],
+                'maxDownloadNetwork': r[9],
+                'maxDownloadSpeed': r[10]} for r in results]
+    finally:
+        session.close()
 
     return data
 
-def get_wired_data():
+def get_wired_data_old():
     session = ScopedSession()
 
     results = session.query(kml_data).all()
@@ -228,44 +241,42 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
     session.commit()
     session.close()
 
+    print("did fabric in coverage")
     if not flag: 
         session = Session()
         batch = [] 
         not_served_fabric = fabric[~fabric['location_id'].isin(pandaDF['location_id'])]
         not_served_fabric = not_served_fabric.drop_duplicates()
-        for _, row in not_served_fabric.iterrows():
+
+        # Prepare a list of dictionaries to insert to the kml_data table
+        rows_to_insert = [{
+            'location_id': int(row.location_id),
+            'served': False,
+            'wireless': False,
+            'lte': False,
+            'username': "vineet",
+            'coveredLocations': "",
+            'maxDownloadNetwork': -1,
+            'maxDownloadSpeed': -1
+        } for _, row in not_served_fabric.iterrows()]
+
+        # Use chunks if rows_to_insert is very large
+        chunks = [rows_to_insert[i:i + BATCH_SIZE] for i in range(0, len(rows_to_insert), BATCH_SIZE)]
+
+        for chunk in chunks:
             try:
-                newData = kml_data(
-                    location_id = int(row.location_id),
-                    served = False,
-                    wireless = False,
-                    lte = False,
-                    username = "vineet",
-                    coveredLocations = "",
-                    maxDownloadNetwork = -1,
-                    maxDownloadSpeed = -1
-                )
-                
-                batch.append(newData)
-                if len(batch) >= BATCH_SIZE:
-                    with db_lock:
-                        try:
-                            session.bulk_save_objects(batch)
-                            session.commit()
-                        except IntegrityError:
-                            session.rollback()  
-                    batch = []
+                # Insert the chunk of records into the kml_data table
+                session.bulk_insert_mappings(kml_data, chunk)
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                logging.error("IntegrityError occurred while inserting data.")
+                return False
             except Exception as e:
+                session.rollback()
                 logging.error(f"Error occurred while inserting data: {e}")
-                return False 
-                
-        if batch:
-            with db_lock:
-                try:
-                    session.bulk_save_objects(batch)
-                    session.commit()
-                except IntegrityError:
-                    session.rollback()  
+                return False
+
         session.close()
     return True 
 
@@ -308,4 +319,4 @@ def export(download_speed, upload_speed, tech_type):
     return filename
 
 # if __name__ == "__main__":
-#     compute_wireless_locations("FCC_Active_BSL_12312022_ver1.csv", "filled_full_poly.kml", True, 100, 50, "temp")
+#     compute_wired_locations("FCC_Active_BSL_12312022_ver1.csv", "Ash Ave Fiber Path.kml", False, 100, 50, "temp")

@@ -240,7 +240,7 @@ def search_location():
             cursor.execute(
                 """
                 SELECT address_primary, city, state, zip_code, latitude, longitude
-                FROM "Fabric"
+                FROM "fabric"
                 WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s AND UPPER(state) = %s
                 LIMIT 1
                 """,
@@ -257,7 +257,7 @@ def search_location():
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM "Fabric"
+                    FROM "fabric"
                     WHERE UPPER(address_primary) LIKE %s AND UPPER(state) = %s
                     LIMIT 3
                     """,
@@ -268,7 +268,7 @@ def search_location():
                 cursor.execute(
                     """
                     SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM "Fabric" 
+                    FROM "fabric" 
                     WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s
                     LIMIT 3
                     """,
@@ -280,7 +280,7 @@ def search_location():
         cursor.execute(
             """
             SELECT address_primary, city, state, zip_code, latitude, longitude
-            FROM "Fabric" 
+            FROM "fabric" 
             WHERE UPPER(address_primary) LIKE %s 
             LIMIT 5
             """,

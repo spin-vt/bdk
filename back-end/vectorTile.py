@@ -30,6 +30,8 @@ import csv
 from sqlalchemy import create_engine
 from io import StringIO
 from psycopg2.extensions import adapt, register_adapter, AsIs
+from psycopg2 import Binary
+from psycopg2.extras import execute_values
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 db_host = os.getenv('postgres', 'localhost')
@@ -58,38 +60,42 @@ Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 db_lock = Lock()
 
-# Register adapter for bytea data type
-register_adapter(bytes, psycopg2.Binary)
-
 def add_values_to_VT_test(mbtiles_file_path):
-    with sqlite3.connect(mbtiles_file_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM tiles")
-        rows = cursor.fetchall()
-
-        # Write to CSV file
-        with open('tiles.csv', 'w', newline='') as f:
-            writer = csv.writer(f)
+    with sqlite3.connect(mbtiles_file_path) as mb_conn:
+        mb_c = mb_conn.cursor()
+        mb_c.execute(
+            """
+            SELECT zoom_level, tile_column, tile_row, tile_data
+            FROM tiles
+            """
+        )
+        
+        try:
+            # Create a new connection to Postgres
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
             
-            # Write header row
-            writer.writerow(['zoom_level', 'tile_column', 'tile_row', 'tile_data'])
-            
-            # Write data rows
-            for row in rows:
-                # Convert binary data to sqlite3.Binary object
-                modified_row = [sqlite3.Binary(value) if isinstance(value, bytes) else value for value in row]
-                writer.writerow(modified_row)
+            # Prepare the data
+            data = [(row[0], row[1], row[2], Binary(row[3])) for row in mb_c]
 
-    pg_copy_to_table(engine, 'vt', 'tiles.csv')
+            # Execute values will generate a SQL INSERT query with placeholders for the parameters
+            execute_values(cur, """
+                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data) 
+                VALUES %s
+                """, data)
 
-def pg_copy_to_table(engine, table_name, file_path):
-    with open(file_path, 'r') as f:
-        conn = engine.raw_connection()
-        cursor = conn.cursor()
-        cursor.copy_expert(f"COPY {table_name} (zoom_level, tile_column, tile_row, tile_data) FROM STDIN CSV HEADER", f)
-        conn.commit()
-        cursor.close()
-        conn.close()
+            # Don't forget to commit the transaction
+            conn.commit()
+
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            return -1
+
+        finally:
+            cur.close()
+            conn.close()
+            os.remove(mbtiles_file_path)
+    return 1
 
 
 def add_values_to_VT(mbtiles_file_path):
@@ -135,40 +141,40 @@ def create_tiles():
     conn.close()
     network_data = kmlComputation.get_wired_data()
     geojson = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {
-                    "location_id": point['location_id'],
-                    "served": point['served'],
-                    "address": point['address'],
-                    "wireless": point['wireless'],
-                    'lte': point['lte'],
-                    'username': point['username'],
-                    'network_coverages': point['coveredLocations'],
-                    'maxDownloadNetwork': point['maxDownloadNetwork'],
-                    'maxDownloadSpeed': point['maxDownloadSpeed']
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [point['longitude'], point['latitude']]
-                }
-            }
-            for point in network_data
-        ]
-    }
+         "type": "FeatureCollection",
+         "features": [
+             {
+                 "type": "Feature",
+                 "properties": {
+                     "location_id": point['location_id'],
+                     "served": point['served'],
+                     "address": point['address'],
+                     "wireless": point['wireless'],
+                     'lte': point['lte'],
+                     'username': point['username'],
+                     'network_coverages': point['coveredLocations'],
+                     'maxDownloadNetwork': point['maxDownloadNetwork'],
+                     'maxDownloadSpeed': point['maxDownloadSpeed']
+                 },
+                 "geometry": {
+                     "type": "Point",
+                     "coordinates": [point['longitude'], point['latitude']]
+                 }
+             }
+             for point in network_data
+         ]
+     }
 
     with open('data.geojson', 'w') as f:
-        json.dump(geojson, f)
+         json.dump(geojson, f)
 
     command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
     if result.stderr:
-        print("Tippecanoe stderr:", result.stderr.decode())
+         print("Tippecanoe stderr:", result.stderr.decode())
     
-    val = add_values_to_VT("./output.mbtiles")
+    val = add_values_to_VT_test("./output.mbtiles")
 
 # if __name__ == "__main__":
 #     create_tiles()
