@@ -37,6 +37,7 @@ import kmlComputation
 from fabricUpload import Data
 from coordinateCluster import get_bounding_boxes
 import vectorTile
+import fabricUpload
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -86,7 +87,7 @@ states = [
 
 @celery.task(bind=True)
 def process_input_file(self, file_name, task_id):
-    result = fabricUpload.open_and_read(file_name)
+    result = fabricTest.write_to_db(file_name)
     self.update_state(state='PROCESSED')
     return result
 

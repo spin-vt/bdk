@@ -26,6 +26,10 @@ from sqlalchemy import LargeBinary
 import kmlComputation
 import json
 import subprocess
+import csv
+from sqlalchemy import create_engine
+from io import StringIO
+from psycopg2.extensions import adapt, register_adapter, AsIs
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 db_host = os.getenv('postgres', 'localhost')
@@ -34,20 +38,18 @@ Base = declarative_base()
 BATCH_SIZE = 50000
 
 class vector_tiles(Base):
-    __tablename__ = 'VT'
-    id = Column(Integer, primary_key=True)
+    __tablename__ = 'vt'
+    id = Column(Integer, primary_key=True, autoincrement=True)
     zoom_level = Column(Integer)  
     tile_column = Column(Integer) 
     tile_row = Column(Integer)
     tile_data = Column(LargeBinary)
-    username = Column(String)
-    date_added = Column(DateTime(timezone=True), server_default=func.now())
     
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 inspector = inspect(engine)
-if not inspector.has_table('VT'):
+if not inspector.has_table('vt'):
     Base.metadata.create_all(engine)
 
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -55,6 +57,40 @@ ScopedSession = scoped_session(session_factory)
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 db_lock = Lock()
+
+# Register adapter for bytea data type
+register_adapter(bytes, psycopg2.Binary)
+
+def add_values_to_VT_test(mbtiles_file_path):
+    with sqlite3.connect(mbtiles_file_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM tiles")
+        rows = cursor.fetchall()
+
+        # Write to CSV file
+        with open('tiles.csv', 'w', newline='') as f:
+            writer = csv.writer(f)
+            
+            # Write header row
+            writer.writerow(['zoom_level', 'tile_column', 'tile_row', 'tile_data'])
+            
+            # Write data rows
+            for row in rows:
+                # Convert binary data to sqlite3.Binary object
+                modified_row = [sqlite3.Binary(value) if isinstance(value, bytes) else value for value in row]
+                writer.writerow(modified_row)
+
+    pg_copy_to_table(engine, 'vt', 'tiles.csv')
+
+def pg_copy_to_table(engine, table_name, file_path):
+    with open(file_path, 'r') as f:
+        conn = engine.raw_connection()
+        cursor = conn.cursor()
+        cursor.copy_expert(f"COPY {table_name} (zoom_level, tile_column, tile_row, tile_data) FROM STDIN CSV HEADER", f)
+        conn.commit()
+        cursor.close()
+        conn.close()
+
 
 def add_values_to_VT(mbtiles_file_path):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
@@ -95,7 +131,7 @@ def add_values_to_VT(mbtiles_file_path):
 def create_tiles():
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM "VT"')  # Assuming your table name is VT
+    cursor.execute('TRUNCATE TABLE vt')
     conn.commit()
     conn.close()
     network_data = kmlComputation.get_wired_data()
@@ -133,7 +169,7 @@ def create_tiles():
     if result.stderr:
         print("Tippecanoe stderr:", result.stderr.decode())
     
-    val = add_values_to_VT("./output.mbtiles")
+    val = add_values_to_VT_test("./output.mbtiles")
 
-if __name__ == "__main__":
-    add_values_to_VT("./output.mbtiles")
+# if __name__ == "__main__":
+#     create_tiles()
