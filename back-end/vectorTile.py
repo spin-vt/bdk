@@ -111,7 +111,6 @@ def add_values_to_VT(mbtiles_file_path):
                     tile_column=row[1],
                     tile_row=row[2],
                     tile_data=row[3], 
-                    username="vineet"
                 )
                 pg_session.merge(vt)
             
@@ -169,7 +168,7 @@ def create_tiles():
     if result.stderr:
         print("Tippecanoe stderr:", result.stderr.decode())
     
-    val = add_values_to_VT_test("./output.mbtiles")
+    val = add_values_to_VT("./output.mbtiles")
 
 # if __name__ == "__main__":
 #     create_tiles()

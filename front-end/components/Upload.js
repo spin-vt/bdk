@@ -333,7 +333,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      { (isLoading || isDataReady) && <LoadingEffect isLoading={true} />}
+      { (isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
       <ButtonGroup
         variant="contained"
         ref={buttonGroupRef}

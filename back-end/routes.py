@@ -87,7 +87,7 @@ states = [
 
 @celery.task(bind=True)
 def process_input_file(self, file_name, task_id):
-    result = fabricTest.write_to_db(file_name)
+    result = fabricUpload.write_to_db(file_name)
     self.update_state(state='PROCESSED')
     return result
 
@@ -428,7 +428,7 @@ def serve_tile(zoom, x, y):
             cursor.execute(
                 """
                 SELECT tile_data
-                FROM "VT"
+                FROM "vt"
                 WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s
                 """, 
                 (int(zoom), int(x), int(y))
