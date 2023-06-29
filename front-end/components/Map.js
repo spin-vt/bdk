@@ -12,6 +12,50 @@ import LoadingEffect from "./LoadingEffect";
 
 
 const useStyles = makeStyles({
+  modal: {
+    position: 'absolute',
+    top: '5%', // adjust as needed
+    left: '50%',
+    zIndex: '1000',
+    transform: 'translate(-50%, -50%)',
+    backgroundColor: '#fff',
+    boxShadow: '0px 5px 15px rgba(0, 0, 0, 0.3)',
+    padding: '16px 32px',
+    borderRadius: '40px', // for rounded corners
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    maxHeight: '8vh',
+    minWidth: '60vw',
+  },
+  drawtoolbutton: {
+    margin: '8px',
+    borderRadius: '20px',
+    color: '#fff', // Change button text color
+    border: 'none',
+    cursor: 'pointer',
+    padding: '10px 20px', // Change as needed
+    transition: 'background-color 0.3s ease', // For smooth color transition
+  },
+  buttonServe: {
+    backgroundColor: '#0ADB1F',
+    '&:hover': {
+      backgroundColor: '#0ab81e',
+    },
+  },
+  buttonUnserve: {
+    backgroundColor: '#F44B14',
+    '&:hover': {
+      backgroundColor: '#e33c10',
+    },
+  },
+  buttonDone: {
+    backgroundColor: '#0691DA',
+    '&:hover': {
+      backgroundColor: '#0277bd',
+    },
+  },
   expandToolbarButton: {
     top: '50%',
     position: 'absolute',
@@ -84,6 +128,7 @@ function Map({ markers }) {
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDataReady, setIsDataReady] = useState(false);
 
 
   const [lastPosition, setLastPosition] = useState([37.0902, -95.7129]);
@@ -128,45 +173,49 @@ function Map({ markers }) {
   const doneWithChanges = () => {
     setIsLoading(true);
     const selectedMarkerIds = selectedMarkers.map((marker) => ({ id: marker.id, served: marker.served }));
-  
+
     // Send request to server to change the selected markers to served
     toggleMarkers(selectedMarkerIds)
-    .finally(() => {
-  
+      .finally(() => {
 
-      if (map.current.getLayer('custom')) {
-        map.current.removeLayer('custom');
-      }
 
-      if (map.current.getSource('custom')) {
-        map.current.removeSource('custom');
-      }
+        if (map.current.getLayer('custom')) {
+          map.current.removeLayer('custom');
+        }
 
-      map.current.addSource('custom', {
-        type: 'vector',
-        tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-        maxzoom: 16
+        if (map.current.getSource('custom')) {
+          map.current.removeSource('custom');
+        }
+
+        map.current.addSource('custom', {
+          type: 'vector',
+          tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+          maxzoom: 16
+        });
+
+        map.current.addLayer({
+          'id': 'custom',
+          'type': 'circle',
+          'source': 'custom',
+          'paint': {
+            'circle-radius': 3,
+            'circle-color':
+              [
+                'case',
+                ['==', ['get', 'served'], true], // if 'served' property is true
+                '#46DF39', // make the circle color green
+                '#FF0000', // else make the circle color red
+              ]
+          },
+          'source-layer': 'data'
+        });
+        setIsDataReady(true);
+        setIsLoading(false); // Set loading to false after API call
+        setTimeout(() => {
+          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        }, 5000);
       });
 
-      map.current.addLayer({
-        'id': 'custom',
-        'type': 'circle',
-        'source': 'custom',
-        'paint': {
-          'circle-radius': 3,
-          'circle-color':
-            [
-              'case',
-              ['==', ['get', 'served'], true], // if 'served' property is true
-              '#46DF39', // make the circle color green
-              '#FF0000', // else make the circle color red
-            ]
-        },
-        'source-layer': 'data'
-      });
-      setIsLoading(false); // Set loading to false after API call
-    });
-  
     setSelectedMarkers([]);
     toggleModalVisibility();
   };
@@ -386,12 +435,12 @@ function Map({ markers }) {
   return (
     <div>
       <div>
-        {isLoading && <LoadingEffect isLoading={true}/>}
+        { (isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
         {isModalVisible && (
-          <div className="modal">
-            <Button variant="outlined" onClick={changeToServe}>Change Locations to Served</Button>
-            <Button variant="outlined" onClick={changeToUnserve}>Change Locations to Unserved</Button>
-            <Button variant="contained" onClick={doneWithChanges}>Done with Changes</Button>
+          <div className={classes.modal}>
+            <button className={`${classes.drawtoolbutton} ${classes.buttonServe}`} onClick={changeToServe}>Change locations status to served</button>
+            <button className={`${classes.drawtoolbutton} ${classes.buttonUnserve}`} onClick={changeToUnserve}>Change locations status to unserved</button>
+            <button className={`${classes.drawtoolbutton} ${classes.buttonDone}`} onClick={doneWithChanges}>Done with changes</button>
           </div>
         )}
         {showExpandButton && (

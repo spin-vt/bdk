@@ -12,9 +12,9 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import Tooltip from '@mui/material/Tooltip';
 import { makeStyles } from '@material-ui/core/styles';
-import Grow from '@mui/material/Grow';  
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'; 
-import WifiIcon from '@mui/icons-material/Wifi'; 
+import Grow from '@mui/material/Grow';
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import WifiIcon from '@mui/icons-material/Wifi';
 
 const useStyles = makeStyles((theme) => ({
   sidebar: {
@@ -78,10 +78,11 @@ function Tool() {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showOptions, setShowOptions] = useState(true);
   const [checked, setChecked] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-    const handleChange = () => {
-      setChecked((prev) => !prev);
-    };
+  const handleChange = () => {
+    setChecked((prev) => !prev);
+  };
 
   const classes = useStyles();
   const [tooltipOpen, setTooltipOpen] = useState(true);  // new state for tooltip
@@ -114,13 +115,13 @@ function Tool() {
           <Map markers={markers} />
           <div className={styles.iconContainer} onClick={toggleUpload}>
             <Tooltip title="Click here to upload!" placement="left" open={!expandTable}>
-              <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowRight} className={styles.expandIcon} />
+              <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowLeft} className={styles.expandIcon} />
             </Tooltip>
           </div>
         </div>
         {expandTable && (
           <div className={`${classes.sidebar}`}>
-            <IconButton onClick={toggleUpload} style={{position: 'absolute', right: '10px', top: '10px'}}>
+            <IconButton onClick={toggleUpload} style={{ position: 'absolute', right: '10px', top: '10px' }}>
               <CloseIcon />
             </IconButton>
             <div className={styles.sidebarContent}>

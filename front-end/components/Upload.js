@@ -16,6 +16,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import { makeStyles } from "@mui/styles";
 import Grid from "@mui/material/Grid";
+import LoadingEffect from "./LoadingEffect";
 
 const useStyles = makeStyles({
   formControl: {
@@ -106,6 +107,9 @@ export default function Upload({ fetchMarkers }) {
   );
   const [buttonGroupWidth, setButtonGroupWidth] = React.useState(null);
 
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isDataReady, setIsDataReady] = React.useState(false);
+
   const handleDownloadClick = (event) => {
     event.preventDefault();
 
@@ -133,6 +137,8 @@ export default function Upload({ fetchMarkers }) {
       formData.append("file", fileObj);
     });
 
+    setIsLoading(true);
+
     fetch("http://localhost:8000/submit-data", {
       method: "POST",
       body: formData,
@@ -145,6 +151,11 @@ export default function Upload({ fetchMarkers }) {
         console.log("will show new buttons soon 1");
         console.log("Status:", response); // log the status
         setExportSuccess(true); // Set the export success state to true
+        setIsDataReady(true);
+        setIsLoading(false); // Set loading to false after API call
+        setTimeout(() => {
+          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        }, 5000);
         return response.json();
       })
       .then((data) => {
@@ -153,10 +164,20 @@ export default function Upload({ fetchMarkers }) {
         console.log("Will show new buttons soon 2");
         setExportSuccess(true); // Set the export success state to true
         // fetchMarkers(downloadSpeed, uploadSpeed, techType);
+        setIsDataReady(true);
+        setIsLoading(false); // Set loading to false after API call
+        setTimeout(() => {
+          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        }, 5000);
       })
       .catch((error) => {
         // fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error("Error:", error);
+        setIsDataReady(true);
+        setIsLoading(false); // Set loading to false after API call
+        setTimeout(() => {
+          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        }, 5000);
       });
   };
 
@@ -312,6 +333,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
+      { (isLoading || isDataReady) && <LoadingEffect isLoading={true} />}
       <ButtonGroup
         variant="contained"
         ref={buttonGroupRef}
