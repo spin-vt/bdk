@@ -319,8 +319,39 @@ function Map({ markers }) {
         tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
         maxzoom: 16
       });
+
+      // For Point
+
       map.current.addLayer({
-        'id': 'custom',
+        'id': 'custom-line',
+        'type': 'line',
+        'source': 'custom',
+        'layout': {
+          'line-cap': 'round',
+          'line-join': 'round'
+        },
+        'paint': {
+          'line-color': '#888',
+          'line-width': 2
+        },
+        'filter': ['==', ['get', 'feature_type'], 'LineString'], // Only apply this layer to linestrings
+        'source-layer': 'data'
+      });
+
+      map.current.addLayer({
+        'id': 'custom-polygon',
+        'type': 'fill',
+        'source': 'custom',
+        'paint': {
+          'fill-color': '#42004F',
+          'fill-opacity': 0.5,
+        },
+        'filter': ['==', ['get', 'feature_type'], 'Polygon'], // Only apply this layer to polygons
+        'source-layer': 'data'
+      });
+
+      map.current.addLayer({
+        'id': 'custom-point',
         'type': 'circle',
         'source': 'custom',
         'paint': {
@@ -328,13 +359,15 @@ function Map({ markers }) {
           'circle-color':
             [
               'case',
-              ['==', ['get', 'served'], true], // if 'served' property is true
-              '#46DF39', // make the circle color green
-              '#FF0000', // else make the circle color red
+              ['==', ['get', 'served'], true],
+              '#46DF39',
+              '#FF0000',
             ]
         },
+        'filter': ['==', ['get', 'feature_type'], 'Point'], // Only apply this layer to points
         'source-layer': 'data'
       });
+
       console.log("Sending markers to create tiles")
 
 
@@ -435,7 +468,7 @@ function Map({ markers }) {
   return (
     <div>
       <div>
-        { (isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
+        {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
         {isModalVisible && (
           <div className={classes.modal}>
             <button className={`${classes.drawtoolbutton} ${classes.buttonServe}`} onClick={changeToServe}>Change locations status to served</button>

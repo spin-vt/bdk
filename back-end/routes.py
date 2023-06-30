@@ -130,6 +130,8 @@ def submit_data():
         fabricName = ""
         flag = False
 
+        geojson_array = []
+
         for file, file_data_str in zip(files, file_data_list):
             file_name = file.filename
             names.append(file_name)
@@ -157,9 +159,10 @@ def submit_data():
             elif file_name.endswith('.kml'):
                 if not fabricUpload.check_num_records_greater_zero():
                     return make_response('Error: Fabric records not in database', 400)
+                
 
                 file.save(file_name)
-                task_id = str(uuid.uuid4())
+                task_id = str(uuid.uuid4())  
 
                 if networkType == "Wired": 
                     networkType = 0
@@ -176,6 +179,8 @@ def submit_data():
                 flag = True
                 # result = task.result
                 # dict_values = result
+                kmlfile_path = os.path.join(os.getcwd(), file_name)
+                geojson_array.append(vectorTile.read_kml(kmlfile_path))
 
                 if task is False:
                     logging.error("KML processing task %s failed with error: %s", task_id, task.traceback)
@@ -183,7 +188,7 @@ def submit_data():
                 else:
                     response_data = {'Status': 'Ok'}
                     
-        vectorTile.create_tiles()
+        vectorTile.create_tiles(geojson_array)
         for name in names:
             os.remove(name)
 
