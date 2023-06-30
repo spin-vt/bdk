@@ -124,6 +124,8 @@ function Map({ markers }) {
 
   const [showServed, setShowServed] = useState(true);
   const [showUnserved, setShowUnserved] = useState(true);
+  const [showRoutes, setShowRoutes] = useState(true);
+  const [showPolygons, setShowPolygons] = useState(true);
 
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(true);
@@ -155,6 +157,24 @@ function Map({ markers }) {
         console.log(error);
       });
   };
+
+  const handleServedChange = (event) => {
+    setShowServed(event.target.checked);
+    console.log(showServed);
+  }
+
+  const handleUnservedChange = (event) => {
+    setShowUnserved(event.target.checked);
+    console.log(showUnserved);
+  }
+
+  const handleToggleRoute = (event) => {
+    setShowRoutes(event.target.checked);
+  }
+
+  const handleTogglePolygon = (event) => {
+    setShowPolygons(event.target.checked);
+  }
 
 
   const toggleModalVisibility = () => {
@@ -248,17 +268,6 @@ function Map({ markers }) {
   }, []);
 
 
-
-
-  const handleServedChange = (event) => {
-    setShowServed(event.target.checked);
-    console.log(showServed);
-  }
-
-  const handleUnservedChange = (event) => {
-    setShowUnserved(event.target.checked);
-    console.log(showUnserved);
-  }
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
@@ -420,19 +429,31 @@ function Map({ markers }) {
     console.log(showServed);
     console.log(showUnserved);
 
-    if (showServed && !showUnserved) {
-      map.current.setLayoutProperty('custom', 'visibility', 'visible');
-      map.current.setFilter('custom', ['==', ['get', 'served'], true]);
-    } else if (!showServed && showUnserved) {
-      map.current.setLayoutProperty('custom', 'visibility', 'visible');
-      map.current.setFilter('custom', ['==', ['get', 'served'], false]);
-    } else if (showServed && showUnserved) {
-      map.current.setLayoutProperty('custom', 'visibility', 'visible');
-      map.current.setFilter('custom', null);
+    if (showRoutes) {
+      map.current.setLayoutProperty('custom-line', 'visibility', 'visible');
     } else {
-      map.current.setLayoutProperty('custom', 'visibility', 'none');
+      map.current.setLayoutProperty('custom-line', 'visibility', 'none');
     }
-  }, [showServed, showUnserved]);
+
+    if (showPolygons) {
+      map.current.setLayoutProperty('custom-polygon', 'visibility', 'visible');
+    } else {
+      map.current.setLayoutProperty('custom-polygon', 'visibility', 'none');
+    }
+
+    if (showServed && !showUnserved) {
+      map.current.setLayoutProperty('custom-point', 'visibility', 'visible');
+      map.current.setFilter('custom-point', ['all', ['==', ['get', 'served'], true], ['==', ['get', 'feature_type'], 'Point']]);
+    } else if (!showServed && showUnserved) {
+      map.current.setLayoutProperty('custom-point', 'visibility', 'visible');
+      map.current.setFilter('custom-point', ['all', ['==', ['get', 'served'], false], ['==', ['get', 'feature_type'], 'Point']]);
+    } else if (showServed && showUnserved) {
+      map.current.setLayoutProperty('custom-point', 'visibility', 'visible');
+      map.current.setFilter('custom-point', ['==', ['get', 'feature_type'], 'Point']);
+    } else {
+      map.current.setLayoutProperty('custom-point', 'visibility', 'none');
+    }
+  }, [showServed, showUnserved, showRoutes, showPolygons]);
 
 
   useEffect(() => {
@@ -486,13 +507,24 @@ function Map({ markers }) {
             <Toolbar className={classes.toolbar}>
               <FormControlLabel
                 control={<Switch checked={showServed} onChange={handleServedChange} />}
-                label="Show Served"
+                label="Show Served Points"
                 id="served-toggle"
               />
               <FormControlLabel
                 control={<Switch checked={showUnserved} onChange={handleUnservedChange} />}
-                label="Show Unserved"
+                label="Show Unserved Points"
                 id="unserved-toggle"
+              />
+
+              <FormControlLabel
+                control={<Switch checked={showRoutes} onChange={handleToggleRoute} />}
+                label="Show Fiber Routes"
+                id="route-toggle"
+              />
+              <FormControlLabel
+                control={<Switch checked={showPolygons} onChange={handleTogglePolygon} />}
+                label="Show Coverage Polygons"
+                id="polygon-toggle"
               />
 
             </Toolbar>
