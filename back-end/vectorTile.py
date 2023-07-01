@@ -203,7 +203,7 @@ def create_tiles(geojson_array):
     with open('data.geojson', 'w') as f:
          json.dump(point_geojson, f)
 
-    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force"
+    command = "tippecanoe -o output.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
     if result.stderr:

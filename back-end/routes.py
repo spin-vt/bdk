@@ -489,7 +489,10 @@ def toggle_markers():
                     (marker['served'], marker['id'],)
                 )
         conn.commit()
-        vectorTile.create_tiles()
+        # This implmentation will not generate tile for routes and polygons because there are no 
+        # kml file to reads in the routes and polygons, this issue should be addressed with the 
+        # implementation of tile_join
+        vectorTile.create_tiles([])
         message = 'Markers toggled successfully'
         status_code = 200
 

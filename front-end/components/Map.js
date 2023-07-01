@@ -38,13 +38,13 @@ const useStyles = makeStyles({
     padding: '10px 20px', // Change as needed
     transition: 'background-color 0.3s ease', // For smooth color transition
   },
-  buttonServe: {
+  buttonUnserve: {
     backgroundColor: '#0ADB1F',
     '&:hover': {
       backgroundColor: '#0ab81e',
     },
   },
-  buttonUnserve: {
+  buttonUndo: {
     backgroundColor: '#F44B14',
     '&:hover': {
       backgroundColor: '#e33c10',
@@ -59,7 +59,8 @@ const useStyles = makeStyles({
   expandToolbarButton: {
     top: '50%',
     position: 'absolute',
-    minHeight: '6vh',
+    minHeight: '5vh',
+    // maxHeight: '10vh',  
     left: '20px',
     zIndex: 1000,
     backgroundColor: '#0691DA',
@@ -83,7 +84,7 @@ const useStyles = makeStyles({
     alignItems: 'column', // this will align items vertically in the center
     justifyContent: 'center',
     maxHeight: '50vh',
-    maxWidth: "10vw",
+    maxWidth: "20vw",
   },
   collapseToolbarContainer: {
     display: 'flex',
@@ -139,7 +140,8 @@ function Map({ markers }) {
   const allMarkersRef = useRef([]); // create a ref for allMarkers
 
   const [isModalVisible, setModalVisible] = useState(false);
-  const [selectedMarkers, setSelectedMarkers] = useState([]);
+  const selectedMarkersRef = useRef([]);
+
 
   const toggleMarkers = (markers) => {
     return fetch("http://localhost:8000/toggle-markers", {
@@ -181,26 +183,101 @@ function Map({ markers }) {
     setModalVisible(!isModalVisible);
   };
 
-  const changeToServe = () => {
-    setSelectedMarkers(prevMarkers => prevMarkers.map(marker => ({ ...marker, served: true })));
-  };
 
   const changeToUnserve = () => {
-    setSelectedMarkers(prevMarkers => prevMarkers.map(marker => ({ ...marker, served: false })));
+    const lastList = selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
+    console.log(lastList);
+    if (lastList !== undefined && lastList !== null) {
+      lastList.forEach(marker => {
+        // Update the state of the selected markers
+        marker.served = false;
+
+        // Set the feature state for each updated marker
+
+        if (map.current && map.current.getSource('custom')) {
+          // Check if the marker's feature state has been previously set
+          const currentFeatureState = map.current.getFeatureState({
+            source: 'custom',
+            sourceLayer: 'data',
+            id: marker.id
+          });
+
+          if (currentFeatureState.hasOwnProperty('served')) {
+            // Set the 'served' feature state to false
+            map.current.setFeatureState({
+              source: 'custom',
+              sourceLayer: 'data',
+              id: marker.id
+            }, {
+              served: false
+            });
+          }
+        }
+
+      });
+    }
+  };
+
+  const undoChanges = () => {
+    const lastList = selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
+    console.log(lastList);
+    if (lastList !== undefined && lastList !== null) {
+      lastList.forEach(marker => {
+
+        marker.served = true;
+
+
+        // If the map and the 'custom' source have been loaded
+        if (map.current && map.current.getSource('custom')) {
+          // Check if the marker's feature state has been previously set
+          const currentFeatureState = map.current.getFeatureState({
+            source: 'custom',
+            sourceLayer: 'data',
+            id: marker.id
+          });
+
+          if (currentFeatureState.hasOwnProperty('served')) {
+            // Set the 'served' feature state to false
+            map.current.setFeatureState({
+              source: 'custom',
+              sourceLayer: 'data',
+              id: marker.id
+            }, {
+              served: true
+            });
+          }
+        }
+
+      });
+      selectedMarkersRef.current.pop();
+    }
   };
 
 
   const doneWithChanges = () => {
     setIsLoading(true);
-    const selectedMarkerIds = selectedMarkers.map((marker) => ({ id: marker.id, served: marker.served }));
-
+    const selectedMarkerIds = [];
+    selectedMarkersRef.current.forEach((list) => {
+      list.forEach((marker) => {
+        selectedMarkerIds.push({ id: marker.id, served: marker.served });
+      });
+    });
+    console.log(selectedMarkerIds);
     // Send request to server to change the selected markers to served
     toggleMarkers(selectedMarkerIds)
       .finally(() => {
 
 
-        if (map.current.getLayer('custom')) {
-          map.current.removeLayer('custom');
+        if (map.current.getLayer('custom-point')) {
+          map.current.removeLayer('custom-point');
+        }
+
+        if (map.current.getLayer('custom-line')) {
+          map.current.removeLayer('custom-line');
+        }
+
+        if (map.current.getLayer('custom-polygon')) {
+          map.current.removeLayer('custom-polygon');
         }
 
         if (map.current.getSource('custom')) {
@@ -212,23 +289,23 @@ function Map({ markers }) {
           tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
           maxzoom: 16
         });
+  
+        // Create a single-use event handler
+        function handleSourcedata(e) {
+          if (e.sourceId === 'custom' && map.current.isSourceLoaded('custom')) {
+            // Immediately remove the event listener
+            map.current.off('sourcedata', handleSourcedata);
+  
+            fetchMarkers().then(() => {
+              addLayers();
+            });
+          }
+        }
+  
+        // Add the single-use event handler
+        map.current.on('sourcedata', handleSourcedata);
 
-        map.current.addLayer({
-          'id': 'custom',
-          'type': 'circle',
-          'source': 'custom',
-          'paint': {
-            'circle-radius': 3,
-            'circle-color':
-              [
-                'case',
-                ['==', ['get', 'served'], true], // if 'served' property is true
-                '#46DF39', // make the circle color green
-                '#FF0000', // else make the circle color red
-              ]
-          },
-          'source-layer': 'data'
-        });
+
         setIsDataReady(true);
         setIsLoading(false); // Set loading to false after API call
         setTimeout(() => {
@@ -236,42 +313,97 @@ function Map({ markers }) {
         }, 5000);
       });
 
-    setSelectedMarkers([]);
+    selectedMarkersRef.current = [];
     toggleModalVisibility();
   };
 
-  useEffect(() => {
-    const fetchMarkers = () => {
-      fetch("http://localhost:8000/served-data", {
-        method: "GET",
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          const newMarkers = data.map((item) => ({
-            name: item.address,
-            id: item.location_id,
-            latitude: item.latitude,
-            longitude: item.longitude,
-            served: item.served
-          }));
-          console.log(newMarkers);
-          allMarkersRef.current = newMarkers; // Here's the state update
-          // console.log(newMarkers); // Log newMarkers instead of allMarkers
-        })
-        .catch((error) => {
-          console.log(error);
+  const fetchMarkers = () => {
+    return fetch("http://localhost:8000/served-data", {
+      method: "GET",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        const newMarkers = data.map((item) => ({
+          name: item.address,
+          id: item.location_id,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          served: item.served
+        }));
+
+        console.log(newMarkers);
+
+        // Iterate over newMarkers and set the feature state for each
+        newMarkers.forEach((marker) => {
+          // Only set feature state if marker.served is true
+          if (marker.served) {
+            // This assumes that marker.id matches the feature id in your vector tile source
+            map.current.setFeatureState({
+              source: 'custom',
+              sourceLayer: 'data',
+              id: marker.id,
+            }, {
+              served: marker.served // Use the served property from the marker data
+            });
+          }
         });
-    };
-    if (allMarkersRef.current.length === 0) {
-      fetchMarkers();
-    }
-  }, []);
 
+        allMarkersRef.current = newMarkers; // Here's the state update
+        // console.log(newMarkers); // Log newMarkers instead of allMarkers
 
+      })
+      .catch((error) => {
+        console.log(error);
+      });
+  };
 
-  const { location } = useContext(SelectedLocationContext);
-  const distinctMarkerRef = useRef(null);
+  const addLayers = () => {
+    map.current.addLayer({
+      'id': 'custom-line',
+      'type': 'line',
+      'source': 'custom',
+      'layout': {
+        'line-cap': 'round',
+        'line-join': 'round'
+      },
+      'paint': {
+        'line-color': '#888',
+        'line-width': 2
+      },
+      'filter': ['==', ['get', 'feature_type'], 'LineString'], // Only apply this layer to linestrings
+      'source-layer': 'data'
+    });
 
+    map.current.addLayer({
+      'id': 'custom-polygon',
+      'type': 'fill',
+      'source': 'custom',
+      'paint': {
+        'fill-color': '#42004F',
+        'fill-opacity': 0.5,
+      },
+      'filter': ['==', ['get', 'feature_type'], 'Polygon'], // Only apply this layer to polygons
+      'source-layer': 'data'
+    });
+
+    map.current.addLayer({
+      'id': 'custom-point',
+      'type': 'circle',
+      'source': 'custom',
+      'paint': {
+        'circle-radius': 3,
+        'circle-color':
+          [
+            'case',
+            ['==', ['feature-state', 'served'], true], // change 'get' to 'feature-state'
+            '#46DF39',
+            '#FF0000',
+          ]
+      },
+      'filter': ['==', ['get', 'feature_type'], 'Point'], // Only apply this layer to points
+      'source-layer': 'data'
+    });
+  };
 
   useEffect(() => {
     map.current = new maplibregl.Map({
@@ -281,6 +413,13 @@ function Map({ markers }) {
       center: [-98.35, 39.50],
       zoom: 4
     });
+  }, []);
+
+
+  const { location } = useContext(SelectedLocationContext);
+  const distinctMarkerRef = useRef(null);
+
+  useEffect(() => {
 
     // MapboxDraw requires the canvas's class order to have the class 
     // "mapboxgl-canvas" first in the list for the key bindings to work
@@ -323,63 +462,30 @@ function Map({ markers }) {
   useEffect(() => {
     if (!map.current) return; // Wait for map to initialize
     map.current.on('load', function () {
+
+
       map.current.addSource('custom', {
         type: 'vector',
         tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
         maxzoom: 16
       });
 
-      // For Point
+      // Create a single-use event handler
+      function handleSourcedata(e) {
+        if (e.sourceId === 'custom' && map.current.isSourceLoaded('custom')) {
+          // Immediately remove the event listener
+          map.current.off('sourcedata', handleSourcedata);
 
-      map.current.addLayer({
-        'id': 'custom-line',
-        'type': 'line',
-        'source': 'custom',
-        'layout': {
-          'line-cap': 'round',
-          'line-join': 'round'
-        },
-        'paint': {
-          'line-color': '#888',
-          'line-width': 2
-        },
-        'filter': ['==', ['get', 'feature_type'], 'LineString'], // Only apply this layer to linestrings
-        'source-layer': 'data'
-      });
+          fetchMarkers().then(() => {
+            addLayers();
+          });
+        }
+      }
 
-      map.current.addLayer({
-        'id': 'custom-polygon',
-        'type': 'fill',
-        'source': 'custom',
-        'paint': {
-          'fill-color': '#42004F',
-          'fill-opacity': 0.5,
-        },
-        'filter': ['==', ['get', 'feature_type'], 'Polygon'], // Only apply this layer to polygons
-        'source-layer': 'data'
-      });
-
-      map.current.addLayer({
-        'id': 'custom-point',
-        'type': 'circle',
-        'source': 'custom',
-        'paint': {
-          'circle-radius': 3,
-          'circle-color':
-            [
-              'case',
-              ['==', ['get', 'served'], true],
-              '#46DF39',
-              '#FF0000',
-            ]
-        },
-        'filter': ['==', ['get', 'feature_type'], 'Point'], // Only apply this layer to points
-        'source-layer': 'data'
-      });
+      // Add the single-use event handler
+      map.current.on('sourcedata', handleSourcedata);
 
       console.log("Sending markers to create tiles")
-
-
 
       map.current.on('draw.create', (event) => {
         const polygon = event.features[0];
@@ -390,22 +496,21 @@ function Map({ markers }) {
         // console.log(allMarkersRef.current);
 
         // Iterate over markers and select if they are inside the polygon
-        const selectedMarkers = allMarkersRef.current.filter((marker) => {
+        const selected = allMarkersRef.current.filter((marker) => {
           const point = turf.point([marker.longitude, marker.latitude]);
           return turf.booleanPointInPolygon(point, turfPolygon);
         });
 
-        // console.log(selectedMarkers); // Do something with the selected markers
+        // console.log(selected);
+        selectedMarkersRef.current.push(selected);
 
-        setSelectedMarkers(prevMarkers => [...prevMarkers, ...selectedMarkers]); // append new markers to existing selection
-
-        allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
+        // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
 
         setModalVisible(true); // Show the modal
 
       });
 
-      map.current.on('click', 'custom', function (e) {
+      map.current.on('click', 'custom-point', function (e) {
         let featureProperties = e.features[0].properties;
 
         let content = '<h1>Marker Information</h1>';
@@ -419,9 +524,11 @@ function Map({ markers }) {
           .addTo(map.current);
       });
 
+
     });
 
   }, [markers]);
+
 
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) { return };
@@ -441,6 +548,10 @@ function Map({ markers }) {
       map.current.setLayoutProperty('custom-polygon', 'visibility', 'none');
     }
 
+    // Currently if points were change to unserved with drawing tools, when toggled showServed off it will
+    // still show up on the map. This is because mapbox does not support "filter" option with feature-state. 
+    // Currently there are no work around except updating the database as re-rendering also relies on the "filter"
+    // option
     if (showServed && !showUnserved) {
       map.current.setLayoutProperty('custom-point', 'visibility', 'visible');
       map.current.setFilter('custom-point', ['all', ['==', ['get', 'served'], true], ['==', ['get', 'feature_type'], 'Point']]);
@@ -470,8 +581,6 @@ function Map({ markers }) {
       }).setLngLat([longitude, latitude])
         .addTo(map.current);
 
-      console.log(distinctMarkerRef.current);
-
       map.current.flyTo({
         center: [longitude, latitude],
         zoom: 16
@@ -486,15 +595,17 @@ function Map({ markers }) {
   }, [location]);
 
 
+
+
   return (
     <div>
       <div>
         {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
         {isModalVisible && (
           <div className={classes.modal}>
-            <button className={`${classes.drawtoolbutton} ${classes.buttonServe}`} onClick={changeToServe}>Change locations status to served</button>
             <button className={`${classes.drawtoolbutton} ${classes.buttonUnserve}`} onClick={changeToUnserve}>Change locations status to unserved</button>
-            <button className={`${classes.drawtoolbutton} ${classes.buttonDone}`} onClick={doneWithChanges}>Done with changes</button>
+            <button className={`${classes.drawtoolbutton} ${classes.buttonUndo}`} onClick={undoChanges}>Undo change</button>
+            <button className={`${classes.drawtoolbutton} ${classes.buttonDone}`} onClick={doneWithChanges}>Save your changes</button>
           </div>
         )}
         {showExpandButton && (
