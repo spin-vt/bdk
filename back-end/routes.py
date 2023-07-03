@@ -477,6 +477,8 @@ def toggle_markers():
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
+    geojson_data = []
+
     try:
         with db_lock:
             for marker in markers:
@@ -488,11 +490,53 @@ def toggle_markers():
                     """, 
                     (marker['served'], marker['id'],)
                 )
+                cursor.execute(
+                    """
+                    SELECT "KML".location_id, 
+                           "KML".served, 
+                           fabric.latitude, 
+                           fabric.address_primary, 
+                           fabric.longitude,
+                           "KML".wireless,
+                           "KML".lte,
+                           "KML".username,
+                           "KML"."coveredLocations",
+                           "KML"."maxDownloadNetwork",
+                           "KML"."maxDownloadSpeed" 
+                    FROM "KML"
+                    JOIN fabric ON "KML".location_id = fabric.location_id
+                    WHERE "KML".location_id = %s
+                    """, 
+                    (marker['id'],)
+                )
+                row = cursor.fetchone()
+
+                point_geojson = {
+                    "type": "Feature",
+                    "properties": {
+                        "location_id": row[0],
+                        "served": row[1],
+                        "address": row[3],
+                        "wireless": row[5],
+                        'lte': row[6],
+                        'username': row[7],
+                        'network_coverages': row[8],
+                        'maxDownloadNetwork': row[9],
+                        'maxDownloadSpeed': row[10],
+                        "feature_type": "Point"
+                    },
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [row[4], row[2]]  # Please adjust indices based on your column order
+                    }
+                }
+
+                geojson_data.append(point_geojson)
+
         conn.commit()
-        # This implmentation will not generate tile for routes and polygons because there are no 
-        # kml file to reads in the routes and polygons, this issue should be addressed with the 
-        # implementation of tile_join
-        vectorTile.create_tiles([])
+
+        
+        vectorTile.tiles_join(geojson_data)
         message = 'Markers toggled successfully'
         status_code = 200
 

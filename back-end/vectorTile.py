@@ -47,12 +47,20 @@ class vector_tiles(Base):
     tile_column = Column(Integer) 
     tile_row = Column(Integer)
     tile_data = Column(LargeBinary)
+
+class mbtiles(Base):
+    __tablename__ = 'mbt'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tile_data = Column(LargeBinary)
     
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
 
 inspector = inspect(engine)
 if not inspector.has_table('vt'):
+    Base.metadata.create_all(engine)
+
+if not inspector.has_table('mbt'):
     Base.metadata.create_all(engine)
 
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -106,7 +114,7 @@ def add_values_to_VT_test(mbtiles_file_path):
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()
             
-            # Prepare the data
+            # Prepare the vector tile data
             data = [(row[0], row[1], row[2], Binary(row[3])) for row in mb_c]
 
             # Execute values will generate a SQL INSERT query with placeholders for the parameters
@@ -114,6 +122,16 @@ def add_values_to_VT_test(mbtiles_file_path):
                 INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data) 
                 VALUES %s
                 """, data)
+
+            # Open the .mbtiles file as binary and read the data
+            with open(mbtiles_file_path, 'rb') as file:
+                mbtiles_data = Binary(file.read())
+            
+            # Insert the .mbtiles data
+            cur.execute("""
+                INSERT INTO mbt (tile_data)
+                VALUES (%s)
+                """, (mbtiles_data,))
 
             # Don't forget to commit the transaction
             conn.commit()
@@ -127,7 +145,6 @@ def add_values_to_VT_test(mbtiles_file_path):
             conn.close()
             os.remove(mbtiles_file_path)
     return 1
-
 
 def add_values_to_VT(mbtiles_file_path):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
@@ -163,6 +180,108 @@ def add_values_to_VT(mbtiles_file_path):
             os.remove(mbtiles_file_path)
 
     return 1
+
+# Potential method for recreating mbtiles with pbf in db
+def create_mbtiles_from_db(output_path):
+    # Connect to the PostgreSQL database
+    pg_session = ScopedSession()
+
+    # Connect to the new .mbtiles file
+    with sqlite3.connect(output_path) as mb_conn:
+        mb_c = mb_conn.cursor()
+
+        # Create the tables
+        mb_c.execute(
+            """
+            CREATE TABLE metadata (
+                name TEXT,
+                value TEXT
+            );
+            """
+        )
+
+        mb_c.execute(
+            """
+            CREATE TABLE tiles (
+                zoom_level INTEGER,
+                tile_column INTEGER,
+                tile_row INTEGER,
+                tile_data BLOB
+            );
+            """
+        )
+
+        # Query for the vector tile data
+        tile_data = pg_session.query(vector_tiles).all()
+
+        # Insert the data into the .mbtiles file
+        for row in tile_data:
+            mb_c.execute(
+                """
+                INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data)
+                VALUES (?, ?, ?, ?)
+                """,
+                (row.zoom_level, row.tile_column, row.tile_row, row.tile_data),
+            )
+
+        # Commit the changes and close the connection
+        mb_conn.commit()
+
+    # Close the PostgreSQL session
+    pg_session.close()
+
+def tiles_join(geojson_data):
+    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    cursor = conn.cursor()
+
+    # Extract the .mbtiles file from the database
+    cursor.execute("SELECT tile_data FROM mbt LIMIT 1")
+    mbtiles_data = cursor.fetchone()[0]
+
+    # Save the .mbtiles file temporarily on the disk
+    with open('existing.mbtiles', 'wb') as f:
+        f.write(mbtiles_data)
+
+    # Save the geojson_data to a .geojson file
+    with open('data.geojson', 'w') as f:
+        json.dump(geojson_data, f)
+    
+    # Use tippecanoe to create a new .mbtiles file from the geojson_data
+    command = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
+    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+
+    if result.stderr:
+         print("Tippecanoe stderr:", result.stderr.decode())
+
+
+    # Use tile-join to merge the new .mbtiles file with the existing one
+    command = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
+    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+    if result.stderr:
+         print("Tippecanoe stderr:", result.stderr.decode())
+
+    # Delete the existing .mbtiles file from the database
+    cursor.execute("TRUNCATE TABLE mbt")
+    conn.commit()
+
+    # # Read the merged .mbtiles file into memory
+    # with open('merged.mbtiles', 'rb') as f:
+    #     merged_mbtiles_data = f.read()
+
+    # # Insert the merged .mbtiles file into the database
+    # cursor.execute("INSERT INTO mbt (tile_data) VALUES (%s)", (Binary(merged_mbtiles_data),))
+
+    # conn.commit()
+    cursor.close()
+    conn.close()
+
+    val = add_values_to_VT_test("./merged.mbtiles")
+
+    # Remove the temporary files
+    os.remove('existing.mbtiles')
+    os.remove('new.mbtiles')
+    os.remove('merged.mbtiles')
+    os.remove('data.geojson')
 
 def create_tiles(geojson_array):
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
