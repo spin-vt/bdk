@@ -14,6 +14,10 @@ import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Select, MenuItem } from "@material-ui/core";
+import LayersIcon from '@mui/icons-material/Layers';
+import IconButton from '@material-ui/core/IconButton';
+import Menu from '@material-ui/core/Menu';
+
 
 const useStyles = makeStyles({
   modal: {
@@ -117,21 +121,20 @@ const useStyles = makeStyles({
     zIndex: 1000,
   },
   baseMap: {
-    top: "60%",
+    width: '33px',
+    height: '33px',
+    top: "18%",
     position: "absolute",
-    minHeight: "6vh",
-    left: "20px",
+    left: "10px",
     zIndex: 1000,
-    backgroundColor: "#0691DA",
-    border: "0px",
-    color: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 1)", // lighter color theme
+    color: "#333", // dark icon for visibility against light background
     "&:hover": {
-      backgroundColor: "#73A5C6",
+      backgroundColor: "rgba(255, 255, 255, 0.9)",
     },
-    borderRadius: "30px",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    transform: `translateY(-50%)`,
+    borderRadius: "4px", // added back borderRadius with a smaller value
+    padding: '10px', // decrease padding if it's too much
+    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.3)', // subtle shadow as seen in MapLibre controls
   },
 });
 
@@ -215,6 +218,22 @@ function Map({ markers }) {
   };
 
   const [selectedBaseMap, setSelectedBaseMap] = useState("STREETS");
+
+  const [basemapAnchorEl, setBasemapAnchorEl] = useState(null);
+
+  const handleBasemapMenuOpen = (event) => {
+    setBasemapAnchorEl(event.currentTarget);
+  };
+
+  const handleBasemapMenuClose = () => {
+    setBasemapAnchorEl(null);
+  };
+
+  const handleBaseMapToggle = (baseMapName) => {
+    console.log(baseMapName);
+    setSelectedBaseMap(baseMapName);
+    setBasemapAnchorEl(null);
+  };
 
   const addSource = () => {
     const existingSource = map.current.getSource("custom");
@@ -338,6 +357,9 @@ function Map({ markers }) {
         }
       });
       selectedMarkersRef.current.pop();
+      if (selectedMarkersRef.current === undefined || selectedMarkersRef.current === null || selectedMarkersRef.current.length === 0) {
+        toggleModalVisibility();
+      }
     }
   };
 
@@ -419,7 +441,7 @@ function Map({ markers }) {
       }
     });
   };
-  
+
   const fetchMarkers = () => {
     if (allMarkersRef.current === undefined || allMarkersRef.current === null || allMarkersRef.current.length === 0) {
       return fetch("http://localhost:8000/served-data", {
@@ -434,11 +456,11 @@ function Map({ markers }) {
             longitude: item.longitude,
             served: item.served,
           }));
-  
+
           console.log(newMarkers);
-  
+
           setFeatureStateForMarkers(newMarkers);
-  
+
           allMarkersRef.current = newMarkers; // Here's the state update
         })
         .catch((error) => {
@@ -715,25 +737,33 @@ function Map({ markers }) {
     }
   }, [location]);
 
-  const handleBaseMapToggle = (event) => {
-    setSelectedBaseMap(event.target.value);
-  };
-
   return (
     <div>
-      <div className={classes.baseMap}>
-        <label htmlFor="baseMapToggle">Base Map:</label>
-        <Select
-          id="baseMapToggle"
-          value={selectedBaseMap}
-          onChange={handleBaseMapToggle}
+      <div>
+        <IconButton className={classes.baseMap} onClick={handleBasemapMenuOpen}>
+          <LayersIcon color="inherit" />
+        </IconButton>
+        <Menu
+          id="basemap-menu"
+          anchorEl={basemapAnchorEl}
+          keepMounted
+          open={Boolean(basemapAnchorEl)}
+          onClose={handleBasemapMenuClose}
+          anchorOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'left',
+          }}
         >
           {Object.keys(baseMaps).map((key) => (
-            <MenuItem key={key} value={key}>
+            <MenuItem key={key} onClick={() => handleBaseMapToggle(key)}>
               {key}
             </MenuItem>
           ))}
-        </Select>
+        </Menu>
       </div>
       <div>
         {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
