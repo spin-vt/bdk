@@ -1,127 +1,143 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import SelectedLocationContext from "./SelectedLocationContext";
-import { Toolbar, Switch, FormControlLabel, Button } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
-import KeyboardDoubleArrowUpIcon from '@mui/icons-material/KeyboardDoubleArrowUp';
-import MapboxDraw from '@mapbox/mapbox-gl-draw'
-import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
-import * as turf from '@turf/turf';
+import { Toolbar, Switch, FormControlLabel, Button } from "@material-ui/core";
+import { makeStyles } from "@material-ui/core/styles";
+import KeyboardDoubleArrowUpIcon from "@mui/icons-material/KeyboardDoubleArrowUp";
+import MapboxDraw from "@mapbox/mapbox-gl-draw";
+import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
+import * as turf from "@turf/turf";
 import LoadingEffect from "./LoadingEffect";
-
+import "@maptiler/sdk/dist/maptiler-sdk.css";
+import * as maptilersdk from "@maptiler/sdk";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { Select, MenuItem } from "@material-ui/core";
 
 const useStyles = makeStyles({
   modal: {
-    position: 'absolute',
-    top: '5%', // adjust as needed
-    left: '50%',
-    zIndex: '1000',
-    transform: 'translate(-50%, -50%)',
-    backgroundColor: '#fff',
-    boxShadow: '0px 5px 15px rgba(0, 0, 0, 0.3)',
-    padding: '16px 32px',
-    borderRadius: '40px', // for rounded corners
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    maxHeight: '8vh',
-    minWidth: '60vw',
+    position: "absolute",
+    top: "5%", // adjust as needed
+    left: "50%",
+    zIndex: "1000",
+    transform: "translate(-50%, -50%)",
+    backgroundColor: "#fff",
+    boxShadow: "0px 5px 15px rgba(0, 0, 0, 0.3)",
+    padding: "16px 32px",
+    borderRadius: "40px", // for rounded corners
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    maxHeight: "8vh",
+    minWidth: "60vw",
   },
   drawtoolbutton: {
-    margin: '8px',
-    borderRadius: '20px',
-    color: '#fff', // Change button text color
-    border: 'none',
-    cursor: 'pointer',
-    padding: '10px 20px', // Change as needed
-    transition: 'background-color 0.3s ease', // For smooth color transition
+    margin: "8px",
+    borderRadius: "20px",
+    color: "#fff", // Change button text color
+    border: "none",
+    cursor: "pointer",
+    padding: "10px 20px", // Change as needed
+    transition: "background-color 0.3s ease", // For smooth color transition
   },
   buttonUnserve: {
-    backgroundColor: '#0ADB1F',
-    '&:hover': {
-      backgroundColor: '#0ab81e',
+    backgroundColor: "#0ADB1F",
+    "&:hover": {
+      backgroundColor: "#0ab81e",
     },
   },
   buttonUndo: {
-    backgroundColor: '#F44B14',
-    '&:hover': {
-      backgroundColor: '#e33c10',
+    backgroundColor: "#F44B14",
+    "&:hover": {
+      backgroundColor: "#e33c10",
     },
   },
   buttonDone: {
-    backgroundColor: '#0691DA',
-    '&:hover': {
-      backgroundColor: '#0277bd',
+    backgroundColor: "#0691DA",
+    "&:hover": {
+      backgroundColor: "#0277bd",
     },
   },
   expandToolbarButton: {
-    top: '50%',
-    position: 'absolute',
-    minHeight: '5vh',
-    // maxHeight: '10vh',  
-    left: '20px',
+    top: "50%",
+    position: "absolute",
+    minHeight: "5vh",
+    // maxHeight: '10vh',
+    left: "20px",
     zIndex: 1000,
-    backgroundColor: '#0691DA',
-    border: '0px',
-    color: '#fff',
-    '&:hover': {
-      backgroundColor: '#73A5C6',
+    backgroundColor: "#0691DA",
+    border: "0px",
+    color: "#fff",
+    "&:hover": {
+      backgroundColor: "#73A5C6",
     },
-    borderRadius: '30px',
-    paddingLeft: '20px',
-    paddingRight: '20px',
+    borderRadius: "30px",
+    paddingLeft: "20px",
+    paddingRight: "20px",
     transform: `translateY(-50%)`,
   },
   wrapper: {
-    position: 'absolute',
-    left: '30px',
-    top: '50%',
+    position: "absolute",
+    left: "30px",
+    top: "50%",
     transform: `translateY(-50%)`,
     zIndex: 1000,
-    display: 'grid',
-    alignItems: 'column', // this will align items vertically in the center
-    justifyContent: 'center',
-    maxHeight: '50vh',
+    display: "grid",
+    alignItems: "column", // this will align items vertically in the center
+    justifyContent: "center",
+    maxHeight: "50vh",
     maxWidth: "20vw",
   },
   collapseToolbarContainer: {
-    display: 'flex',
-    alignItems: 'center', // this will align items vertically in the center
-    justifyContent: 'center',
+    display: "flex",
+    alignItems: "center", // this will align items vertically in the center
+    justifyContent: "center",
     zIndex: 1000,
-    backgroundColor: '#3A7BD5',
-    color: '#fff',
-    '&:hover': {
-      backgroundColor: '#73A5C6',
+    backgroundColor: "#3A7BD5",
+    color: "#fff",
+    "&:hover": {
+      backgroundColor: "#73A5C6",
     },
-    border: '0px',
-    borderRadius: '10px',
-    paddingLeft: '10px',
-    paddingRight: '10px',
+    border: "0px",
+    borderRadius: "10px",
+    paddingLeft: "10px",
+    paddingRight: "10px",
   },
   toolbar: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    justifyContent: "center",
     // maxHeight: '10vh',
     // maxWidth: "20vw", // reduce width
-    borderRadius: '20px',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: "20px",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     zIndex: 1000,
   },
-
+  baseMap: {
+    top: "60%",
+    position: "absolute",
+    minHeight: "6vh",
+    left: "20px",
+    zIndex: 1000,
+    backgroundColor: "#0691DA",
+    border: "0px",
+    color: "#fff",
+    "&:hover": {
+      backgroundColor: "#73A5C6",
+    },
+    borderRadius: "30px",
+    paddingLeft: "20px",
+    paddingRight: "20px",
+    transform: `translateY(-50%)`,
+  },
 });
 
-
 function Map({ markers }) {
-
   const classes = useStyles();
   const mapContainer = useRef(null);
   const map = useRef(null);
-
 
   const [showServed, setShowServed] = useState(true);
   const [showUnserved, setShowUnserved] = useState(true);
@@ -133,7 +149,6 @@ function Map({ markers }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
 
-
   const [lastPosition, setLastPosition] = useState([37.0902, -95.7129]);
   const [lastZoom, setLastZoom] = useState(5);
 
@@ -142,14 +157,36 @@ function Map({ markers }) {
   const [isModalVisible, setModalVisible] = useState(false);
   const selectedMarkersRef = useRef([]);
 
+  const baseMaps = {
+    STREETS:
+      "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
+    SATELLITE:
+      "https://api.maptiler.com/maps/satellite/style.json?key=QE9g8fJij2HMMqWYaZlN",
+    DARK: "https://api.maptiler.com/maps/backdrop-dark/style.json?key=QE9g8fJij2HMMqWYaZlN",
+  };
+
+  const [selectedBaseMap, setSelectedBaseMap] = useState("STREETS");
+
+  const addSource = () => {
+    const existingSource = map.current.getSource("custom");
+    if (existingSource) {
+      map.current.removeSource("custom");
+    }
+
+    map.current.addSource("custom", {
+      type: "vector",
+      tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+      maxzoom: 16,
+    });
+  };
 
   const toggleMarkers = (markers) => {
     return fetch("http://localhost:8000/toggle-markers", {
       method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(markers)
+      body: JSON.stringify(markers),
     })
       .then((response) => response.json())
       .then((data) => {
@@ -163,96 +200,97 @@ function Map({ markers }) {
   const handleServedChange = (event) => {
     setShowServed(event.target.checked);
     console.log(showServed);
-  }
+  };
 
   const handleUnservedChange = (event) => {
     setShowUnserved(event.target.checked);
     console.log(showUnserved);
-  }
+  };
 
   const handleToggleRoute = (event) => {
     setShowRoutes(event.target.checked);
-  }
+  };
 
   const handleTogglePolygon = (event) => {
     setShowPolygons(event.target.checked);
-  }
-
+  };
 
   const toggleModalVisibility = () => {
     setModalVisible(!isModalVisible);
   };
 
-
   const changeToUnserve = () => {
-    const lastList = selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
+    const lastList =
+      selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
     console.log(lastList);
     if (lastList !== undefined && lastList !== null) {
-      lastList.forEach(marker => {
+      lastList.forEach((marker) => {
         // Update the state of the selected markers
         marker.served = false;
 
         // Set the feature state for each updated marker
 
-        if (map.current && map.current.getSource('custom')) {
+        if (map.current && map.current.getSource("custom")) {
           // Check if the marker's feature state has been previously set
           const currentFeatureState = map.current.getFeatureState({
-            source: 'custom',
-            sourceLayer: 'data',
-            id: marker.id
+            source: "custom",
+            sourceLayer: "data",
+            id: marker.id,
           });
 
-          if (currentFeatureState.hasOwnProperty('served')) {
+          if (currentFeatureState.hasOwnProperty("served")) {
             // Set the 'served' feature state to false
-            map.current.setFeatureState({
-              source: 'custom',
-              sourceLayer: 'data',
-              id: marker.id
-            }, {
-              served: false
-            });
+            map.current.setFeatureState(
+              {
+                source: "custom",
+                sourceLayer: "data",
+                id: marker.id,
+              },
+              {
+                served: false,
+              }
+            );
           }
         }
-
       });
     }
   };
 
   const undoChanges = () => {
-    const lastList = selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
+    const lastList =
+      selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
     console.log(lastList);
     if (lastList !== undefined && lastList !== null) {
-      lastList.forEach(marker => {
-
+      lastList.forEach((marker) => {
         marker.served = true;
 
-
         // If the map and the 'custom' source have been loaded
-        if (map.current && map.current.getSource('custom')) {
+        if (map.current && map.current.getSource("custom")) {
           // Check if the marker's feature state has been previously set
           const currentFeatureState = map.current.getFeatureState({
-            source: 'custom',
-            sourceLayer: 'data',
-            id: marker.id
+            source: "custom",
+            sourceLayer: "data",
+            id: marker.id,
           });
 
-          if (currentFeatureState.hasOwnProperty('served')) {
+          if (currentFeatureState.hasOwnProperty("served")) {
             // Set the 'served' feature state to false
-            map.current.setFeatureState({
-              source: 'custom',
-              sourceLayer: 'data',
-              id: marker.id
-            }, {
-              served: true
-            });
+            map.current.setFeatureState(
+              {
+                source: "custom",
+                sourceLayer: "data",
+                id: marker.id,
+              },
+              {
+                served: true,
+              }
+            );
           }
         }
-
       });
       selectedMarkersRef.current.pop();
     }
   };
-
 
   const doneWithChanges = () => {
     setIsLoading(true);
@@ -264,54 +302,50 @@ function Map({ markers }) {
     });
     console.log(selectedMarkerIds);
     // Send request to server to change the selected markers to served
-    toggleMarkers(selectedMarkerIds)
-      .finally(() => {
+    toggleMarkers(selectedMarkerIds).finally(() => {
+      if (map.current.getLayer("custom-point")) {
+        map.current.removeLayer("custom-point");
+      }
 
+      if (map.current.getLayer("custom-line")) {
+        map.current.removeLayer("custom-line");
+      }
 
-        if (map.current.getLayer('custom-point')) {
-          map.current.removeLayer('custom-point');
-        }
+      if (map.current.getLayer("custom-polygon")) {
+        map.current.removeLayer("custom-polygon");
+      }
 
-        if (map.current.getLayer('custom-line')) {
-          map.current.removeLayer('custom-line');
-        }
+      if (map.current.getSource("custom")) {
+        map.current.removeSource("custom");
+      }
 
-        if (map.current.getLayer('custom-polygon')) {
-          map.current.removeLayer('custom-polygon');
-        }
-
-        if (map.current.getSource('custom')) {
-          map.current.removeSource('custom');
-        }
-
-        map.current.addSource('custom', {
-          type: 'vector',
-          tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-          maxzoom: 16
-        });
-  
-        // Create a single-use event handler
-        function handleSourcedata(e) {
-          if (e.sourceId === 'custom' && map.current.isSourceLoaded('custom')) {
-            // Immediately remove the event listener
-            map.current.off('sourcedata', handleSourcedata);
-  
-            fetchMarkers().then(() => {
-              addLayers();
-            });
-          }
-        }
-  
-        // Add the single-use event handler
-        map.current.on('sourcedata', handleSourcedata);
-
-
-        setIsDataReady(true);
-        setIsLoading(false); // Set loading to false after API call
-        setTimeout(() => {
-          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        }, 5000);
+      map.current.addSource("custom", {
+        type: "vector",
+        tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+        maxzoom: 16,
       });
+
+      // Create a single-use event handler
+      function handleSourcedata(e) {
+        if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
+          // Immediately remove the event listener
+          map.current.off("sourcedata", handleSourcedata);
+
+          fetchMarkers().then(() => {
+            addLayers();
+          });
+        }
+      }
+
+      // Add the single-use event handler
+      map.current.on("sourcedata", handleSourcedata);
+
+      setIsDataReady(true);
+      setIsLoading(false); // Set loading to false after API call
+      setTimeout(() => {
+        setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+      }, 5000);
+    });
 
     selectedMarkersRef.current = [];
     toggleModalVisibility();
@@ -328,7 +362,7 @@ function Map({ markers }) {
           id: item.location_id,
           latitude: item.latitude,
           longitude: item.longitude,
-          served: item.served
+          served: item.served,
         }));
 
         console.log(newMarkers);
@@ -338,19 +372,21 @@ function Map({ markers }) {
           // Only set feature state if marker.served is true
           if (marker.served) {
             // This assumes that marker.id matches the feature id in your vector tile source
-            map.current.setFeatureState({
-              source: 'custom',
-              sourceLayer: 'data',
-              id: marker.id,
-            }, {
-              served: marker.served // Use the served property from the marker data
-            });
+            map.current.setFeatureState(
+              {
+                source: "custom",
+                sourceLayer: "data",
+                id: marker.id,
+              },
+              {
+                served: marker.served, // Use the served property from the marker data
+              }
+            );
           }
         });
 
         allMarkersRef.current = newMarkers; // Here's the state update
         // console.log(newMarkers); // Log newMarkers instead of allMarkers
-
       })
       .catch((error) => {
         console.log(error);
@@ -359,122 +395,151 @@ function Map({ markers }) {
 
   const addLayers = () => {
     map.current.addLayer({
-      'id': 'custom-line',
-      'type': 'line',
-      'source': 'custom',
-      'layout': {
-        'line-cap': 'round',
-        'line-join': 'round'
+      id: "custom-line",
+      type: "line",
+      source: "custom",
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
       },
-      'paint': {
-        'line-color': '#888',
-        'line-width': 2
+      paint: {
+        "line-color": "#888",
+        "line-width": 2,
       },
-      'filter': ['==', ['get', 'feature_type'], 'LineString'], // Only apply this layer to linestrings
-      'source-layer': 'data'
+      filter: ["==", ["get", "feature_type"], "LineString"], // Only apply this layer to linestrings
+      "source-layer": "data",
     });
 
     map.current.addLayer({
-      'id': 'custom-polygon',
-      'type': 'fill',
-      'source': 'custom',
-      'paint': {
-        'fill-color': '#42004F',
-        'fill-opacity': 0.5,
+      id: "custom-polygon",
+      type: "fill",
+      source: "custom",
+      paint: {
+        "fill-color": "#42004F",
+        "fill-opacity": 0.5,
       },
-      'filter': ['==', ['get', 'feature_type'], 'Polygon'], // Only apply this layer to polygons
-      'source-layer': 'data'
+      filter: ["==", ["get", "feature_type"], "Polygon"], // Only apply this layer to polygons
+      "source-layer": "data",
     });
 
     map.current.addLayer({
-      'id': 'custom-point',
-      'type': 'circle',
-      'source': 'custom',
-      'paint': {
-        'circle-radius': 3,
-        'circle-color':
-          [
-            'case',
-            ['==', ['feature-state', 'served'], true], // change 'get' to 'feature-state'
-            '#46DF39',
-            '#FF0000',
-          ]
+      id: "custom-point",
+      type: "circle",
+      source: "custom",
+      paint: {
+        "circle-radius": 3,
+        "circle-color": [
+          "case",
+          ["==", ["feature-state", "served"], true], // change 'get' to 'feature-state'
+          "#46DF39",
+          "#FF0000",
+        ],
       },
-      'filter': ['==', ['get', 'feature_type'], 'Point'], // Only apply this layer to points
-      'source-layer': 'data'
+      filter: ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
+      "source-layer": "data",
     });
   };
 
-  useEffect(() => {
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      //look in .env for actual key (API_TILER_KEY)
-      style: 'https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN',
-      center: [-98.35, 39.50],
-      zoom: 4
-    });
-  }, []);
-
-
-  const { location } = useContext(SelectedLocationContext);
-  const distinctMarkerRef = useRef(null);
 
   useEffect(() => {
+    const initialStyle = baseMaps[selectedBaseMap];
+    console.log(initialStyle);
+    // Get current zoom level and center
+    let currentZoom = 4;
+    let currentCenter = [-98.35, 39.5];
 
-    // MapboxDraw requires the canvas's class order to have the class 
-    // "mapboxgl-canvas" first in the list for the key bindings to work
-    map.current.getCanvas().className = 'mapboxgl-canvas maplibregl-canvas';
-    map.current.getContainer().classList.add('mapboxgl-map');
-    const canvasContainer = map.current.getCanvasContainer();
-    canvasContainer.classList.add('mapboxgl-canvas-container');
-    if (canvasContainer.classList.contains('maplibregl-interactive')) {
-      canvasContainer.classList.add('mapboxgl-interactive');
+    if (map.current) {
+      currentZoom = map.current.getZoom();
+      currentCenter = map.current.getCenter().toArray();
     }
 
+    map.current = new maplibregl.Map({
+      container: mapContainer.current,
+      style: initialStyle,
+      center: currentCenter,
+      zoom: currentZoom,
+    });
 
+    map.current.getCanvas().className = "mapboxgl-canvas maplibregl-canvas";
+    map.current.getContainer().classList.add("mapboxgl-map");
+    const canvasContainer = map.current.getCanvasContainer();
+    canvasContainer.classList.add("mapboxgl-canvas-container");
+    if (canvasContainer.classList.contains("maplibregl-interactive")) {
+      canvasContainer.classList.add("mapboxgl-interactive");
+    }
 
     const draw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {
         polygon: true,
-        trash: true
-      }
+        trash: true,
+      },
     });
-
 
     const originalOnAdd = draw.onAdd.bind(draw);
     draw.onAdd = (map) => {
       const controlContainer = originalOnAdd(map);
-      controlContainer.classList.add('maplibregl-ctrl', 'maplibregl-ctrl-group');
+      controlContainer.classList.add(
+        "maplibregl-ctrl",
+        "maplibregl-ctrl-group"
+      );
       return controlContainer;
     };
 
+    //Remove the existing vector tile layer and source if they exist
+    const removeVectorTiles = () => {
+      if (map.current.getLayer("custom")) {
+        map.current.removeLayer("custom");
+      }
 
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-left');
-    map.current.addControl(new maplibregl.GeolocateControl(), 'top-left');
-    map.current.addControl(new maplibregl.ScaleControl(), 'bottom-left');
-    map.current.addControl(draw, 'top-left');
+      if (map.current.getSource("custom")) {
+        map.current.removeSource("custom");
+      }
+    };
 
-  }, []);
+    const addVectorTiles = () => {
+      const existingSource = map.current.getSource("custom");
+      if (existingSource) {
+        map.current.removeSource("custom");
+      }
+      
+      addSource();
+      addLayers();
+    };
 
+    map.current.addControl(new maplibregl.NavigationControl(), "top-left");
+    map.current.addControl(new maplibregl.GeolocateControl(), "top-left");
+    map.current.addControl(new maplibregl.ScaleControl(), "bottom-left");
+    map.current.addControl(draw, "top-left");
+    // When the base map changes, remove the existing vector tiles and add the new ones
+    const handleBaseMapChange = () => {
+      removeVectorTiles();
+      addVectorTiles();
+    };
+    map.current.on("load", handleBaseMapChange);
+  }, [selectedBaseMap]);
+
+  const { location } = useContext(SelectedLocationContext);
+  const distinctMarkerRef = useRef(null);
 
 
   useEffect(() => {
     if (!map.current) return; // Wait for map to initialize
-    map.current.on('load', function () {
-
-
-      map.current.addSource('custom', {
-        type: 'vector',
-        tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-        maxzoom: 16
-      });
+    map.current.on("load", function () {
+      // if (map.current.getSource("custom")) {
+      //   map.current.removeSource("custom");
+      // }
+      // map.current.addSource("custom", {
+      //   type: "vector",
+      //   tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+      //   maxzoom: 16,
+      // });
 
       // Create a single-use event handler
       function handleSourcedata(e) {
-        if (e.sourceId === 'custom' && map.current.isSourceLoaded('custom')) {
+        if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
           // Immediately remove the event listener
-          map.current.off('sourcedata', handleSourcedata);
+          map.current.off("sourcedata", handleSourcedata);
 
           fetchMarkers().then(() => {
             addLayers();
@@ -483,11 +548,11 @@ function Map({ markers }) {
       }
 
       // Add the single-use event handler
-      map.current.on('sourcedata', handleSourcedata);
+      map.current.on("sourcedata", handleSourcedata);
 
-      console.log("Sending markers to create tiles")
+      console.log("Sending markers to create tiles");
 
-      map.current.on('draw.create', (event) => {
+      map.current.on("draw.create", (event) => {
         const polygon = event.features[0];
 
         // Convert drawn polygon to turf polygon
@@ -507,13 +572,12 @@ function Map({ markers }) {
         // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
 
         setModalVisible(true); // Show the modal
-
       });
 
-      map.current.on('click', 'custom-point', function (e) {
+      map.current.on("click", "custom-point", function (e) {
         let featureProperties = e.features[0].properties;
 
-        let content = '<h1>Marker Information</h1>';
+        let content = "<h1>Marker Information</h1>";
         for (let property in featureProperties) {
           content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
         }
@@ -523,49 +587,58 @@ function Map({ markers }) {
           .setHTML(content)
           .addTo(map.current);
       });
-
-
     });
-
   }, [markers]);
 
-
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) { return };
+    if (!map.current || !map.current.isStyleLoaded()) {
+      return;
+    }
 
     console.log(showServed);
     console.log(showUnserved);
 
     if (showRoutes) {
-      map.current.setLayoutProperty('custom-line', 'visibility', 'visible');
+      map.current.setLayoutProperty("custom-line", "visibility", "visible");
     } else {
-      map.current.setLayoutProperty('custom-line', 'visibility', 'none');
+      map.current.setLayoutProperty("custom-line", "visibility", "none");
     }
 
     if (showPolygons) {
-      map.current.setLayoutProperty('custom-polygon', 'visibility', 'visible');
+      map.current.setLayoutProperty("custom-polygon", "visibility", "visible");
     } else {
-      map.current.setLayoutProperty('custom-polygon', 'visibility', 'none');
+      map.current.setLayoutProperty("custom-polygon", "visibility", "none");
     }
 
     // Currently if points were change to unserved with drawing tools, when toggled showServed off it will
-    // still show up on the map. This is because mapbox does not support "filter" option with feature-state. 
+    // still show up on the map. This is because mapbox does not support "filter" option with feature-state.
     // Currently there are no work around except updating the database as re-rendering also relies on the "filter"
     // option
     if (showServed && !showUnserved) {
-      map.current.setLayoutProperty('custom-point', 'visibility', 'visible');
-      map.current.setFilter('custom-point', ['all', ['==', ['get', 'served'], true], ['==', ['get', 'feature_type'], 'Point']]);
+      map.current.setLayoutProperty("custom-point", "visibility", "visible");
+      map.current.setFilter("custom-point", [
+        "all",
+        ["==", ["get", "served"], true],
+        ["==", ["get", "feature_type"], "Point"],
+      ]);
     } else if (!showServed && showUnserved) {
-      map.current.setLayoutProperty('custom-point', 'visibility', 'visible');
-      map.current.setFilter('custom-point', ['all', ['==', ['get', 'served'], false], ['==', ['get', 'feature_type'], 'Point']]);
+      map.current.setLayoutProperty("custom-point", "visibility", "visible");
+      map.current.setFilter("custom-point", [
+        "all",
+        ["==", ["get", "served"], false],
+        ["==", ["get", "feature_type"], "Point"],
+      ]);
     } else if (showServed && showUnserved) {
-      map.current.setLayoutProperty('custom-point', 'visibility', 'visible');
-      map.current.setFilter('custom-point', ['==', ['get', 'feature_type'], 'Point']);
+      map.current.setLayoutProperty("custom-point", "visibility", "visible");
+      map.current.setFilter("custom-point", [
+        "==",
+        ["get", "feature_type"],
+        "Point",
+      ]);
     } else {
-      map.current.setLayoutProperty('custom-point', 'visibility', 'none');
+      map.current.setLayoutProperty("custom-point", "visibility", "none");
     }
   }, [showServed, showUnserved, showRoutes, showPolygons]);
-
 
   useEffect(() => {
     if (location && map.current) {
@@ -577,16 +650,16 @@ function Map({ markers }) {
 
       distinctMarkerRef.current = new maplibregl.Marker({
         color: "#FFFFFF",
-        draggable: false
-      }).setLngLat([longitude, latitude])
+        draggable: false,
+      })
+        .setLngLat([longitude, latitude])
         .addTo(map.current);
 
       map.current.flyTo({
         center: [longitude, latitude],
-        zoom: 16
+        zoom: 16,
       });
-    }
-    else {
+    } else {
       if (distinctMarkerRef.current) {
         distinctMarkerRef.current.remove();
         distinctMarkerRef.current = null;
@@ -594,22 +667,58 @@ function Map({ markers }) {
     }
   }, [location]);
 
-
-
+  const handleBaseMapToggle = (event) => {
+    setSelectedBaseMap(event.target.value);
+  };
 
   return (
     <div>
+      <div className={classes.baseMap}>
+        <label htmlFor="baseMapToggle">Base Map:</label>
+        <Select
+          id="baseMapToggle"
+          value={selectedBaseMap}
+          onChange={handleBaseMapToggle}
+        >
+          {Object.keys(baseMaps).map((key) => (
+            <MenuItem key={key} value={key}>
+              {key}
+            </MenuItem>
+          ))}
+        </Select>
+      </div>
       <div>
         {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
         {isModalVisible && (
           <div className={classes.modal}>
-            <button className={`${classes.drawtoolbutton} ${classes.buttonUnserve}`} onClick={changeToUnserve}>Change locations status to unserved</button>
-            <button className={`${classes.drawtoolbutton} ${classes.buttonUndo}`} onClick={undoChanges}>Undo change</button>
-            <button className={`${classes.drawtoolbutton} ${classes.buttonDone}`} onClick={doneWithChanges}>Save your changes</button>
+            <button
+              className={`${classes.drawtoolbutton} ${classes.buttonUnserve}`}
+              onClick={changeToUnserve}
+            >
+              Change locations status to unserved
+            </button>
+            <button
+              className={`${classes.drawtoolbutton} ${classes.buttonUndo}`}
+              onClick={undoChanges}
+            >
+              Undo change
+            </button>
+            <button
+              className={`${classes.drawtoolbutton} ${classes.buttonDone}`}
+              onClick={doneWithChanges}
+            >
+              Save your changes
+            </button>
           </div>
         )}
         {showExpandButton && (
-          <button className={classes.expandToolbarButton} onClick={() => { setIsToolbarExpanded(true); setShowExpandButton(false); }}>
+          <button
+            className={classes.expandToolbarButton}
+            onClick={() => {
+              setIsToolbarExpanded(true);
+              setShowExpandButton(false);
+            }}
+          >
             Show Toolbar
           </button>
         )}
@@ -617,30 +726,49 @@ function Map({ markers }) {
           <div className={classes.wrapper}>
             <Toolbar className={classes.toolbar}>
               <FormControlLabel
-                control={<Switch checked={showServed} onChange={handleServedChange} />}
+                control={
+                  <Switch checked={showServed} onChange={handleServedChange} />
+                }
                 label="Show Served Points"
                 id="served-toggle"
               />
               <FormControlLabel
-                control={<Switch checked={showUnserved} onChange={handleUnservedChange} />}
+                control={
+                  <Switch
+                    checked={showUnserved}
+                    onChange={handleUnservedChange}
+                  />
+                }
                 label="Show Unserved Points"
                 id="unserved-toggle"
               />
 
               <FormControlLabel
-                control={<Switch checked={showRoutes} onChange={handleToggleRoute} />}
+                control={
+                  <Switch checked={showRoutes} onChange={handleToggleRoute} />
+                }
                 label="Show Fiber Routes"
                 id="route-toggle"
               />
               <FormControlLabel
-                control={<Switch checked={showPolygons} onChange={handleTogglePolygon} />}
+                control={
+                  <Switch
+                    checked={showPolygons}
+                    onChange={handleTogglePolygon}
+                  />
+                }
                 label="Show Coverage Polygons"
                 id="polygon-toggle"
               />
-
             </Toolbar>
 
-            <button className={classes.collapseToolbarContainer} onClick={() => { setIsToolbarExpanded(false); setShowExpandButton(true); }}>
+            <button
+              className={classes.collapseToolbarContainer}
+              onClick={() => {
+                setIsToolbarExpanded(false);
+                setShowExpandButton(true);
+              }}
+            >
               <KeyboardDoubleArrowUpIcon />
               Collapse
             </button>
