@@ -10,7 +10,6 @@ import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import * as turf from "@turf/turf";
 import LoadingEffect from "./LoadingEffect";
 import { styled } from '@mui/material/styles';
-import { saveAs } from 'file-saver';
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -202,9 +201,6 @@ function Map({ markers }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
 
-  const [lastPosition, setLastPosition] = useState([37.0902, -95.7129]);
-  const [lastZoom, setLastZoom] = useState(5);
-
   const allMarkersRef = useRef([]); // create a ref for allMarkers
 
   const [isModalVisible, setModalVisible] = useState(false);
@@ -394,7 +390,9 @@ function Map({ markers }) {
       map.current.on("sourcedata", handleSourcedata);
 
       setIsDataReady(true);
-      setIsLoading(false); // Set loading to false after API call
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 10000); // Set loading to false after API call
       setTimeout(() => {
         setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
       }, 5000);
@@ -404,46 +402,52 @@ function Map({ markers }) {
     toggleModalVisibility();
   };
 
-  const fetchMarkers = () => {
-    return fetch("http://localhost:8000/served-data", {
-      method: "GET",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        const newMarkers = data.map((item) => ({
-          name: item.address,
-          id: item.location_id,
-          latitude: item.latitude,
-          longitude: item.longitude,
-          served: item.served,
-        }));
-
-        console.log(newMarkers);
-
-        // Iterate over newMarkers and set the feature state for each
-        newMarkers.forEach((marker) => {
-          // Only set feature state if marker.served is true
-          if (marker.served) {
-            // This assumes that marker.id matches the feature id in your vector tile source
-            map.current.setFeatureState(
-              {
-                source: "custom",
-                sourceLayer: "data",
-                id: marker.id,
-              },
-              {
-                served: marker.served, // Use the served property from the marker data
-              }
-            );
+  const setFeatureStateForMarkers = (markers) => {
+    markers.forEach((marker) => {
+      if (marker.served) {
+        // This assumes that marker.id matches the feature id in your vector tile source
+        map.current.setFeatureState(
+          {
+            source: "custom",
+            sourceLayer: "data",
+            id: marker.id,
+          },
+          {
+            served: marker.served, // Use the served property from the marker data
           }
-        });
-
-        allMarkersRef.current = newMarkers; // Here's the state update
-        // console.log(newMarkers); // Log newMarkers instead of allMarkers
+        );
+      }
+    });
+  };
+  
+  const fetchMarkers = () => {
+    if (allMarkersRef.current === undefined || allMarkersRef.current === null || allMarkersRef.current.length === 0) {
+      return fetch("http://localhost:8000/served-data", {
+        method: "GET",
       })
-      .catch((error) => {
-        console.log(error);
-      });
+        .then((response) => response.json())
+        .then((data) => {
+          const newMarkers = data.map((item) => ({
+            name: item.address,
+            id: item.location_id,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            served: item.served,
+          }));
+  
+          console.log(newMarkers);
+  
+          setFeatureStateForMarkers(newMarkers);
+  
+          allMarkersRef.current = newMarkers; // Here's the state update
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    } else {
+      setFeatureStateForMarkers(allMarkersRef.current);
+      return Promise.resolve(); // Returns a resolved Promise
+    }
   };
 
   const addLayers = () => {
@@ -555,9 +559,25 @@ function Map({ markers }) {
       if (existingSource) {
         map.current.removeSource("custom");
       }
-      
+
+      console.log(allMarkersRef.current);
       addSource();
-      addLayers();
+
+      function handleSourcedata(e) {
+        if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
+          // Immediately remove the event listener
+          map.current.off("sourcedata", handleSourcedata);
+
+          fetchMarkers().then(() => {
+            addLayers();
+          });
+        }
+      }
+
+
+      // Add the single-use event handler
+      map.current.on("sourcedata", handleSourcedata);
+
     };
 
     map.current.addControl(new maplibregl.NavigationControl(), "top-left");
@@ -579,31 +599,6 @@ function Map({ markers }) {
   useEffect(() => {
     if (!map.current) return; // Wait for map to initialize
     map.current.on("load", function () {
-      // if (map.current.getSource("custom")) {
-      //   map.current.removeSource("custom");
-      // }
-      // map.current.addSource("custom", {
-      //   type: "vector",
-      //   tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-      //   maxzoom: 16,
-      // });
-
-      // Create a single-use event handler
-      function handleSourcedata(e) {
-        if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
-          // Immediately remove the event listener
-          map.current.off("sourcedata", handleSourcedata);
-
-          fetchMarkers().then(() => {
-            addLayers();
-          });
-        }
-      }
-
-      // Add the single-use event handler
-      map.current.on("sourcedata", handleSourcedata);
-
-      console.log("Sending markers to create tiles");
 
       map.current.on("draw.create", (event) => {
         const polygon = event.features[0];

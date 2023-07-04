@@ -280,7 +280,6 @@ def tiles_join(geojson_data):
     # Remove the temporary files
     os.remove('existing.mbtiles')
     os.remove('new.mbtiles')
-    os.remove('merged.mbtiles')
     os.remove('data.geojson')
 
 def create_tiles(geojson_array):
