@@ -9,6 +9,8 @@ import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import * as turf from "@turf/turf";
 import LoadingEffect from "./LoadingEffect";
+import { styled } from '@mui/material/styles';
+import { saveAs } from 'file-saver';
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -133,6 +135,57 @@ const useStyles = makeStyles({
     transform: `translateY(-50%)`,
   },
 });
+
+const IOSSwitch = styled((props) => (
+  <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
+))(({ theme }) => ({
+  width: 42,
+  height: 26,
+  padding: 0,
+  '& .MuiSwitch-switchBase': {
+    padding: 0,
+    margin: 2,
+    transitionDuration: '300ms',
+    '&.Mui-checked': {
+      transform: 'translateX(16px)',
+      color: '#fff',
+      '& + .MuiSwitch-track': {
+        backgroundColor: theme.palette.mode === 'dark' ? '#2ECA45' : '#65C466',
+        opacity: 1,
+        border: 0,
+      },
+      '&.Mui-disabled + .MuiSwitch-track': {
+        opacity: 0.5,
+      },
+    },
+    '&.Mui-focusVisible .MuiSwitch-thumb': {
+      color: '#33cf4d',
+      border: '6px solid #fff',
+    },
+    '&.Mui-disabled .MuiSwitch-thumb': {
+      color:
+        theme.palette.mode === 'light'
+          ? theme.palette.grey[100]
+          : theme.palette.grey[600],
+    },
+    '&.Mui-disabled + .MuiSwitch-track': {
+      opacity: theme.palette.mode === 'light' ? 0.7 : 0.3,
+    },
+  },
+  '& .MuiSwitch-thumb': {
+    boxSizing: 'border-box',
+    width: 22,
+    height: 22,
+  },
+  '& .MuiSwitch-track': {
+    borderRadius: 26 / 2,
+    backgroundColor: theme.palette.mode === 'light' ? '#E9E9EA' : '#39393D',
+    opacity: 1,
+    transition: theme.transitions.create(['background-color'], {
+      duration: 500,
+    }),
+  },
+}));
 
 function Map({ markers }) {
   const classes = useStyles();
@@ -642,7 +695,7 @@ function Map({ markers }) {
 
   useEffect(() => {
     if (location && map.current) {
-      const { latitude, longitude } = location;
+      const { latitude, longitude, zoomlevel } = location;
 
       if (distinctMarkerRef.current) {
         distinctMarkerRef.current.remove();
@@ -657,7 +710,7 @@ function Map({ markers }) {
 
       map.current.flyTo({
         center: [longitude, latitude],
-        zoom: 16,
+        zoom: zoomlevel
       });
     } else {
       if (distinctMarkerRef.current) {
@@ -726,37 +779,23 @@ function Map({ markers }) {
           <div className={classes.wrapper}>
             <Toolbar className={classes.toolbar}>
               <FormControlLabel
-                control={
-                  <Switch checked={showServed} onChange={handleServedChange} />
-                }
+                control={<IOSSwitch sx={{ m: 1 }} checked={showServed} onChange={handleServedChange} />}
                 label="Show Served Points"
                 id="served-toggle"
               />
               <FormControlLabel
-                control={
-                  <Switch
-                    checked={showUnserved}
-                    onChange={handleUnservedChange}
-                  />
-                }
+                control={<IOSSwitch sx={{ m: 1 }} checked={showUnserved} onChange={handleUnservedChange} />}
                 label="Show Unserved Points"
                 id="unserved-toggle"
               />
 
               <FormControlLabel
-                control={
-                  <Switch checked={showRoutes} onChange={handleToggleRoute} />
-                }
+                control={<IOSSwitch sx={{ m: 1 }} checked={showRoutes} onChange={handleToggleRoute} />}
                 label="Show Fiber Routes"
                 id="route-toggle"
               />
               <FormControlLabel
-                control={
-                  <Switch
-                    checked={showPolygons}
-                    onChange={handleTogglePolygon}
-                  />
-                }
+                control={<IOSSwitch sx={{ m: 1 }} checked={showPolygons} onChange={handleTogglePolygon} />}
                 label="Show Coverage Polygons"
                 id="polygon-toggle"
               />
