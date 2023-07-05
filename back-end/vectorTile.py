@@ -102,7 +102,7 @@ def read_kml(kml_file_path):
     return geojson_features
 
 
-def add_values_to_VT(mbtiles_file_path):
+def add_values_to_VT(mbtiles_file_path, username):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
         mb_c = mb_conn.cursor()
         mb_c.execute(
@@ -243,7 +243,7 @@ def tiles_join(geojson_data):
     cursor.close()
     conn.close()
 
-    val = add_values_to_VT("./merged.mbtiles")
+    val = add_values_to_VT("./merged.mbtiles", "temp")
 
     # Remove the temporary files
     os.remove('existing.mbtiles')
@@ -295,7 +295,7 @@ def create_tiles(geojson_array, username):
     if result.stderr:
          print("Tippecanoe stderr:", result.stderr.decode())
     
-    val = add_values_to_VT("./output.mbtiles")
+    val = add_values_to_VT("./output.mbtiles", username)
 
 # if __name__ == "__main__":
 #     create_tiles()
