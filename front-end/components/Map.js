@@ -547,7 +547,7 @@ function Map({ markers }) {
           ["linear"], 
           ["zoom"],
           5, 0.5, // When zoom is less than or equal to 12, circle radius will be 1
-          12, 1.5,
+          12, 2,
           15, 3 // When zoom is more than 12, circle radius will be 3
         ],
         "circle-color": [
@@ -639,7 +639,17 @@ function Map({ markers }) {
         .then((data) => {
           console.log(data);
           addSource();
-          addLayers();
+          function handleSourcedata(e) {
+            if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
+              // Immediately remove the event listener
+              map.current.off("sourcedata", handleSourcedata);
+    
+              fetchMarkers().then(() => {
+                addLayers();
+              });
+            }
+          }
+          map.current.on("sourcedata", handleSourcedata);
         })
         .catch((error) => {
           console.log(
