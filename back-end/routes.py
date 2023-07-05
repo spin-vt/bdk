@@ -551,6 +551,22 @@ def toggle_markers():
 
     return jsonify(message=message), status_code
 
+
+@app.route('/api/mbtiles', methods=['GET'])
+def get_mbtiles():
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, filename, timestamp FROM mbt")
+    rows = cursor.fetchall()
+
+    if rows is None:
+        return Response('No mbtiles found', status=404)
+
+    mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
+    return jsonify(mbtiles)
+
+
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
     app.run(port=8000, debug=True)

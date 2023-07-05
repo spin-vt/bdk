@@ -13,7 +13,7 @@ const useStyles = makeStyles((theme) => ({
     position: 'relative',
     width: '100%',
     height: '90vh',
-    marginTop: '60px'
+    marginTop: '20px'
   },
   deleteButton: {
     backgroundColor: '#f44336', // Red color
@@ -21,7 +21,7 @@ const useStyles = makeStyles((theme) => ({
     '&:hover': {
       backgroundColor: '#d32f2f', // Darker red on hover
     },
-    borderRadius:'10px',
+    borderRadius: '10px',
     padding: '4px',
     margin: '4px',
     border: 'none',
@@ -30,15 +30,30 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 
+
+
 const PreviousFile = () => {
 
   const classes = useStyles();
-  const dummyFiles = [
-    { name: "file1.pdf", uploadDate: new Date().toLocaleDateString() },
-    { name: "file2.jpg", uploadDate: new Date().toLocaleDateString() },
-    { name: "file3.png", uploadDate: new Date().toLocaleDateString() },
-  ];
-  const [files, setFiles] = useState(dummyFiles);
+  const [files, setFiles] = useState([]);
+  
+  const fetchMbtiles = async () => {
+    fetch("http://localhost:8000/api/mbtiles") // replace with your Flask server URL if it's not on the same domain
+    .then(response => response.json())
+    .then(data => {
+      setFiles(data.map(file => ({
+        name: file.filename,
+        uploadDate: new Date(file.timestamp).toLocaleDateString()
+      })));
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+    });
+  };
+
+  useEffect(() => {
+    fetchMbtiles();
+  }, []);
 
   const handleDelete = (index) => {
     setFiles(prevFiles => prevFiles.filter((file, i) => i !== index));
