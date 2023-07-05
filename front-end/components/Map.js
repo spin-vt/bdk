@@ -84,8 +84,8 @@ const useStyles = makeStyles({
   },
   wrapper: {
     position: "absolute",
-    left: "30px",
-    top: "50%",
+    left: "10px",
+    top: "55%",
     transform: `translateY(-50%)`,
     zIndex: 1000,
     display: "grid",
@@ -123,7 +123,7 @@ const useStyles = makeStyles({
   baseMap: {
     width: '33px',
     height: '33px',
-    top: "18%",
+    top: "33vh",
     position: "absolute",
     left: "10px",
     zIndex: 1000,
@@ -506,7 +506,14 @@ function Map({ markers }) {
       type: "circle",
       source: "custom",
       paint: {
-        "circle-radius": 3,
+        "circle-radius": [
+          "interpolate", 
+          ["linear"], 
+          ["zoom"],
+          5, 0.5, // When zoom is less than or equal to 12, circle radius will be 1
+          12, 1.5,
+          15, 3 // When zoom is more than 12, circle radius will be 3
+        ],
         "circle-color": [
           "case",
           ["==", ["feature-state", "served"], true], // change 'get' to 'feature-state'

@@ -23,7 +23,8 @@ import ContactMailIcon from '@mui/icons-material/ContactMail';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LoginIcon from '@mui/icons-material/Login';
 import UploadIcon from '@mui/icons-material/Upload';
-import Searchbar from './Searchbar'
+import Searchbar from './Searchbar';
+import FolderIcon from '@mui/icons-material/Folder';
 
 
 const useStyles = makeStyles((theme) => ({
@@ -43,15 +44,15 @@ const useStyles = makeStyles((theme) => ({
   listItemElem: {
     display: 'flex',  // Add flex display
     alignItems: 'center',  // Vertically align items in the center
-    padding: theme.spacing(1),
+    padding: '4px',
     borderRadius: '4px',
     transition: 'background-color 0.3s',
     '&:hover': {
       backgroundColor: '#E0F7FA',
     },
   },
-  icon: {
-    marginRight: theme.spacing(1),  // Add right margin to the icon
+  iconText: {
+    marginRight: '4px',  // Add right margin to the icon
     color: '#0A539E',  // Blue color for icons
   },
   button_lowercase_text: {
@@ -241,10 +242,10 @@ export default function Navbar() {
   }
   
   const menuItems = [
-    { text: 'Home', href: '/', icon: <HomeIcon className={classes.icon}/> },
-    { text: 'About', href: '/about', icon: <InfoIcon className={classes.icon}/> },
-    { text: 'Services', href: '/services', icon: <BusinessIcon className={classes.icon}/> },
-    { text: 'Contact', href: '/contact', icon: <ContactMailIcon className={classes.icon}/> },
+    { text: 'Home', href: '/', icon: <HomeIcon className={classes.iconText}/> },
+    { text: 'About', href: '/about', icon: <InfoIcon className={classes.iconText}/> },
+    { text: 'Services', href: '/services', icon: <BusinessIcon className={classes.iconText}/> },
+    { text: 'Contact', href: '/contact', icon: <ContactMailIcon className={classes.iconText}/> },
   ];
 
   return (
@@ -265,6 +266,13 @@ export default function Navbar() {
             Broadband Data Collection Helper
           </Typography>
           <Searchbar className={classes.menuItem}/>
+
+          <IconButton href='/previousfile'>
+            <FolderIcon sx={{color:"white", marginRight:"5px"}} />
+            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
+              Your Files
+            </Typography>
+          </IconButton>
  
           <Box display="flex" alignItems="center">
             {username ? (
@@ -312,20 +320,19 @@ export default function Navbar() {
     }}>
       <List>
         <Link href={menuTopItem.href}>
-          <ListItem button onClick={handleDrawerClose}>
-            <div className={classes.listItemElem}>
+          <ListItem onClick={handleDrawerClose} className={classes.listItemElem}>
+            
               {menuTopItem.icon}
               <ListItemText primary={menuTopItem.text} />
-            </div>
+
           </ListItem>
         </Link>
         {menuItems.map((item, index) => (
           <Link href={item.href} key={item.text}>
-            <ListItem button onClick={handleDrawerClose}  >
-              <div className={classes.listItemElem}>
+            <ListItem onClick={handleDrawerClose} className={classes.listItemElem} >
+            
                 {item.icon}
                 <ListItemText primary={item.text} />
-              </div>
             </ListItem>
           </Link>
         ))}
