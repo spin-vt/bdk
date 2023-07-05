@@ -47,6 +47,7 @@ class vector_tiles(Base):
     tile_column = Column(Integer) 
     tile_row = Column(Integer)
     tile_data = Column(LargeBinary)
+    username = Column(String)
 
 class mbtiles(Base):
     __tablename__ = 'mbt'
@@ -99,7 +100,7 @@ def read_kml(kml_file_path):
     return geojson_features
 
 
-def add_values_to_VT_test(mbtiles_file_path):
+def add_values_to_VT_test(mbtiles_file_path, username):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
         mb_c = mb_conn.cursor()
         mb_c.execute(
@@ -115,11 +116,11 @@ def add_values_to_VT_test(mbtiles_file_path):
             cur = conn.cursor()
             
             # Prepare the vector tile data
-            data = [(row[0], row[1], row[2], Binary(row[3])) for row in mb_c]
+            data = [(row[0], row[1], row[2], Binary(row[3]), username) for row in mb_c]
 
             # Execute values will generate a SQL INSERT query with placeholders for the parameters
             execute_values(cur, """
-                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data) 
+                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, username) 
                 VALUES %s
                 """, data)
 
@@ -282,7 +283,7 @@ def tiles_join(geojson_data):
     os.remove('new.mbtiles')
     os.remove('data.geojson')
 
-def create_tiles(geojson_array):
+def create_tiles(geojson_array, username):
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
     cursor.execute('TRUNCATE TABLE vt')
@@ -327,7 +328,7 @@ def create_tiles(geojson_array):
     if result.stderr:
          print("Tippecanoe stderr:", result.stderr.decode())
     
-    val = add_values_to_VT_test("./output.mbtiles")
+    val = add_values_to_VT_test("./output.mbtiles", username)
 
 # if __name__ == "__main__":
 #     create_tiles()

@@ -10,6 +10,7 @@ import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import * as turf from "@turf/turf";
 import LoadingEffect from "./LoadingEffect";
 import { styled } from '@mui/material/styles';
+import { saveAs } from 'file-saver';
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -144,46 +145,46 @@ const IOSSwitch = styled((props) => (
   width: 42,
   height: 26,
   padding: 0,
-  '& .MuiSwitch-switchBase': {
+  "& .MuiSwitch-switchBase": {
     padding: 0,
     margin: 2,
-    transitionDuration: '300ms',
-    '&.Mui-checked': {
-      transform: 'translateX(16px)',
-      color: '#fff',
-      '& + .MuiSwitch-track': {
-        backgroundColor: theme.palette.mode === 'dark' ? '#2ECA45' : '#65C466',
+    transitionDuration: "300ms",
+    "&.Mui-checked": {
+      transform: "translateX(16px)",
+      color: "#fff",
+      "& + .MuiSwitch-track": {
+        backgroundColor: theme.palette.mode === "dark" ? "#2ECA45" : "#65C466",
         opacity: 1,
         border: 0,
       },
-      '&.Mui-disabled + .MuiSwitch-track': {
+      "&.Mui-disabled + .MuiSwitch-track": {
         opacity: 0.5,
       },
     },
-    '&.Mui-focusVisible .MuiSwitch-thumb': {
-      color: '#33cf4d',
-      border: '6px solid #fff',
+    "&.Mui-focusVisible .MuiSwitch-thumb": {
+      color: "#33cf4d",
+      border: "6px solid #fff",
     },
-    '&.Mui-disabled .MuiSwitch-thumb': {
+    "&.Mui-disabled .MuiSwitch-thumb": {
       color:
-        theme.palette.mode === 'light'
+        theme.palette.mode === "light"
           ? theme.palette.grey[100]
           : theme.palette.grey[600],
     },
-    '&.Mui-disabled + .MuiSwitch-track': {
-      opacity: theme.palette.mode === 'light' ? 0.7 : 0.3,
+    "&.Mui-disabled + .MuiSwitch-track": {
+      opacity: theme.palette.mode === "light" ? 0.7 : 0.3,
     },
   },
-  '& .MuiSwitch-thumb': {
-    boxSizing: 'border-box',
+  "& .MuiSwitch-thumb": {
+    boxSizing: "border-box",
     width: 22,
     height: 22,
   },
-  '& .MuiSwitch-track': {
+  "& .MuiSwitch-track": {
     borderRadius: 26 / 2,
-    backgroundColor: theme.palette.mode === 'light' ? '#E9E9EA' : '#39393D',
+    backgroundColor: theme.palette.mode === "light" ? "#E9E9EA" : "#39393D",
     opacity: 1,
-    transition: theme.transitions.create(['background-color'], {
+    transition: theme.transitions.create(["background-color"], {
       duration: 500,
     }),
   },
@@ -241,9 +242,10 @@ function Map({ markers }) {
       map.current.removeSource("custom");
     }
 
+    const username = localStorage.getItem("username")
     map.current.addSource("custom", {
       type: "vector",
-      tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+      tiles: [`http://localhost:8000/tiles/{z}/{x}/{y}.pbf?username=${username}`],
       maxzoom: 16,
     });
   };
@@ -390,11 +392,36 @@ function Map({ markers }) {
         map.current.removeSource("custom");
       }
 
-      map.current.addSource("custom", {
-        type: "vector",
-        tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-        maxzoom: 16,
-      });
+      const token = localStorage.getItem("token");
+      const username = localStorage.getItem("username")
+
+      fetch("http://localhost:8000/api/user?$username", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log(data);
+          addSource();
+        })
+        .catch((error) => {
+          console.log(
+            "There has been a problem with your fetch operation: ",
+            error
+          );
+        });
+
+      // map.current.addSource("custom", {
+      //   type: "vector",
+      //   tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+      //   maxzoom: 16,
+      // });
 
       // Create a single-use event handler
       function handleSourcedata(e) {
@@ -472,6 +499,15 @@ function Map({ markers }) {
     }
   };
 
+  function getRandomColor() {
+    const letters = "0123456789ABCDEF";
+    let color = "#";
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  }
+
   const addLayers = () => {
     map.current.addLayer({
       id: "custom-line",
@@ -482,7 +518,7 @@ function Map({ markers }) {
         "line-join": "round",
       },
       paint: {
-        "line-color": "#888",
+        "line-color": getRandomColor(),
         "line-width": 2,
       },
       filter: ["==", ["get", "feature_type"], "LineString"], // Only apply this layer to linestrings
@@ -494,7 +530,7 @@ function Map({ markers }) {
       type: "fill",
       source: "custom",
       paint: {
-        "fill-color": "#42004F",
+        "fill-color": getRandomColor(),
         "fill-opacity": 0.5,
       },
       filter: ["==", ["get", "feature_type"], "Polygon"], // Only apply this layer to polygons
@@ -525,7 +561,6 @@ function Map({ markers }) {
       "source-layer": "data",
     });
   };
-
 
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
@@ -588,25 +623,30 @@ function Map({ markers }) {
       if (existingSource) {
         map.current.removeSource("custom");
       }
+      const token = localStorage.getItem("token");
 
-      console.log(allMarkersRef.current);
-      addSource();
-
-      function handleSourcedata(e) {
-        if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
-          // Immediately remove the event listener
-          map.current.off("sourcedata", handleSourcedata);
-
-          fetchMarkers().then(() => {
-            addLayers();
-          });
-        }
-      }
-
-
-      // Add the single-use event handler
-      map.current.on("sourcedata", handleSourcedata);
-
+      fetch("http://localhost:8000/api/user", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log(data);
+          addSource();
+          addLayers();
+        })
+        .catch((error) => {
+          console.log(
+            "There has been a problem with your fetch operation: ",
+            error
+          );
+        });
     };
 
     map.current.addControl(new maplibregl.NavigationControl(), "top-left");
@@ -623,7 +663,6 @@ function Map({ markers }) {
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
-
 
   useEffect(() => {
     if (!map.current) return; // Wait for map to initialize
@@ -734,7 +773,7 @@ function Map({ markers }) {
 
       map.current.flyTo({
         center: [longitude, latitude],
-        zoom: zoomlevel
+        zoom: zoomlevel,
       });
     } else {
       if (distinctMarkerRef.current) {
@@ -811,23 +850,47 @@ function Map({ markers }) {
           <div className={classes.wrapper}>
             <Toolbar className={classes.toolbar}>
               <FormControlLabel
-                control={<IOSSwitch sx={{ m: 1 }} checked={showServed} onChange={handleServedChange} />}
+                control={
+                  <IOSSwitch
+                    sx={{ m: 1 }}
+                    checked={showServed}
+                    onChange={handleServedChange}
+                  />
+                }
                 label="Show Served Points"
                 id="served-toggle"
               />
               <FormControlLabel
-                control={<IOSSwitch sx={{ m: 1 }} checked={showUnserved} onChange={handleUnservedChange} />}
+                control={
+                  <IOSSwitch
+                    sx={{ m: 1 }}
+                    checked={showUnserved}
+                    onChange={handleUnservedChange}
+                  />
+                }
                 label="Show Unserved Points"
                 id="unserved-toggle"
               />
 
               <FormControlLabel
-                control={<IOSSwitch sx={{ m: 1 }} checked={showRoutes} onChange={handleToggleRoute} />}
+                control={
+                  <IOSSwitch
+                    sx={{ m: 1 }}
+                    checked={showRoutes}
+                    onChange={handleToggleRoute}
+                  />
+                }
                 label="Show Fiber Routes"
                 id="route-toggle"
               />
               <FormControlLabel
-                control={<IOSSwitch sx={{ m: 1 }} checked={showPolygons} onChange={handleTogglePolygon} />}
+                control={
+                  <IOSSwitch
+                    sx={{ m: 1 }}
+                    checked={showPolygons}
+                    onChange={handleTogglePolygon}
+                  />
+                }
                 label="Show Coverage Polygons"
                 id="polygon-toggle"
               />
