@@ -376,21 +376,6 @@ function Map({ markers }) {
     console.log(selectedMarkerIds);
     // Send request to server to change the selected markers to served
     toggleMarkers(selectedMarkerIds).finally(() => {
-      if (map.current.getLayer("custom-point")) {
-        map.current.removeLayer("custom-point");
-      }
-
-      if (map.current.getLayer("custom-line")) {
-        map.current.removeLayer("custom-line");
-      }
-
-      if (map.current.getLayer("custom-polygon")) {
-        map.current.removeLayer("custom-polygon");
-      }
-
-      if (map.current.getSource("custom")) {
-        map.current.removeSource("custom");
-      }
 
       const token = localStorage.getItem("token");
       const username = localStorage.getItem("username")
@@ -417,26 +402,10 @@ function Map({ markers }) {
           );
         });
 
-      // map.current.addSource("custom", {
-      //   type: "vector",
-      //   tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-      //   maxzoom: 16,
-      // });
 
-      // Create a single-use event handler
-      function handleSourcedata(e) {
-        if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
-          // Immediately remove the event listener
-          map.current.off("sourcedata", handleSourcedata);
+      removeVectorTiles();
+      addVectorTiles();
 
-          fetchMarkers().then(() => {
-            addLayers();
-          });
-        }
-      }
-
-      // Add the single-use event handler
-      map.current.on("sourcedata", handleSourcedata);
 
       setIsDataReady(true);
       setTimeout(() => {
@@ -543,8 +512,8 @@ function Map({ markers }) {
       source: "custom",
       paint: {
         "circle-radius": [
-          "interpolate", 
-          ["linear"], 
+          "interpolate",
+          ["linear"],
           ["zoom"],
           5, 0.5, // When zoom is less than or equal to 12, circle radius will be 1
           12, 2,
@@ -625,6 +594,7 @@ function Map({ markers }) {
       }
       const token = localStorage.getItem("token");
 
+
       fetch("http://localhost:8000/api/user", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -657,6 +627,66 @@ function Map({ markers }) {
             error
           );
         });
+
+      console.log(allMarkersRef.current);
+      addSource();
+
+      function handleSourcedata(e) {
+        if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
+          // Immediately remove the event listener
+          map.current.off("sourcedata", handleSourcedata);
+
+          fetchMarkers().then(() => {
+            addLayers();
+          });
+        }
+      }
+
+
+      // Add the single-use event handler
+      map.current.on("sourcedata", handleSourcedata);
+
+      // if (!map.current) return; // Wait for map to initialize
+      // map.current.on("load", function () {
+
+        map.current.on("draw.create", (event) => {
+          const polygon = event.features[0];
+
+          // Convert drawn polygon to turf polygon
+          const turfPolygon = turf.polygon(polygon.geometry.coordinates);
+
+          // console.log(allMarkersRef.current);
+
+          // Iterate over markers and select if they are inside the polygon
+          const selected = allMarkersRef.current.filter((marker) => {
+            const point = turf.point([marker.longitude, marker.latitude]);
+            return turf.booleanPointInPolygon(point, turfPolygon);
+          });
+
+          // console.log(selected);
+          selectedMarkersRef.current.push(selected);
+
+          // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
+
+          setModalVisible(true); // Show the modal
+        });
+
+        map.current.on("click", "custom-point", function (e) {
+          let featureProperties = e.features[0].properties;
+
+          let content = "<h1>Marker Information</h1>";
+          for (let property in featureProperties) {
+            content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+          }
+
+          new maplibregl.Popup({ closeOnClick: false })
+            .setLngLat(e.lngLat)
+            .setHTML(content)
+            .addTo(map.current);
+        });
+      // });
+
+
     };
 
     map.current.addControl(new maplibregl.NavigationControl(), "top-left");
@@ -674,47 +704,47 @@ function Map({ markers }) {
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
 
-  useEffect(() => {
-    if (!map.current) return; // Wait for map to initialize
-    map.current.on("load", function () {
+  // useEffect(() => {
+  //   if (!map.current) return; // Wait for map to initialize
+  //   map.current.on("load", function () {
 
-      map.current.on("draw.create", (event) => {
-        const polygon = event.features[0];
+  //     map.current.on("draw.create", (event) => {
+  //       const polygon = event.features[0];
 
-        // Convert drawn polygon to turf polygon
-        const turfPolygon = turf.polygon(polygon.geometry.coordinates);
+  //       // Convert drawn polygon to turf polygon
+  //       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
-        // console.log(allMarkersRef.current);
+  //       // console.log(allMarkersRef.current);
 
-        // Iterate over markers and select if they are inside the polygon
-        const selected = allMarkersRef.current.filter((marker) => {
-          const point = turf.point([marker.longitude, marker.latitude]);
-          return turf.booleanPointInPolygon(point, turfPolygon);
-        });
+  //       // Iterate over markers and select if they are inside the polygon
+  //       const selected = allMarkersRef.current.filter((marker) => {
+  //         const point = turf.point([marker.longitude, marker.latitude]);
+  //         return turf.booleanPointInPolygon(point, turfPolygon);
+  //       });
 
-        // console.log(selected);
-        selectedMarkersRef.current.push(selected);
+  //       // console.log(selected);
+  //       selectedMarkersRef.current.push(selected);
 
-        // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
+  //       // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
 
-        setModalVisible(true); // Show the modal
-      });
+  //       setModalVisible(true); // Show the modal
+  //     });
 
-      map.current.on("click", "custom-point", function (e) {
-        let featureProperties = e.features[0].properties;
+  //     map.current.on("click", "custom-point", function (e) {
+  //       let featureProperties = e.features[0].properties;
 
-        let content = "<h1>Marker Information</h1>";
-        for (let property in featureProperties) {
-          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
-        }
+  //       let content = "<h1>Marker Information</h1>";
+  //       for (let property in featureProperties) {
+  //         content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+  //       }
 
-        new maplibregl.Popup({ closeOnClick: false })
-          .setLngLat(e.lngLat)
-          .setHTML(content)
-          .addTo(map.current);
-      });
-    });
-  }, [markers]);
+  //       new maplibregl.Popup({ closeOnClick: false })
+  //         .setLngLat(e.lngLat)
+  //         .setHTML(content)
+  //         .addTo(map.current);
+  //     });
+  //   });
+  // }, [markers]);
 
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) {

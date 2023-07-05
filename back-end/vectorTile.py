@@ -53,6 +53,8 @@ class mbtiles(Base):
     __tablename__ = 'mbt'
     id = Column(Integer, primary_key=True, autoincrement=True)
     tile_data = Column(LargeBinary)
+    filename = Column(String)  # this will add a filename column
+    timestamp = Column(DateTime)  # this will add a timestamp column
     
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
@@ -100,7 +102,7 @@ def read_kml(kml_file_path):
     return geojson_features
 
 
-def add_values_to_VT_test(mbtiles_file_path, username):
+def add_values_to_VT(mbtiles_file_path):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
         mb_c = mb_conn.cursor()
         mb_c.execute(
@@ -130,9 +132,9 @@ def add_values_to_VT_test(mbtiles_file_path, username):
             
             # Insert the .mbtiles data
             cur.execute("""
-                INSERT INTO mbt (tile_data)
-                VALUES (%s)
-                """, (mbtiles_data,))
+                INSERT INTO mbt (tile_data, filename, timestamp)
+                VALUES (%s, %s, %s)
+                """, (mbtiles_data, 'curr.mbtiles', datetime.now()))
 
             # Don't forget to commit the transaction
             conn.commit()
@@ -145,41 +147,6 @@ def add_values_to_VT_test(mbtiles_file_path, username):
             cur.close()
             conn.close()
             os.remove(mbtiles_file_path)
-    return 1
-
-def add_values_to_VT(mbtiles_file_path):
-    with sqlite3.connect(mbtiles_file_path) as mb_conn:
-        mb_c = mb_conn.cursor()
-        mb_c.execute(
-            """
-            SELECT zoom_level, tile_column, tile_row, tile_data
-            FROM tiles
-            """
-        )
-        
-        pg_session = ScopedSession()
-
-        try:
-            for row in mb_c:
-                vt = vector_tiles(
-                    zoom_level=row[0],
-                    tile_column=row[1],
-                    tile_row=row[2],
-                    tile_data=row[3], 
-                )
-                pg_session.merge(vt)
-            
-            with db_lock:
-                pg_session.commit()
-
-        except Exception as e:
-            print(f"Error occurred: {e}")
-            return -1
-
-        finally:
-            pg_session.close()
-            os.remove(mbtiles_file_path)
-
     return 1
 
 # Potential method for recreating mbtiles with pbf in db
@@ -276,7 +243,7 @@ def tiles_join(geojson_data):
     cursor.close()
     conn.close()
 
-    val = add_values_to_VT_test("./merged.mbtiles")
+    val = add_values_to_VT("./merged.mbtiles")
 
     # Remove the temporary files
     os.remove('existing.mbtiles')
@@ -328,7 +295,7 @@ def create_tiles(geojson_array, username):
     if result.stderr:
          print("Tippecanoe stderr:", result.stderr.decode())
     
-    val = add_values_to_VT_test("./output.mbtiles", username)
+    val = add_values_to_VT("./output.mbtiles")
 
 # if __name__ == "__main__":
 #     create_tiles()
