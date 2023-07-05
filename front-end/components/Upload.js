@@ -149,60 +149,34 @@ export default function Upload({ fetchMarkers }) {
       },
     })
       .then((response) => {
-        if (!response.ok || response.status === 401) {
+        if (!response.ok) {
           console.log(response);
-          Swal.fire({
-            icon: "info",
-            title: "Please Sign Up",
-            text: "You need to sign up to use this feature.",
-          });
-          throw new Error("Network response was not ok");
-        } else {
-          console.log("will show new buttons soon 1");
-          console.log("Status:", response); // log the status
-          setExportSuccess(true); // Set the export success state to true
-          setIsDataReady(true);
-          setIsLoading(false); // Set loading to false after API call
-          setTimeout(() => {
-            setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-          }, 5000);
-          return response.json();
-        }
+          throw new Error("Network response was not ok: " + response.status);
+        } 
       })
       .then((data) => {
-        console.log("Success:", data);
-        if (data.Status === "Not a valid user, please sign-up" || response.status === 401) {
-          Swal.fire({
-            icon: "info",
-            title: "Please Sign Up",
-            text: "You need to sign up to use this feature.",
-          });
-        } else {
           console.log("going to fetch markers");
           console.log("Will show new buttons soon 2");
-          setExportSuccess(true); // Set the export success state to true
-          setIsDataReady(true);
-          setIsLoading(false); // Set loading to false after API call
-          setTimeout(() => {
-            setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-          }, 5000);
-        }
+          if(data.Status) { 
+            setExportSuccess(true); // Set the export success state to true
+            setIsDataReady(true);
+            setIsLoading(false); // Set loading to false after API call
+            setTimeout(() => {
+              setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+            }, 5000);
+          }
       })
       .catch((error) => {
         console.error("Error:", error);
+        setIsDataReady(true);
+        console.log(isLoading)
         Swal.fire({
           icon: "info",
-          title: "Error occured",
+          title: "A problem has occured",
           text: error,
         });
-        // else {
-        //   console.error("Error:", error);
-        //   setIsDataReady(true);
-        //   setIsLoading(false); // Set loading to false after API call
-        //   setTimeout(() => {
-        //     setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        //   }, 5000);
-        // }
+        setIsLoading(false);
+        setIsDataReady(false);
       });
   };
 

@@ -224,9 +224,10 @@ function Map({ markers }) {
       map.current.removeSource("custom");
     }
 
+    const username = localStorage.getItem("username")
     map.current.addSource("custom", {
       type: "vector",
-      tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+      tiles: [`http://localhost:8000/tiles/{z}/{x}/{y}.pbf?username=${username}`],
       maxzoom: 16,
     });
   };
@@ -370,35 +371,36 @@ function Map({ markers }) {
         map.current.removeSource("custom");
       }
 
-      // const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token");
+      const username = localStorage.getItem("username")
 
-      // fetch("http://localhost:8000/api/user", {
-      //   headers: {
-      //     Authorization: `Bearer ${token}`,
-      //   },
-      // })
-      //   .then((response) => {
-      //     if (!response.ok) {
-      //       throw new Error("Network response was not ok");
-      //     }
-      //     return response.json();
-      //   })
-      //   .then((data) => {
-      //     console.log(data);
-      //     // proceed with your logic here
-      //   })
-      //   .catch((error) => {
-      //     console.log(
-      //       "There has been a problem with your fetch operation: ",
-      //       error
-      //     );
-      //   });
+      fetch("http://localhost:8000/api/user?$username", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log(data);
+          addSource();
+        })
+        .catch((error) => {
+          console.log(
+            "There has been a problem with your fetch operation: ",
+            error
+          );
+        });
 
-      map.current.addSource("custom", {
-        type: "vector",
-        tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
-        maxzoom: 16,
-      });
+      // map.current.addSource("custom", {
+      //   type: "vector",
+      //   tiles: ["http://localhost:8000/tiles/{z}/{x}/{y}.pbf"],
+      //   maxzoom: 16,
+      // });
 
       // Create a single-use event handler
       function handleSourcedata(e) {
@@ -585,9 +587,30 @@ function Map({ markers }) {
       if (existingSource) {
         map.current.removeSource("custom");
       }
+      const token = localStorage.getItem("token");
 
-      addSource();
-      addLayers();
+      fetch("http://localhost:8000/api/user", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log(data);
+          addSource();
+          addLayers();
+        })
+        .catch((error) => {
+          console.log(
+            "There has been a problem with your fetch operation: ",
+            error
+          );
+        });
     };
 
     map.current.addControl(new maplibregl.NavigationControl(), "top-left");

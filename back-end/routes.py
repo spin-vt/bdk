@@ -117,6 +117,10 @@ def submit_data():
     currUser = get_jwt_identity()
     username = currUser.get('username')
 
+    if not user_exists(username): 
+        response_data = {'Status': "Not a valid username: " + username}
+        return json.dumps(response_data)
+
     if request.method == 'POST':
         names = []
 
@@ -189,7 +193,7 @@ def submit_data():
                 else:
                     response_data = {'Status': 'Ok'}
                     
-        vectorTile.create_tiles(geojson_array)
+        vectorTile.create_tiles(geojson_array, username)
         for name in names:
             os.remove(name)
 
@@ -442,12 +446,13 @@ def export_wireless():
         return jsonify(response_data)
 
 @app.route("/tiles/<zoom>/<x>/<y>.pbf")
-@jwt_required()
 def serve_tile(zoom, x, y):
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
+
+    username = request.args.get('username')
 
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
@@ -457,9 +462,9 @@ def serve_tile(zoom, x, y):
                 """
                 SELECT tile_data
                 FROM "vt"
-                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s
+                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s AND username = %s
                 """, 
-                (int(zoom), int(x), int(y))
+                (int(zoom), int(x), int(y), username)
             )
     tile = cursor.fetchone()
 
