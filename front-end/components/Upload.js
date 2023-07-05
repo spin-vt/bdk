@@ -152,24 +152,22 @@ export default function Upload({ fetchMarkers }) {
         if (!response.ok) {
           console.log(response);
           throw new Error("Network response was not ok: " + response.status);
-        } 
+        }
       })
       .then((data) => {
-          console.log("going to fetch markers");
-          console.log("Will show new buttons soon 2");
-          if(data.Status) { 
-            setExportSuccess(true); // Set the export success state to true
-            setIsDataReady(true);
-            setIsLoading(false); // Set loading to false after API call
-            setTimeout(() => {
-              setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-            }, 5000);
-          }
+        console.log("going to fetch markers");
+        console.log("Will show new buttons soon 2");
+        setExportSuccess(true); // Set the export success state to true
+        setIsDataReady(true);
+        setIsLoading(false); // Set loading to false after API call
+        setTimeout(() => {
+          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        }, 5000);
       })
       .catch((error) => {
         console.error("Error:", error);
         setIsDataReady(true);
-        console.log(isLoading)
+        console.log(isLoading);
         Swal.fire({
           icon: "info",
           title: "A problem has occured",

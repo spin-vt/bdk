@@ -403,10 +403,11 @@ def logout():
 @app.route('/api/user', methods=['GET'])
 @jwt_required()
 def get_user_info():
-    identity = get_jwt_identity()
-    response_data = {'Status': "Valid User"}
-    return json.dumps(response_data)
-
+    try:
+        identity = get_jwt_identity()
+        return jsonify({'username': identity['username']})
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
 
 @app.route('/export', methods=['GET'])
 def export():
