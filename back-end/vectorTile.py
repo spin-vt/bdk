@@ -283,7 +283,6 @@ def create_tiles(geojson_array, username):
          ]
      }
     
-    # print(geojson_array)
     point_geojson["features"].extend(geojson for geojson in geojson_array)
 
     with open('data.geojson', 'w') as f:
@@ -296,6 +295,3 @@ def create_tiles(geojson_array, username):
          print("Tippecanoe stderr:", result.stderr.decode())
     
     val = add_values_to_VT("./output.mbtiles", username)
-
-# if __name__ == "__main__":
-#     create_tiles()

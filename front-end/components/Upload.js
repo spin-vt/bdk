@@ -60,8 +60,6 @@ const tech_types = {
   Other: 0,
 };
 
-//Map key component
-
 function MapKey() {
   return (
     <div style={{ display: "flex", alignItems: "center" }}>
@@ -118,8 +116,9 @@ export default function Upload({ fetchMarkers }) {
       downloadSpeed: downloadSpeed,
       uploadSpeed: uploadSpeed,
       techType: techType,
+      username: localStorage.getItem("username")
     });
-
+    
     window.location.href = `http://localhost:8000/export?${params.toString()}`;
   };
 

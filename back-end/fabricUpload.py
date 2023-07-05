@@ -28,6 +28,7 @@ class Data(Base):
     h3_9 = Column(String)
     latitude = Column(Float)
     longitude = Column(Float)
+    username = Column(String)
 
 db_host = os.getenv('postgres', 'localhost')
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
@@ -40,20 +41,46 @@ def check_num_records_greater_zero():
     session = Session()
     return session.query(Data).count() > 0
 
-def write_to_db(fileName): 
+def write_to_db(fileName, username): 
     csv_file = fileName
 
     with open(csv_file, 'r') as file:
         csv_data = file.read()
 
-    engine = create_engine('postgresql://postgres:db123@localhost:5432/postgres')
-
     connection = engine.raw_connection()
     try:
         with connection.cursor() as cur:
+            cur.execute("""
+                CREATE TEMPORARY TABLE temp_fabric (
+                    location_id Integer,
+                    address_primary Text,
+                    city Text,
+                    state Text,
+                    zip_code Text,
+                    zip_suffix Text,
+                    unit_count Integer,
+                    bsl_flag Text,
+                    building_type_code Text,
+                    land_use_code Integer,
+                    address_confidence_code Text,
+                    country_geoid Text,
+                    block_geoid Text,
+                    h3_9 Text,
+                    latitude Float,
+                    longitude Float
+                );
+            """)
+            connection.commit()
+
             output = StringIO(csv_data)
-            cur.copy_expert("COPY fabric FROM STDIN CSV HEADER DELIMITER ','", output)
+            cur.copy_expert("COPY temp_fabric FROM STDIN CSV HEADER DELIMITER ','", output)
             output.seek(0)
-        connection.commit()
+            connection.commit()
+
+            cur.execute(f"""
+                INSERT INTO fabric 
+                SELECT *, '{username}' as username FROM temp_fabric;
+            """)
+            connection.commit()
     finally:
         connection.close()

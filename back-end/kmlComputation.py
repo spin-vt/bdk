@@ -40,6 +40,7 @@ class kml_data(Base):
     coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
+    username = Column(String)
 
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 engine = create_engine(DATABASE_URL)
@@ -120,7 +121,7 @@ def get_wired_data_old():
     return data
 
 #might need to add lte data in the future
-def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, tech):
+def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, tech, username):
     df = pandas.read_csv(Fabric_FN) 
 
     fabric = geopandas.GeoDataFrame(
@@ -137,10 +138,10 @@ def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, t
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
-    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True)
+    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True, username)
     return res 
 
-def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
+def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, username):
     df = pandas.read_csv(Fabric_FN)
 
     fabric = geopandas.GeoDataFrame(
@@ -166,18 +167,18 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
     bsl_fabric_near_fiber = fabric_near_fiber[fabric_near_fiber['bsl_flag']] 
 
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
-    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False)
+    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False, username)
     return res 
 
-def add_network_data(Fabric_FN, Fiber_FN, flag, download, upload, tech, type):
+def add_network_data(Fabric_FN, Fiber_FN, flag, download, upload, tech, type, username):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech)
+        res = compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, username)
     elif type == 1: 
-        res = compute_wireless_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech)
+        res = compute_wireless_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, username)
     return res 
 
-def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
+def add_to_db(pandaDF, networkName, fabric, flag, download, wireless, username):
     batch = [] 
     session = Session()
     for _, row in pandaDF.iterrows():
@@ -185,8 +186,9 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
             if row.location_id == '': 
                 continue
 
-            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
-
+            # existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
+            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id), username=username).first()
+            
             if download == "": 
                 download = 0
                 
@@ -196,7 +198,7 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
                     served = True,
                     wireless = wireless,
                     lte = False,
-                    username = "vineet",
+                    username = username,
                     coveredLocations = networkName,
                     maxDownloadNetwork = networkName,
                     maxDownloadSpeed = int(download)
@@ -241,7 +243,6 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
     session.commit()
     session.close()
 
-    print("did fabric in coverage")
     if not flag: 
         session = Session()
         batch = [] 
@@ -254,7 +255,7 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
             'served': False,
             'wireless': False,
             'lte': False,
-            'username': "vineet",
+            'username': username,
             'coveredLocations': "",
             'maxDownloadNetwork': -1,
             'maxDownloadSpeed': -1
@@ -280,7 +281,7 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
         session.close()
     return True 
 
-def export(download_speed, upload_speed, tech_type): 
+def export(download_speed, upload_speed, tech_type, username): 
     PROVIDER_ID = 000 
     BRAND_NAME = 'Test' 
 
@@ -296,7 +297,7 @@ def export(download_speed, upload_speed, tech_type):
     conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
     cursor = conn.cursor()
 
-    cursor.execute('SELECT location_id FROM "KML" WHERE served = true')
+    cursor.execute(cursor.execute('SELECT location_id FROM "KML" WHERE served = true AND username = %s', (username,)))
     result = cursor.fetchall()
 
     cursor.close()
@@ -317,6 +318,3 @@ def export(download_speed, upload_speed, tech_type):
     filename = 'FCC_broadband.csv'
     availability_csv.to_csv(filename, index=False)
     return filename
-
-# if __name__ == "__main__":
-#     compute_wired_locations("FCC_Active_BSL_12312022_ver1.csv", "Ash Ave Fiber Path.kml", False, 100, 50, "temp")

@@ -90,16 +90,16 @@ states = [
 ]
 
 @celery.task(bind=True)
-def process_input_file(self, file_name, task_id):
-    result = fabricUpload.write_to_db(file_name)
+def process_input_file(self, file_name, task_id, username):
+    result = fabricUpload.write_to_db(file_name, username)
     self.update_state(state='PROCESSED')
     return result
 
 
 @celery.task(bind=True)
-def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag, networkType):
+def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag, networkType, username):
     try:
-        result = kmlComputation.add_network_data(fabric, network, flag, downloadSpeed, uploadSpeed, techType, networkType)
+        result = kmlComputation.add_network_data(fabric, network, flag, downloadSpeed, uploadSpeed, techType, networkType, username)
         self.update_state(state='PROCESSED')
         return result
     except Exception as e:
@@ -156,7 +156,7 @@ def submit_data():
 
                 task_id = str(uuid.uuid4())
 
-                task = process_input_file.apply_async(args=[file_name, task_id])
+                task = process_input_file.apply_async(args=[file_name, task_id, username])
 
                 while not task.ready():
                     time.sleep(1)
@@ -176,7 +176,7 @@ def submit_data():
                 else: 
                     networkType = 1
 
-                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag, networkType])
+                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag, networkType, username])
                 logging.info("Started KML processing task with ID %s %s %s", task_id, fabricName, file_name)
 
                 while not task.ready():
@@ -336,8 +336,6 @@ class User(Base):
     username = Column(String(50), unique=True)
     password = Column(String(256))
 
-
-
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -416,8 +414,9 @@ def export():
     download_speed = request.args.get('downloadSpeed', default='', type=str)
     upload_speed = request.args.get('uploadSpeed', default='', type=str)
     tech_type = request.args.get('techType', default='', type=str)
+    username = request.args.get('username', default='', type=str)
 
-    filename = kmlComputation.export(download_speed, upload_speed, tech_type)
+    filename = kmlComputation.export(download_speed, upload_speed, tech_type, username)
 
     if filename:
         response_data = {'Status': "Success"}
@@ -426,25 +425,25 @@ def export():
         return jsonify(response_data)
 
 
-@app.route('/export-wireless', methods=['GET'])
-def export_wireless():
-    response_data = {'Status': 'Failure'}
+# @app.route('/export-wireless', methods=['GET'])
+# def export_wireless():
+#     response_data = {'Status': 'Failure'}
 
-    download_speed = request.args.get('downloadSpeed', default='', type=str)
-    upload_speed = request.args.get('uploadSpeed', default='', type=str)
-    tech_type = request.args.get('techType', default='', type=str)
+#     download_speed = request.args.get('downloadSpeed', default='', type=str)
+#     upload_speed = request.args.get('uploadSpeed', default='', type=str)
+#     tech_type = request.args.get('techType', default='', type=str)
 
-    filename = kmlComputation.exportWireless(download_speed, upload_speed, tech_type)
-    filename2 = kmlComputation.exportWireless2(download_speed, upload_speed, tech_type)
+#     filename = kmlComputation.exportWireless(download_speed, upload_speed, tech_type)
+#     filename2 = kmlComputation.exportWireless2(download_speed, upload_speed, tech_type)
 
-    if filename and filename2:
-        with zipfile.ZipFile('wirelessCSVs.zip', 'w') as zipf:
-            zipf.write(filename, os.path.basename(filename))
-            zipf.write(filename2, os.path.basename(filename2))
+#     if filename and filename2:
+#         with zipfile.ZipFile('wirelessCSVs.zip', 'w') as zipf:
+#             zipf.write(filename, os.path.basename(filename))
+#             zipf.write(filename2, os.path.basename(filename2))
 
-        return send_file('wirelessCSVs.zip', as_attachment=True)
-    else:
-        return jsonify(response_data)
+#         return send_file('wirelessCSVs.zip', as_attachment=True)
+#     else:
+#         return jsonify(response_data)
 
 @app.route("/tiles/<zoom>/<x>/<y>.pbf")
 def serve_tile(zoom, x, y):
