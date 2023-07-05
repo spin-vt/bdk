@@ -13,6 +13,9 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.exc import ProgrammingError
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, abort, jsonify, request, make_response, send_file
+from flask_jwt_extended.exceptions import NoAuthorizationError
+from flask_jwt_extended.exceptions import JWTExtendedException
+from werkzeug.exceptions import HTTPException
 from flask_cors import CORS
 from flask_jwt_extended import (
     JWTManager,
@@ -31,13 +34,14 @@ import zipfile
 import sqlite3
 from flask import Response
 import subprocess
-
+import base64
 import fabricUpload
 import kmlComputation
 from fabricUpload import Data
 from coordinateCluster import get_bounding_boxes
 import vectorTile
 import fabricUpload
+from authorization import user_exists
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -67,7 +71,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
 app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-app.config["JWT_SECRET_KEY"] = "ADFAKJFDLJEOQRI"
+app.config["JWT_SECRET_KEY"] = base64.b64encode("ADFAKJFDLJEOQRI".encode())
 jwt = JWTManager(app)
 
 Base = declarative_base()
@@ -108,7 +112,11 @@ def get_number_records():
     return jsonify(kmlComputation.get_wired_data())
 
 @app.route('/submit-data', methods=['POST', 'GET'])
+@jwt_required()
 def submit_data():
+    currUser = get_jwt_identity()
+    username = currUser.get('username')
+
     if request.method == 'POST':
         names = []
 
@@ -121,11 +129,6 @@ def submit_data():
             return make_response('Error: No file uploaded', 400)
 
         file_data_list = request.form.getlist('fileData')
-
-        # inspector = inspect(engine)
-        # if inspector.has_table('Fabric') and inspector.has_table('KML'):
-        #     response_data = {'Status': "Ok"}
-        #     return json.dumps(response_data)
         
         fabricName = ""
         flag = False
@@ -177,8 +180,6 @@ def submit_data():
 
                 logging.info("KML processing task %s completed", task_id)
                 flag = True
-                # result = task.result
-                # dict_values = result
                 kmlfile_path = os.path.join(os.getcwd(), file_name)
                 geojson_array.append(vectorTile.read_kml(kmlfile_path))
 
@@ -398,11 +399,9 @@ def logout():
 @app.route('/api/user', methods=['GET'])
 @jwt_required()
 def get_user_info():
-    try:
-        identity = get_jwt_identity()
-        return jsonify({'username': identity['username']})
-    except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+    identity = get_jwt_identity()
+    response_data = {'Status': "Valid User"}
+    return json.dumps(response_data)
 
 
 @app.route('/export', methods=['GET'])
@@ -443,6 +442,7 @@ def export_wireless():
         return jsonify(response_data)
 
 @app.route("/tiles/<zoom>/<x>/<y>.pbf")
+@jwt_required()
 def serve_tile(zoom, x, y):
     zoom = int(zoom)
     x = int(x)

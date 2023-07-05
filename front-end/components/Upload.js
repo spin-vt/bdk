@@ -17,6 +17,7 @@ import InputLabel from "@mui/material/InputLabel";
 import { makeStyles } from "@mui/styles";
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
+import Swal from "sweetalert2";
 
 const useStyles = makeStyles({
   formControl: {
@@ -41,8 +42,8 @@ const useStyles = makeStyles({
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
-  "Wired": "Wired",
-  "Wireless": "Wireless"
+  Wired: "Wired",
+  Wireless: "Wireless",
 };
 let storage = JSON.parse(localStorage.getItem("storage")) || [];
 let storage2 = [];
@@ -138,46 +139,70 @@ export default function Upload({ fetchMarkers }) {
     });
 
     setIsLoading(true);
-
+    const token = localStorage.getItem("token");
+    console.log(token);
     fetch("http://localhost:8000/submit-data", {
       method: "POST",
       body: formData,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     })
       .then((response) => {
-        if (!response.ok) {
+        if (!response.ok || response.status === 401) {
+          console.log(response);
+          Swal.fire({
+            icon: "info",
+            title: "Please Sign Up",
+            text: "You need to sign up to use this feature.",
+          });
           throw new Error("Network response was not ok");
+        } else {
+          console.log("will show new buttons soon 1");
+          console.log("Status:", response); // log the status
+          setExportSuccess(true); // Set the export success state to true
+          setIsDataReady(true);
+          setIsLoading(false); // Set loading to false after API call
+          setTimeout(() => {
+            setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+          }, 5000);
+          return response.json();
         }
-        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
-        console.log("will show new buttons soon 1");
-        console.log("Status:", response); // log the status
-        setExportSuccess(true); // Set the export success state to true
-        setIsDataReady(true);
-        setIsLoading(false); // Set loading to false after API call
-        setTimeout(() => {
-          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        }, 5000);
-        return response.json();
       })
       .then((data) => {
         console.log("Success:", data);
-        console.log("going to fetch markers");
-        console.log("Will show new buttons soon 2");
-        setExportSuccess(true); // Set the export success state to true
-        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
-        setIsDataReady(true);
-        setIsLoading(false); // Set loading to false after API call
-        setTimeout(() => {
-          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        }, 5000);
+        if (data.Status === "Not a valid user, please sign-up" || response.status === 401) {
+          Swal.fire({
+            icon: "info",
+            title: "Please Sign Up",
+            text: "You need to sign up to use this feature.",
+          });
+        } else {
+          console.log("going to fetch markers");
+          console.log("Will show new buttons soon 2");
+          setExportSuccess(true); // Set the export success state to true
+          setIsDataReady(true);
+          setIsLoading(false); // Set loading to false after API call
+          setTimeout(() => {
+            setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+          }, 5000);
+        }
       })
       .catch((error) => {
-        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error("Error:", error);
-        setIsDataReady(true);
-        setIsLoading(false); // Set loading to false after API call
-        setTimeout(() => {
-          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        }, 5000);
+        Swal.fire({
+          icon: "info",
+          title: "Error occured",
+          text: error,
+        });
+        // else {
+        //   console.error("Error:", error);
+        //   setIsDataReady(true);
+        //   setIsLoading(false); // Set loading to false after API call
+        //   setTimeout(() => {
+        //     setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        //   }, 5000);
+        // }
       });
   };
 
@@ -333,7 +358,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      { (isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
+      {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
       <ButtonGroup
         variant="contained"
         ref={buttonGroupRef}
@@ -467,7 +492,7 @@ export default function Upload({ fetchMarkers }) {
         <ExportButton onClick={handleExportClick} />
         {exportSuccess && (
           <Button variant="contained" onClick={handleDownloadClick}>
-            Download CSV
+            Download Report
           </Button>
         )}
         <MapKey />
