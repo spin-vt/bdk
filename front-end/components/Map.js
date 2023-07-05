@@ -546,9 +546,9 @@ function Map({ markers }) {
           "interpolate", 
           ["linear"], 
           ["zoom"],
-          5, 0.5, // When zoom is less than or equal to 12, circle radius will be 1
-          12, 1.5,
-          15, 3 // When zoom is more than 12, circle radius will be 3
+          5, 6, // When zoom is less than or equal to 12, circle radius will be 1
+          12, 2,
+          15, 2, // When zoom is more than 12, circle radius will be 3
         ],
         "circle-color": [
           "case",
