@@ -35,9 +35,13 @@ from psycopg2.extras import execute_values
 from fastkml import kml
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-db_host = os.getenv('DB_HOST', 'bdk-db-1')
-
+db_user = os.getenv('POSTGRES_USER')
+db_password = os.getenv('POSTGRES_PASSWORD')
+db_host = os.getenv('DB_HOST')
+db_port = os.getenv('DB_PORT')
 Base = declarative_base()
+DATABASE_URL = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
+engine = create_engine(DATABASE_URL)
 BATCH_SIZE = 50000
 
 class vector_tiles(Base):
@@ -56,9 +60,6 @@ class mbtiles(Base):
     filename = Column(String)  # this will add a filename column
     timestamp = Column(DateTime)  # this will add a timestamp column
     
-DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-engine = create_engine(DATABASE_URL)
-
 inspector = inspect(engine)
 if not inspector.has_table('vt'):
     Base.metadata.create_all(engine)
@@ -199,7 +200,7 @@ def create_mbtiles_from_db(output_path):
     pg_session.close()
 
 def tiles_join(geojson_data):
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     # Extract the .mbtiles file from the database
@@ -251,7 +252,7 @@ def tiles_join(geojson_data):
     os.remove('data.geojson')
 
 def create_tiles(geojson_array, username):
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
     cursor.execute('TRUNCATE TABLE vt')
     conn.commit()

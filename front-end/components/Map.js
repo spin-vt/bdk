@@ -245,7 +245,7 @@ function Map({ markers }) {
     const username = localStorage.getItem("username")
     map.current.addSource("custom", {
       type: "vector",
-      tiles: [`http://localhost:8000/tiles/{z}/{x}/{y}.pbf?username=${username}`],
+      tiles: [`http://localhost:5000/tiles/{z}/{x}/{y}.pbf?username=${username}`],
       maxzoom: 16,
     });
   };
@@ -428,7 +428,7 @@ function Map({ markers }) {
   };
 
   const toggleMarkers = (markers) => {
-    return fetch("http://localhost:8000/toggle-markers", {
+    return fetch("http://localhost:5000/toggle-markers", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -595,7 +595,7 @@ function Map({ markers }) {
 
   const fetchMarkers = () => {
     if (allMarkersRef.current === undefined || allMarkersRef.current === null || allMarkersRef.current.length === 0) {
-      return fetch("http://localhost:8000/served-data", {
+      return fetch("http://localhost:5000/served-data", {
         method: "GET",
       })
         .then((response) => response.json())

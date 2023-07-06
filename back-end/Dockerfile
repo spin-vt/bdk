@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
 # Create directory for Supervisor
 RUN mkdir -p /var/log/supervisor
 
+
 WORKDIR /app
 
 COPY requirements.txt requirements.txt
@@ -20,4 +21,5 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 COPY . .
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["python3", "routes.py"]

@@ -65,18 +65,22 @@ celery = Celery(app.name, broker='redis://bdk-redis-1:6379/0')
 app.config['CELERY_RESULT_BACKEND'] = 'redis://bdk-redis-1:6379/0'
 celery.conf.update(app.config)
 
-db_host = os.getenv('DB_HOST', 'bdk-db-1')
+db_user = os.getenv('POSTGRES_USER')
+db_password = os.getenv('POSTGRES_PASSWORD')
+db_host = os.getenv('DB_HOST')
+db_port = os.getenv('DB_PORT')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
+Base = declarative_base()
+DATABASE_URL = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
+engine = create_engine(DATABASE_URL)
 
 logging.basicConfig(level=logging.DEBUG)
 
-app.config['SECRET_KEY'] = 'ADFAKJFDLJEOQRIOPQ498689780'
-app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-app.config["JWT_SECRET_KEY"] = base64.b64encode("ADFAKJFDLJEOQRI".encode())
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'ADFAKJFDLJEOQRIOPQ498689780')  # Use a default value for development if SECRET_KEY environment variable doesn't exist
+app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET', 'ADFAKJFDLJEOQRI').encode())  # Use a default value for development if JWT_SECRET environment variable doesn't exist
 jwt = JWTManager(app)
 
-Base = declarative_base()
-DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-engine = create_engine(DATABASE_URL)
+
 
 logging.basicConfig(level=logging.DEBUG)
 db_lock = Lock()
@@ -232,7 +236,7 @@ def get_bounding_coordinates():
 
 @app.route('/api/search', methods=['GET'])
 def search_location():
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     query = request.args.get('query').upper()
@@ -339,7 +343,7 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     cursor.execute("SELECT username FROM \"User\" WHERE username = %s", (username,))
@@ -372,7 +376,7 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     cursor.execute("SELECT * FROM \"User\" WHERE username = %s", (username,))
@@ -451,7 +455,7 @@ def serve_tile(zoom, x, y):
 
     username = request.args.get('username')
 
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     with db_lock:
@@ -476,7 +480,7 @@ def serve_tile(zoom, x, y):
 @app.route('/toggle-markers', methods=['POST'])
 def toggle_markers():
     markers = request.json
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     geojson_data = []
@@ -571,4 +575,4 @@ def get_mbtiles():
 
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
-    app.run(port=8000, debug=True)
+    app.run(host="0.0.0.0", debug=True)

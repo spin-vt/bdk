@@ -119,7 +119,7 @@ export default function Upload({ fetchMarkers }) {
       username: localStorage.getItem("username")
     });
 
-    window.location.href = `http://localhost:8000/export?${params.toString()}`;
+    window.location.href = `http://localhost:5000/export?${params.toString()}`;
   };
 
   const handleExportClick = (event) => {
@@ -140,7 +140,7 @@ export default function Upload({ fetchMarkers }) {
     setIsLoading(true);
     const token = localStorage.getItem("token");
     console.log(token);
-    fetch("http://localhost:8000/submit-data", {
+    fetch("http://localhost:5000/submit-data", {
       method: "POST",
       body: formData,
       headers: {

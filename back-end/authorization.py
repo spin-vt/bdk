@@ -3,12 +3,16 @@ from flask_jwt_extended import decode_token
 import psycopg2
 import os
 
-db_host = os.getenv('DB_HOST', 'bdk-db-1')
+db_user = os.getenv('POSTGRES_USER')
+db_password = os.getenv('POSTGRES_PASSWORD')
+db_host = os.getenv('DB_HOST')
+db_port = os.getenv('DB_PORT')
+DATABASE_URL = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
 
 def user_exists(username): 
     try:
         # Assuming db_host is a variable that contains your database host
-        conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+        conn = psycopg2.connect(DATABASE_URL)
         cursor = conn.cursor()
 
         # Query the User table

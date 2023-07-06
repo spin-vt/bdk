@@ -124,7 +124,7 @@ function Searchbar() {
         }, 0);
       } else {
         const response = await fetch(
-          `http://localhost:8000/api/search?query=${nextValue}`
+          `http://localhost:5000/api/search?query=${nextValue}`
         );
         const data = await response.json();
         setTimeout(() => {

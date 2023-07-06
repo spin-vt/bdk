@@ -156,7 +156,7 @@ export default function Navbar() {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:8000/api/logout', {
+      const response = await fetch('http://localhost:5000/api/logout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +185,7 @@ export default function Navbar() {
     if (!usernameFromStorage) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/api/user', {
+        const response = await fetch('http://localhost:5000/api/user', {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
