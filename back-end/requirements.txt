@@ -13,6 +13,7 @@ click-repl==0.2.0
 cligj==0.7.2
 contourpy==1.0.7
 cycler==0.11.0
+fastkml==0.12
 Fiona==1.9.2
 Flask==2.2.3
 Flask-Cors==3.0.10
@@ -21,6 +22,7 @@ Flask-Login==0.6.2
 Flask-SQLAlchemy==3.0.3
 folium==0.14.0
 fonttools==4.39.3
+geojson2vt==1.0.1
 geopandas==0.12.2
 greenlet==2.0.2
 idna==3.4
@@ -42,7 +44,9 @@ packaging==23.0
 pandas==2.0.0
 Pillow==9.5.0
 prompt-toolkit==3.0.38
-psycopg2-binary==2.9.6
+protobuf==4.23.3
+psycopg2==2.9.6
+pygeoif==0.7
 PyJWT==2.7.0
 pyparsing==3.0.9
 pyproj==3.5.0
@@ -61,8 +65,7 @@ typing-extensions==4.5.0
 tzdata==2023.3
 urllib3==1.26.15
 vine==5.0.0
+vt2pbf==0.1.5
 wcwidth==0.2.6
-Werkzeug==2.2.3
+Werkzeug==2.3.6
 zipp==3.15.0
-Psycopg2==2.8.6
-fastkml===0.12
