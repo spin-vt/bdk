@@ -118,8 +118,7 @@ def submit_data():
     username = currUser.get('username')
 
     if not user_exists(username): 
-        response_data = {'Status': "Not a valid username: " + username}
-        return json.dumps(response_data)
+        return make_response('Invalid JWT Token', 401)
 
     if request.method == 'POST':
         names = []
@@ -194,8 +193,9 @@ def submit_data():
                     response_data = {'Status': 'Ok'}
                     
         vectorTile.create_tiles(geojson_array, username)
-        for name in names:
-            os.remove(name)
+        # print(names)
+        # for name in names:
+        #     os.remove(name)
 
         return json.dumps(response_data)
 

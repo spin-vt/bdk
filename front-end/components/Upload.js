@@ -118,7 +118,7 @@ export default function Upload({ fetchMarkers }) {
       techType: techType,
       username: localStorage.getItem("username")
     });
-    
+
     window.location.href = `http://localhost:8000/export?${params.toString()}`;
   };
 
@@ -148,20 +148,37 @@ export default function Upload({ fetchMarkers }) {
       },
     })
       .then((response) => {
-        if (!response.ok) {
+        // If the user is not authorized, redirect to login page
+        if (response.status === 401 || response.status === 422) {
+          Swal.fire({
+            icon: "warning",
+            title: "Authentication required",
+            text: "Please log in before you submit your files",
+          }).then((result) => {
+            if (result.isConfirmed) {
+              window.location.href = 'http://localhost:3000/login';
+            }
+          });
+          return;
+        }
+        else if (!response.ok) {
           console.log(response);
           throw new Error("Network response was not ok: " + response.status);
         }
+        return response.json();
       })
       .then((data) => {
-        console.log("going to fetch markers");
-        console.log("Will show new buttons soon 2");
-        setExportSuccess(true); // Set the export success state to true
-        setIsDataReady(true);
-        setIsLoading(false); // Set loading to false after API call
-        setTimeout(() => {
-          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        }, 5000);
+        if (data) { // only process data if it exists
+          console.log("going to fetch markers");
+          console.log("Will show new buttons soon 2");
+          setExportSuccess(true);
+          setIsDataReady(true);
+          setIsLoading(false); // Set loading to false after API call
+          setTimeout(() => {
+            setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+          }, 5000);
+          window.location.href = 'http://localhost:3000/';
+        }
       })
       .catch((error) => {
         console.error("Error:", error);

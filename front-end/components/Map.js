@@ -251,6 +251,27 @@ function Map({ markers }) {
   };
 
   const addLayers = () => {
+    let lineColor;
+    let fillColor;
+
+    switch (selectedBaseMap) {
+      case 'STREETS':
+        lineColor = '#888';
+        fillColor = '#42004F';
+        break;
+      case 'SATELLITE':
+        lineColor = '#FF00F7'; // Replace with appropriate color
+        fillColor = '#565EC1'; // Replace with appropriate color
+        break;
+      case 'DARK':
+        lineColor = '#FF00F7'; // Replace with appropriate color
+        fillColor = '#565EC1'; // Replace with appropriate color
+        break;
+      default:
+        lineColor = '#888';
+        fillColor = '#42004F';
+    }
+
     map.current.addLayer({
       id: "custom-line",
       type: "line",
@@ -260,7 +281,7 @@ function Map({ markers }) {
         "line-join": "round",
       },
       paint: {
-        "line-color": getRandomColor(),
+        "line-color": lineColor,
         "line-width": 2,
       },
       filter: ["==", ["get", "feature_type"], "LineString"], // Only apply this layer to linestrings
@@ -272,13 +293,12 @@ function Map({ markers }) {
       type: "fill",
       source: "custom",
       paint: {
-        "fill-color": getRandomColor(),
+        "fill-color": fillColor,
         "fill-opacity": 0.5,
       },
       filter: ["==", ["get", "feature_type"], "Polygon"], // Only apply this layer to polygons
       "source-layer": "data",
     });
-
     map.current.addLayer({
       id: "custom-point",
       type: "circle",
@@ -302,6 +322,7 @@ function Map({ markers }) {
       filter: ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
       "source-layer": "data",
     });
+
   };
 
   const removeVectorTiles = () => {
@@ -324,102 +345,83 @@ function Map({ markers }) {
   };
 
   const addVectorTiles = () => {
-    const existingSource = map.current.getSource("custom");
-    if (existingSource) {
-      map.current.removeSource("custom");
-    }
+    removeVectorTiles();
     const token = localStorage.getItem("token");
 
 
-    fetch("http://localhost:8000/api/user", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        console.log(data);
+    // fetch("http://localhost:8000/api/user", {
+    //   headers: {
+    //     Authorization: `Bearer ${token}`,
+    //   },
+    // })
+    //   .then((response) => {
+    //     if (!response.ok) {
+    //       throw new Error("Network response was not ok");
+    //     }
+    //     return response.json();
+    //   })
+    //   .then((data) => {
+    //     console.log(data);
         addSource();
         function handleSourcedata(e) {
           if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
             // Immediately remove the event listener
             map.current.off("sourcedata", handleSourcedata);
-  
+
             fetchMarkers().then(() => {
               addLayers();
             });
           }
         }
         map.current.on("sourcedata", handleSourcedata);
-      })
-      .catch((error) => {
-        console.log(
-          "There has been a problem with your fetch operation: ",
-          error
-        );
-      });
+      // })
+      // .catch((error) => {
+      //   console.log(
+      //     "There has been a problem with your fetch operation: ",
+      //     error
+      //   );
+      // });
 
-    console.log(allMarkersRef.current);
-    addSource();
-
-    function handleSourcedata(e) {
-      if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
-        // Immediately remove the event listener
-        map.current.off("sourcedata", handleSourcedata);
-
-        fetchMarkers().then(() => {
-          addLayers();
-        });
-      }
-    }
-
-
-    // Add the single-use event handler
-    map.current.on("sourcedata", handleSourcedata);
+    // console.log(allMarkersRef.current);
 
     // if (!map.current) return; // Wait for map to initialize
     // map.current.on("load", function () {
 
-      map.current.on("draw.create", (event) => {
-        const polygon = event.features[0];
+    map.current.on("draw.create", (event) => {
+      const polygon = event.features[0];
 
-        // Convert drawn polygon to turf polygon
-        const turfPolygon = turf.polygon(polygon.geometry.coordinates);
+      // Convert drawn polygon to turf polygon
+      const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
-        // console.log(allMarkersRef.current);
+      // console.log(allMarkersRef.current);
 
-        // Iterate over markers and select if they are inside the polygon
-        const selected = allMarkersRef.current.filter((marker) => {
-          const point = turf.point([marker.longitude, marker.latitude]);
-          return turf.booleanPointInPolygon(point, turfPolygon);
-        });
-
-        // console.log(selected);
-        selectedMarkersRef.current.push(selected);
-
-        // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
-
-        setModalVisible(true); // Show the modal
+      // Iterate over markers and select if they are inside the polygon
+      const selected = allMarkersRef.current.filter((marker) => {
+        const point = turf.point([marker.longitude, marker.latitude]);
+        return turf.booleanPointInPolygon(point, turfPolygon);
       });
 
-      map.current.on("click", "custom-point", function (e) {
-        let featureProperties = e.features[0].properties;
+      // console.log(selected);
+      selectedMarkersRef.current.push(selected);
 
-        let content = "<h1>Marker Information</h1>";
-        for (let property in featureProperties) {
-          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
-        }
+      // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
 
-        new maplibregl.Popup({ closeOnClick: false })
-          .setLngLat(e.lngLat)
-          .setHTML(content)
-          .addTo(map.current);
-      });
+      setModalVisible(true); // Show the modal
+    });
+
+    map.current.on("click", "custom-point", function (e) {
+      let featureProperties = e.features[0].properties;
+
+      let content = "<h1>Marker Information</h1>";
+      for (let property in featureProperties) {
+        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+      }
+
+      new maplibregl.Popup({ closeOnClick: false })
+        .setLngLat(e.lngLat)
+        .setHTML(content)
+        .addTo(map.current);
+    });
     // });
 
 
@@ -554,28 +556,6 @@ function Map({ markers }) {
 
       const token = localStorage.getItem("token");
       const username = localStorage.getItem("username")
-
-      fetch("http://localhost:8000/api/user?$username", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("Network response was not ok");
-          }
-          return response.json();
-        })
-        .then((data) => {
-          console.log(data);
-          addSource();
-        })
-        .catch((error) => {
-          console.log(
-            "There has been a problem with your fetch operation: ",
-            error
-          );
-        });
 
 
       removeVectorTiles();
