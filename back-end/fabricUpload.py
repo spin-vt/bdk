@@ -30,7 +30,7 @@ class Data(Base):
     longitude = Column(Float)
     username = Column(String)
 
-db_host = os.getenv('postgres', 'localhost')
+db_host = os.getenv('DB_HOST', 'bdk-db-1')
 DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 
 engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=0)

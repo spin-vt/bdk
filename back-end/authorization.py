@@ -3,7 +3,7 @@ from flask_jwt_extended import decode_token
 import psycopg2
 import os
 
-db_host = os.getenv('postgres', 'localhost')
+db_host = os.getenv('DB_HOST', 'bdk-db-1')
 
 def user_exists(username): 
     try:

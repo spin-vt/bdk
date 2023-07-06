@@ -35,7 +35,7 @@ from psycopg2.extras import execute_values
 from fastkml import kml
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-db_host = os.getenv('postgres', 'localhost')
+db_host = os.getenv('DB_HOST', 'bdk-db-1')
 
 Base = declarative_base()
 BATCH_SIZE = 50000

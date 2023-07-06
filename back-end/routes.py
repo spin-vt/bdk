@@ -61,11 +61,11 @@ logger.addHandler(console_handler)
 app = Flask(__name__)
 CORS(app)
 
-celery = Celery(app.name, broker='redis://localhost:6379/0')
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+celery = Celery(app.name, broker='redis://bdk-redis-1:6379/0')
+app.config['CELERY_RESULT_BACKEND'] = 'redis://bdk-redis-1:6379/0'
 celery.conf.update(app.config)
 
-db_host = os.getenv('postgres', 'localhost')
+db_host = os.getenv('DB_HOST', 'bdk-db-1')
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -314,9 +314,6 @@ def search_location():
     conn.close()
     return jsonify(results_dict)
 
-Base = declarative_base()
-DATABASE_URL = 'postgresql://postgres:db123@localhost:5432/postgres'
-engine = create_engine(DATABASE_URL)
 
 # Check if the table exists
 inspector = inspect(engine)

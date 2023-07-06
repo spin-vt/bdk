@@ -25,7 +25,7 @@ import vectorTile
 from sqlalchemy import and_
 
 logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-db_host = os.getenv('postgres', 'localhost')
+db_host = os.getenv('DB_HOST', 'bdk-db-1')
 
 Base = declarative_base()
 BATCH_SIZE = 50000
