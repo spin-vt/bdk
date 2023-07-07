@@ -21,7 +21,8 @@ Tool developed by the SPIN Lab at Virginia Tech
 # Setting up Database
 For this implementation, you need run the following commands in "bdk/back-end" folder to set up your database
 1) `source env/bin/activate`
-2) `alembic upgrade head`
+2) `alembic revision --autogenerate -m "Initial migration"`
+3) `alembic upgrade head`
 # Installing Redis 
 1) The backend uses Redis as a message broker to communicate with alive Celery workers. This is necessary if you want asynchronous queing to 
 take place, but at the same time, may be difficult to set up and use entirely. 
