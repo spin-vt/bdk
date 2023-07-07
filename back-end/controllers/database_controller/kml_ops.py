@@ -12,7 +12,6 @@ from shapely.geometry import Point
 import fiona
 from utils.settings import DATABASE_URL
 
-
 db_lock = Lock()
 
 def get_wired_data(): 

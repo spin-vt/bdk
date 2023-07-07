@@ -5,8 +5,7 @@ import json
 import uuid
 from flask import jsonify
 from .celery_config import celery
-from database_op import vt_ops, fabric_ops, kml_ops
-from celery_setup.celery_tasks import process_input_file, provide_kml_locations
+from ..database_controller import vt_ops, fabric_ops, kml_ops
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_input_file(self, file_name, task_id):

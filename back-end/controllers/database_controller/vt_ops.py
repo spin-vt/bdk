@@ -13,8 +13,8 @@ from multiprocessing import Lock
 from datetime import datetime
 from database.sessions import ScopedSession
 from database.models import vector_tiles
-from celery_setup.celery_config import celery
-from celery_setup.celery_tasks import run_tippecanoe
+from ..celery_controller.celery_config import celery
+from ..celery_controller.celery_tasks import run_tippecanoe
 
 db_lock = Lock()
 

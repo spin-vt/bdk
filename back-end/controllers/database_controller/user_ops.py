@@ -6,7 +6,6 @@ from database.sessions import ScopedSession
 import psycopg2
 from werkzeug.security import generate_password_hash
 
-
 def get_user_from_db(username):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()

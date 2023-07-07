@@ -1,9 +1,8 @@
-import logging
-import os
+import logging, os, base64
 from logging.handlers import RotatingFileHandler
 from logging import getLogger
 from werkzeug.security import check_password_hash
-from flask import jsonify, request, make_response, send_file
+from flask import jsonify, request, make_response, send_file, Response
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_jwt_extended import (
     JWTManager,
@@ -12,12 +11,10 @@ from flask_jwt_extended import (
     get_jwt_identity,
 )
 from flask_jwt_extended.exceptions import NoAuthorizationError
-from flask import Response
-import base64
 from utils.settings import DATABASE_URL
-from database_op import fabric_ops, kml_ops, user_ops, vt_ops
-from celery_setup.celery_config import app
-from controllers import controller
+from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
+from controllers.celery_controller.celery_config import app
+from controllers.celery_controller.celery_tasks import process_data
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -58,7 +55,7 @@ def submit_data():
             jsonify({'Status': "Failed, no file uploaded"}), 400
 
         file_data_list = request.form.getlist('fileData')
-        controller.process_data.apply_async(files, file_data_list)
+        process_data.apply_async(files, file_data_list)
         return jsonify({'Status': "OK"}), 200
 
     else:
