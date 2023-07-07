@@ -21,3 +21,4 @@ front-end/Map_marker.svg:Zone.Identifier
 *.pmtiles
 .env
 back-end/alembic/versions/
+__init__.py
