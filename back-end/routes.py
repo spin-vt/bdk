@@ -18,7 +18,6 @@ from flask_jwt_extended import (
     get_jwt_identity,
 )
 from flask_jwt_extended.exceptions import NoAuthorizationError
-from celery import Celery
 from flask import Response
 import base64
 from utils.settings import DATABASE_URL
@@ -26,6 +25,8 @@ from database_op import fabric_ops
 from database_op import kml_ops
 from database_op import user_ops
 from database_op import vt_ops
+from celery_setup.celery_config import app
+from celery_setup.celery_tasks import process_input_file, provide_kml_locations
 
 
 
@@ -44,18 +45,6 @@ logger.addHandler(file_handler)
 
 logger.addHandler(console_handler)
 
-app = Flask(__name__)
-CORS(app)
-
-# For production
-# celery = Celery(app.name, broker='redis://bdk-redis-1:6379/0')
-# app.config['CELERY_RESULT_BACKEND'] = 'redis://bdk-redis-1:6379/0'
-# celery.conf.update(app.config)
-
-# For local testing
-celery = Celery(app.name, broker='redis://localhost:6379/0')
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-celery.conf.update(app.config)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
@@ -66,25 +55,6 @@ app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET', 'ADFAKJF
 jwt = JWTManager(app)
 
 
-
-logging.basicConfig(level=logging.DEBUG)
-
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def process_input_file(self, file_name, task_id):
-    result = fabric_ops.write_to_db(file_name)
-    self.update_state(state='PROCESSED')
-    return result
-
-@celery.task(bind=True)
-def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag, networkType):
-    try:
-        result = kml_ops.add_network_data(fabric, network, flag, downloadSpeed, uploadSpeed, techType, networkType)
-        self.update_state(state='PROCESSED')
-        return result
-    except Exception as e:
-        logging.exception("Error processing KML file: %s", str(e))
-        self.update_state(state='FAILED')
-        raise
 
 @app.route("/served-data", methods=['GET'])
 def get_number_records():

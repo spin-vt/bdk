@@ -6,6 +6,12 @@ from database.sessions import ScopedSession, Session
 import logging
 import psycopg2
 import pandas
+import geopandas
+import shapely
+from shapely.geometry import Point
+import fiona
+from utils.settings import DATABASE_URL
+
 
 db_lock = Lock()
 
@@ -187,14 +193,6 @@ def export(download_speed, upload_speed, tech_type):
     filename = 'FCC_broadband.csv'
     availability_csv.to_csv(filename, index=False)
     return filename
-
-import pandas
-import geopandas
-import shapely
-from shapely.geometry import Point
-import fiona
-from utils.settings import DATABASE_URL
-from database_op.kml_ops import add_to_db
 
 
 #might need to add lte data in the future

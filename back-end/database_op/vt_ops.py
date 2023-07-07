@@ -13,6 +13,8 @@ from multiprocessing import Lock
 from datetime import datetime
 from database.sessions import ScopedSession
 from database.models import vector_tiles
+from celery_setup.celery_config import celery
+from celery_setup.celery_tasks import run_tippecanoe
 
 db_lock = Lock()
 
@@ -161,17 +163,24 @@ def tiles_join(geojson_data):
     
     # Use tippecanoe to create a new .mbtiles file from the geojson_data
     command = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+    result = run_tippecanoe.delay(command)
 
-    if result.stderr:
-         print("Tippecanoe stderr:", result.stderr.decode())
+    result.wait()  # wait for the task to complete
+    if result.successful():
+        return_code = result.get()
+    else:
+        print("Task failed")
 
 
     # Use tile-join to merge the new .mbtiles file with the existing one
     command = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
-    if result.stderr:
-         print("Tippecanoe stderr:", result.stderr.decode())
+    result = run_tippecanoe.delay(command)
+
+    result.wait()  # wait for the task to complete
+    if result.successful():
+        return_code = result.get()
+    else:
+        print("Task failed")
 
     # Delete the existing .mbtiles file from the database
     cursor.execute("TRUNCATE TABLE mbt")
@@ -233,12 +242,15 @@ def create_tiles(geojson_array):
 
     with open('data.geojson', 'w') as f:
          json.dump(point_geojson, f)
-
+         
     command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+    result = run_tippecanoe.delay(command)
 
-    if result.stderr:
-         print("Tippecanoe stderr:", result.stderr.decode())
+    result.wait()  # wait for the task to complete
+    if result.successful():
+        return_code = result.get()
+    else:
+        print("Task failed")
     
     val = add_values_to_VT("./output.mbtiles")
 
