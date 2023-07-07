@@ -1,4 +1,4 @@
-from database.models import kml_data, Data
+from database.models import kml_data, Data, File
 from sqlalchemy.exc import IntegrityError
 from utils.settings import BATCH_SIZE, DATABASE_URL
 from multiprocessing import Lock
@@ -11,6 +11,7 @@ import shapely
 from shapely.geometry import Point
 import fiona
 from utils.settings import DATABASE_URL
+from io import StringIO, BytesIO
 
 db_lock = Lock()
 
@@ -195,8 +196,16 @@ def export(download_speed, upload_speed, tech_type):
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, tech):
-    df = pandas.read_csv(Fabric_FN) 
+def compute_wireless_locations(self, Fabric_FN, Coverage_fn, flag, download, upload, tech):
+    session = ScopedSession()
+    fabric_file = session.query(File).filter_by(file_name=Fabric_FN).one_or_none()
+    coverage_file = session.query(File).filter_by(file_name=Coverage_fn).one_or_none()
+    
+    if fabric_file is None or coverage_file is None:
+        raise FileNotFoundError("Fabric or coverage file not found in the database")
+    
+    fabric_data = StringIO(fabric_file.data.decode())
+    df = pandas.read_csv(fabric_data) 
 
     fabric = geopandas.GeoDataFrame(
         df.drop(['latitude', 'longitude'], axis=1),
@@ -206,17 +215,39 @@ def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, t
     fiona.drvsupport.supported_drivers['kml'] = 'rw'
     fiona.drvsupport.supported_drivers['KML'] = 'rw'
     
-    wireless_coverage = geopandas.read_file(Coverage_fn)
+    coverage_data = BytesIO(coverage_file.data)
+    wireless_coverage = geopandas.read_file(coverage_data, driver='KML')
     wireless_coverage = wireless_coverage.to_crs("EPSG:4326")
     fabric_in_wireless = geopandas.sjoin(fabric,wireless_coverage,how="inner")
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True)
-    return res 
+    session.close()
+    return res
 
 def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
-    df = pandas.read_csv(Fabric_FN)
+    # Open session
+    session = ScopedSession()
+
+    # Fetch Fabric file from database
+    fabric_file_record = session.query(File).filter(File.file_name == Fabric_FN).first()
+    if not fabric_file_record:
+        raise ValueError(f"No file found with name {Fabric_FN}")
+    fabric_csv_data = fabric_file_record.data.decode()
+    
+    # Convert the CSV data string to a DataFrame
+    fabric_data = StringIO(fabric_csv_data)
+    df = pandas.read_csv(fabric_data)
+
+    # Fetch Fiber file from database
+    fiber_file_record = session.query(File).filter(File.file_name == Fiber_FN).first()
+    if not fiber_file_record:
+        raise ValueError(f"No file found with name {Fiber_FN}")
+    fiber_kml_data = fiber_file_record.data
+
+    # Convert the KML data bytes to a file-like object
+    fiber_data = BytesIO(fiber_kml_data)
 
     fabric = geopandas.GeoDataFrame(
         df.drop(['latitude', 'longitude'], axis=1),
@@ -227,7 +258,7 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
     fiona.drvsupport.supported_drivers['KML'] = 'rw'
 
     buffer_meters = 100 
-    gdf_fiber = geopandas.read_file(Fiber_FN, driver='KML', encoding='utf-8')
+    gdf_fiber = geopandas.read_file(fiber_data, driver='KML', encoding='utf-8')
     fiber_paths = gdf_fiber[gdf_fiber.geom_type == 'LineString']
 
     fiber_paths = fiber_paths.to_crs('epsg:4326')
@@ -242,6 +273,10 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
 
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
     res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False)
+
+    # Close session
+    session.close()
+
     return res 
 
 def add_network_data(Fabric_FN, Fiber_FN, flag, download, upload, tech, type):

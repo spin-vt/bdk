@@ -12,7 +12,7 @@ from utils.settings import DATABASE_URL
 from multiprocessing import Lock
 from datetime import datetime
 from database.sessions import ScopedSession
-from database.models import vector_tiles
+from database.models import vector_tiles, File
 from ..celery_controller.celery_config import celery
 from ..celery_controller.celery_tasks import run_tippecanoe
 
@@ -27,13 +27,18 @@ def recursive_placemarks(folder):
             yield from recursive_placemarks(feature)
 
 
-def read_kml(kml_file_path):
+def read_kml(file_name):
 # Now you can extract all placemarks from the root KML object
     # geojson_array= []
+    session = ScopedSession()
+    file_record = session.query(File).filter(File.file_name == file_name).first()
+
+    if not file_record:
+        raise ValueError(f"No file found with name {file_name}")
+    
     kml_obj = kml.KML()
-    with open(kml_file_path, 'r') as file:
-        doc = file.read()
-        kml_obj.from_string(bytes(bytearray(doc, encoding='utf-8')))
+    doc = file_record.data
+    kml_obj.from_string(doc)
 
     root_feature = list(kml_obj.features())[0]
     geojson_features = []
@@ -46,6 +51,7 @@ def read_kml(kml_file_path):
         }
         geojson_features.append(geojson_feature)
 
+    session.close()
     return geojson_features
 
 

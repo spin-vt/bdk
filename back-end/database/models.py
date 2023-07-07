@@ -56,4 +56,12 @@ class user(Base):
     username = Column(String(50), unique=True)
     password = Column(String(256))
 
+class File(Base):
+    __tablename__ = 'files'
+
+    id = Column(Integer, primary_key=True)
+    file_name = Column(String, nullable=False)
+    data = Column(LargeBinary, nullable=False)
+
+
     

@@ -2,23 +2,25 @@ from sqlalchemy import create_engine
 from utils.settings import DATABASE_URL
 from io import StringIO
 import psycopg2
-from database.sessions import Session
+from database.sessions import ScopedSession, Session
 from utils.facts import states
-from database.models import Data
+from database.models import Data, File
 from psycopg2.errors import UniqueViolation
 
 def check_num_records_greater_zero():
     session = Session()
     return session.query(Data).count() > 0
 
-def write_to_db(fileName): 
-    csv_file = fileName
+def write_to_db(file_name): 
+    session = ScopedSession()
+    file_record = session.query(File).filter(File.file_name == file_name).first()
+
+    if not file_record:
+        raise ValueError(f"No file found with name {file_name}")
+
+    csv_data = file_record.data.decode()
 
     engine = create_engine(DATABASE_URL)
-
-    with open(csv_file, 'r') as file:
-        csv_data = file.read()
-
     connection = engine.raw_connection()
     try:
         with connection.cursor() as cur:
@@ -32,11 +34,12 @@ def write_to_db(fileName):
     finally:
         connection.close()
 
+    session.close()
+
 def address_query(query):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
-
-
+    
     results = []
 
     if query:
