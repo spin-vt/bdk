@@ -1,5 +1,6 @@
 .
 ├── Dockerfile
+├── __init__.py
 ├── alembic
 │   ├── env.py
 │   ├── script.py.mako
@@ -8,7 +9,9 @@
 ├── alembic.ini
 ├── app.log
 ├── controllers
+│   ├── __init__.py
 │   ├── celery_controller
+│   │   ├── __init__.py
 │   │   ├── celery_config.py
 │   │   └── celery_tasks.py
 │   └── database_controller
@@ -18,6 +21,7 @@
 │       ├── user_ops.py
 │       └── vt_ops.py
 ├── database
+│   ├── __init__.py
 │   ├── base.py
 │   ├── models.py
 │   └── sessions.py
@@ -30,4 +34,4 @@
     ├── facts.py
     └── settings.py
 
-8 directories, 23 files
+8 directories, 27 files

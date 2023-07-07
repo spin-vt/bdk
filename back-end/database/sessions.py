@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
-from .base import Base
+from database.base import Base
 from sqlalchemy import inspect
 from utils.settings import DATABASE_URL
 

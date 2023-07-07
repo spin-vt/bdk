@@ -10,6 +10,6 @@ CORS(app)
 # app.config['CELERY_RESULT_BACKEND'] = 'redis://bdk-redis-1:6379/0'
 # celery.conf.update(app.config)
 # You can adjust this to switch between environments as needed
-celery = Celery(app.name, broker='redis://localhost:6379/0', include=['celery_setup.celery_tasks'])
+celery = Celery('my_celery_app', broker='redis://localhost:6379/0', include=['controllers.celery_controller.celery_tasks'])
 app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 celery.conf.update(app.config)

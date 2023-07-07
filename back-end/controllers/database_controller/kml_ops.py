@@ -222,8 +222,8 @@ def compute_wireless_locations(self, Fabric_FN, Coverage_fn, flag, download, upl
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
-    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True)
     session.close()
+    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True)
     return res
 
 def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
@@ -272,11 +272,9 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
     bsl_fabric_near_fiber = fabric_near_fiber[fabric_near_fiber['bsl_flag']] 
 
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
-    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False)
 
-    # Close session
     session.close()
-
+    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False)
     return res 
 
 def add_network_data(Fabric_FN, Fiber_FN, flag, download, upload, tech, type):

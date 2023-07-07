@@ -3,13 +3,16 @@ import subprocess
 import os
 import json
 import uuid
-from .celery_config import celery
-from ..database_controller import vt_ops, fabric_ops, kml_ops
+from controllers.celery_controller.celery_config import celery
+from controllers.database_controller import fabric_ops, kml_ops
 from database.models import File
 from database.sessions import Session
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def process_data(self, files, file_data_list): 
+def process_data(self, file_names, file_data_list): 
+    from controllers.database_controller import vt_ops
+    print(file_names)
+    print(len(file_names))
     try:
         fabricName = ""
         flag = False
@@ -19,8 +22,7 @@ def process_data(self, files, file_data_list):
 
         session = Session()
 
-        for file, file_data_str in zip(files, file_data_list):
-            file_name = file.filename
+        for file_name, file_data_str in zip(file_names, file_data_list):
             names.append(file_name)
 
             file_data = json.loads(file_data_str)
@@ -30,20 +32,12 @@ def process_data(self, files, file_data_list):
             techType = file_data.get('techType', '')
             networkType = file_data.get('networkType', '')
 
-            # Directly read file data without saving to disk
-            data = file.read()
-
-            # Create new File record
-            new_file = File(file_name=file_name, data=data)
-            session.add(new_file)
-            session.commit()
-
             if file_name.endswith('.csv'):
                 fabricName = file_name
 
                 task_id = str(uuid.uuid4())
 
-                task = process_input_file.apply_async(args=[file_name, task_id])
+                task = fabric_ops.write_to_db(file_name)
                 tasks.append(task)
 
             elif file_name.endswith('.kml'):
@@ -57,47 +51,48 @@ def process_data(self, files, file_data_list):
                 else: 
                     networkType = 1
 
-                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag, networkType])
+                task = kml_ops.add_network_data(fabricName, file_name, flag, downloadSpeed, uploadSpeed, techType, networkType)
                 tasks.append(task)
                 flag = True
                 geojson_array.append(vt_ops.read_kml(file_name))
 
         vt_ops.create_tiles(geojson_array)
-        for name in names:
-            os.remove(name)
-
+        
+        # try:
+        #     for name in names:
+        #         file_to_delete = session.query(File).filter_by(file_name=name).first()  # get the file
+        #         if file_to_delete:
+        #             session.delete(file_to_delete)  # delete the file
+        #             session.commit()  # commit the transaction
+        # except Exception as e:
+        #     session.rollback()  # rollback the transaction in case of error
+        #     raise e  # propagate the error further
+        session.close()
         return {'Status': "Ok"}
     
     except Exception as e:
+        session.close()
         self.update_state(state='FAILURE')
         raise e
-    
-    finally:
-        session.close()
 
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def process_input_file(self, file_name, task_id):
-    result = fabric_ops.write_to_db(file_name)
-    self.update_state(state='PROCESSED')
-    return result
-
-@celery.task(bind=True)
-def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag, networkType):
-    try:
-        result = kml_ops.add_network_data(fabric, network, flag, downloadSpeed, uploadSpeed, techType, networkType)
-        self.update_state(state='PROCESSED')
-        return result
-    except Exception as e:
-        logging.exception("Error processing KML file: %s", str(e))
-        self.update_state(state='FAILED')
-        raise
+# @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+# def generate_tiles(self, geojson_array):
+#     from controllers.database_controller import vt_ops
+#     try: 
+#         vt_ops.create_tiles(geojson_array)
+#         return {'Status': "Ok"}
+#     except Exception as e: 
+#         self.update_state(state='FAILURE')
+#         raise e
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def run_tippecanoe(self, command):
+    from controllers.database_controller import vt_ops
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
     if result.stderr:
         print("Tippecanoe stderr:", result.stderr.decode())
-    
+
+    vt_ops.add_values_to_VT("./output.mbtiles")
     return result.returncode  # return the return code of the subprocess command
 

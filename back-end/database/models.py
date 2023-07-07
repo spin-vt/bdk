@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime
 from sqlalchemy import Column, Integer, String, Float
-from .base import Base
+from database.base import Base
 
 class Data(Base):
     __tablename__ = 'fabric'

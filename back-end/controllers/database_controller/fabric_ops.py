@@ -6,6 +6,9 @@ from database.sessions import ScopedSession, Session
 from utils.facts import states
 from database.models import Data, File
 from psycopg2.errors import UniqueViolation
+from threading import Lock
+
+db_lock = Lock()
 
 def check_num_records_greater_zero():
     session = Session()
@@ -13,7 +16,9 @@ def check_num_records_greater_zero():
 
 def write_to_db(file_name): 
     session = ScopedSession()
-    file_record = session.query(File).filter(File.file_name == file_name).first()
+    with db_lock: 
+        file_record = session.query(File).filter(File.file_name == file_name).first()
+        session.close() 
 
     if not file_record:
         raise ValueError(f"No file found with name {file_name}")
@@ -33,8 +38,6 @@ def write_to_db(file_name):
             connection.commit()
     finally:
         connection.close()
-
-    session.close()
 
 def address_query(query):
     conn = psycopg2.connect(DATABASE_URL)

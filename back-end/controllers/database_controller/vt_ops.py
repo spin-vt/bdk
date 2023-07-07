@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import sqlite3
-from .kml_ops import get_wired_data
+from controllers.database_controller.kml_ops import get_wired_data
 import json
 import subprocess
 from psycopg2.extensions import adapt, register_adapter, AsIs
@@ -10,14 +10,14 @@ from psycopg2.extras import execute_values
 from fastkml import kml
 from utils.settings import DATABASE_URL
 from multiprocessing import Lock
+from celery import chain 
 from datetime import datetime
 from database.sessions import ScopedSession
 from database.models import vector_tiles, File
-from ..celery_controller.celery_config import celery
-from ..celery_controller.celery_tasks import run_tippecanoe
+from controllers.celery_controller.celery_config import celery
+from controllers.celery_controller.celery_tasks import run_tippecanoe
 
 db_lock = Lock()
-
 
 def recursive_placemarks(folder):
     for feature in folder.features():
@@ -168,40 +168,17 @@ def tiles_join(geojson_data):
         json.dump(geojson_data, f)
     
     # Use tippecanoe to create a new .mbtiles file from the geojson_data
-    command = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    result = run_tippecanoe.delay(command)
-
-    result.wait()  # wait for the task to complete
-    if result.successful():
-        return_code = result.get()
-    else:
-        print("Task failed")
-
+    command1 = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
 
     # Use tile-join to merge the new .mbtiles file with the existing one
-    command = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
-    result = run_tippecanoe.delay(command)
+    command2 = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
 
-    result.wait()  # wait for the task to complete
-    if result.successful():
-        return_code = result.get()
-    else:
-        print("Task failed")
+    # chain tasks
+    chain(run_tippecanoe(command1), run_tippecanoe(command2))()
 
     # Delete the existing .mbtiles file from the database
     cursor.execute("TRUNCATE TABLE mbt")
     conn.commit()
-
-    # # Read the merged .mbtiles file into memory
-    # with open('merged.mbtiles', 'rb') as f:
-    #     merged_mbtiles_data = f.read()
-
-    # # Insert the merged .mbtiles file into the database
-    # cursor.execute("INSERT INTO mbt (tile_data) VALUES (%s)", (Binary(merged_mbtiles_data),))
-
-    # conn.commit()
-    cursor.close()
-    conn.close()
 
     val = add_values_to_VT("./merged.mbtiles")
 
@@ -209,6 +186,10 @@ def tiles_join(geojson_data):
     os.remove('existing.mbtiles')
     os.remove('new.mbtiles')
     os.remove('data.geojson')
+
+    cursor.close()
+    conn.close()
+
 
 def create_tiles(geojson_array):
     conn = psycopg2.connect(DATABASE_URL)
@@ -250,15 +231,7 @@ def create_tiles(geojson_array):
          json.dump(point_geojson, f)
          
     command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    result = run_tippecanoe.delay(command)
-
-    result.wait()  # wait for the task to complete
-    if result.successful():
-        return_code = result.get()
-    else:
-        print("Task failed")
-    
-    val = add_values_to_VT("./output.mbtiles")
+    run_tippecanoe(command) 
 
 def retrieve_tiles(zoom, x, y):
     conn = psycopg2.connect(DATABASE_URL)

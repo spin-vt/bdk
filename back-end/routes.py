@@ -12,6 +12,8 @@ from flask_jwt_extended import (
 )
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from utils.settings import DATABASE_URL
+from database.sessions import Session
+from database.models import File
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
 from controllers.celery_controller.celery_config import app
 from controllers.celery_controller.celery_tasks import process_data
@@ -55,9 +57,24 @@ def submit_data():
             return jsonify({'Status': "Failed, no file uploaded"}), 400
 
         file_data_list = request.form.getlist('fileData')
-        process_data.apply_async(args=[files, file_data_list])
+
+        # Create a new session
+        session = Session()
+        file_names = []
+
+
+        for file in files:
+            data = file.read()
+            new_file = File(file_name=file.filename, data=data)
+            session.add(new_file)
+            session.commit()
+            file_names.append(new_file.file_name)
+
+        process_data.apply_async(args=[file_names, file_data_list])
+        session.close()
         return jsonify({'Status': "OK"}), 200
     except:
+        session.close()
         return jsonify({'Status': "Failed, server failed"}), 400
 
 @app.route('/')
