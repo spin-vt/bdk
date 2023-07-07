@@ -1,4 +1,4 @@
-import logging, os, base64
+import logging, os, base64, json, uuid
 from logging.handlers import RotatingFileHandler
 from logging import getLogger
 from werkzeug.security import check_password_hash
@@ -14,7 +14,7 @@ from flask_jwt_extended.exceptions import NoAuthorizationError
 from utils.settings import DATABASE_URL
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
 from controllers.celery_controller.celery_config import app
-from controllers.celery_controller.celery_tasks import process_data
+from controllers.celery_controller.celery_tasks import process_input_file, provide_kml_locations
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -43,24 +43,65 @@ jwt = JWTManager(app)
 def get_number_records():
     return jsonify(kml_ops.get_wired_data())
 
-@app.route('/submit-data', methods=['POST', 'GET'])
+@app.route('/submit-data', methods=['POST'])
 def submit_data():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            jsonify({'Status': "Failed, no file uploaded"}), 400
+    if 'file' not in request.files:
+        return jsonify({'Status': "Failed, no file uploaded"}), 400
 
-        files = request.files.getlist('file')
+    files = request.files.getlist('file')
 
-        if len(files) <= 0:
-            jsonify({'Status': "Failed, no file uploaded"}), 400
+    if len(files) <= 0:
+        return jsonify({'Status': "Failed, no file uploaded"}), 400
 
-        file_data_list = request.form.getlist('fileData')
-        process_data.apply_async(files, file_data_list)
-        return jsonify({'Status': "OK"}), 200
+    file_data_list = request.form.getlist('fileData')
+    fabricName = ""
+    flag = False
+    names = []
+    geojson_array = []
 
-    else:
-        jsonify({'Status': "Failed, not valid request type"}), 400
+    for file, file_data_str in zip(files, file_data_list):
+        file_name = file.filename
+        names.append(file_name)
 
+        try:
+            file_data = json.loads(file_data_str)
+        except json.JSONDecodeError:
+            return jsonify({'Status': "Failed, input data is not valid JSON"}), 400
+
+        downloadSpeed = file_data.get('downloadSpeed', '')
+        uploadSpeed = file_data.get('uploadSpeed', '')
+        techType = file_data.get('techType', '')
+        networkType = file_data.get('networkType', '')
+
+        if file_name.endswith('.csv'):
+            file.save(file_name)
+            fabricName = file_name
+
+            task_id = str(uuid.uuid4())
+            process_input_file.apply_async(args=[file_name, task_id])
+
+        elif file_name.endswith('.kml'):
+            if not fabric_ops.check_num_records_greater_zero():
+                return jsonify({'Status': 'Failed, no records found in fabric operations'}), 400
+
+            file.save(file_name)
+            task_id = str(uuid.uuid4())
+
+            if networkType == "Wired": 
+                networkType = 0
+            else: 
+                networkType = 1
+
+            provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag, networkType])
+            flag = True
+            kmlfile_path = os.path.join(os.getcwd(), file_name)
+            geojson_array.append(vt_ops.read_kml(kmlfile_path))
+
+    vt_ops.create_tiles(geojson_array)
+    for name in names:
+        os.remove(name)
+
+    return jsonify({'Status': "OK"}), 200
 
 @app.route('/')
 def home():
