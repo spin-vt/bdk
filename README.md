@@ -42,7 +42,7 @@ You need three terminal instances to run this app, here is an example in vscode
 # Running the backend 
 1) This part of the guide assumes you have Redis and postgressql running on your machine and that you have downloaded all the python libraries in the requirements.txt file. 
 2) The first step is making sure you are on the backend directory (back-end). 
-3) Next, "back-end" and activate python virutal environement with "source env/bin/activate", and type: "celery -A routes.celery worker --loglevel=DEBUG". ![image](https://github.com/spin-vt/bdk/assets/36636157/3eb944d8-d7ad-4d7b-b634-d993e591465d)
+3) Next, "back-end" and activate python virutal environement with "source env/bin/activate", and type: "celery -A celery_setup.celery_config.celery worker --loglevel=DEBUG". ![image](https://github.com/spin-vt/bdk/assets/36636157/bf778a15-6da5-4f78-8aee-eb99c315b427)
 
 4) After, open another terminal in this same working directory "back-end" and activate python virutal environement with "source env/bin/activate" type "python3 routes.py". ![image](https://github.com/spin-vt/bdk/assets/36636157/d0d40927-bc38-4338-9e80-7de22cfcc581)
 
