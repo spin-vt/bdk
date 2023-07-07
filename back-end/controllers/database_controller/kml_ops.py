@@ -196,10 +196,10 @@ def export(download_speed, upload_speed, tech_type):
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(self, Fabric_FN, Coverage_fn, flag, download, upload, tech):
+def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, tech):
     session = ScopedSession()
-    fabric_file = session.query(File).filter_by(file_name=Fabric_FN).one_or_none()
-    coverage_file = session.query(File).filter_by(file_name=Coverage_fn).one_or_none()
+    fabric_file = session.query(File).filter_by(file_name=Fabric_FN).first()
+    coverage_file = session.query(File).filter_by(file_name=Coverage_fn).first()
     
     if fabric_file is None or coverage_file is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")

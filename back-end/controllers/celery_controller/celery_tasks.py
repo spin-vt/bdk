@@ -12,7 +12,6 @@ from database.sessions import Session
 def process_data(self, file_names, file_data_list): 
     from controllers.database_controller import vt_ops
     print(file_names)
-    print(len(file_names))
     try:
         fabricName = ""
         flag = False
@@ -41,6 +40,7 @@ def process_data(self, file_names, file_data_list):
                 tasks.append(task)
 
             elif file_name.endswith('.kml'):
+                print(file_name)
                 if not fabric_ops.check_num_records_greater_zero():
                     raise ValueError('No records found in fabric operations')
                 
@@ -75,16 +75,6 @@ def process_data(self, file_names, file_data_list):
         self.update_state(state='FAILURE')
         raise e
 
-# @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-# def generate_tiles(self, geojson_array):
-#     from controllers.database_controller import vt_ops
-#     try: 
-#         vt_ops.create_tiles(geojson_array)
-#         return {'Status': "Ok"}
-#     except Exception as e: 
-#         self.update_state(state='FAILURE')
-#         raise e
-
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def run_tippecanoe(self, command):
     from controllers.database_controller import vt_ops
@@ -94,5 +84,5 @@ def run_tippecanoe(self, command):
         print("Tippecanoe stderr:", result.stderr.decode())
 
     vt_ops.add_values_to_VT("./output.mbtiles")
-    return result.returncode  # return the return code of the subprocess command
+    return result.returncode 
 

@@ -62,7 +62,6 @@ def submit_data():
         session = Session()
         file_names = []
 
-
         for file in files:
             data = file.read()
             new_file = File(file_name=file.filename, data=data)
@@ -73,6 +72,7 @@ def submit_data():
         process_data.apply_async(args=[file_names, file_data_list])
         session.close()
         return jsonify({'Status': "OK"}), 200
+    
     except:
         session.close()
         return jsonify({'Status': "Failed, server failed"}), 400
