@@ -5,12 +5,6 @@ import json
 import uuid
 from logging.handlers import RotatingFileHandler
 from logging import getLogger
-import pandas as pd
-import psycopg2
-from sqlalchemy import create_engine, Column, Integer, String, Float, or_
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.exc import ProgrammingError
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, abort, jsonify, request, make_response, send_file
 from flask_jwt_extended.exceptions import NoAuthorizationError
@@ -22,26 +16,18 @@ from flask_jwt_extended import (
     create_access_token,
     jwt_required,
     get_jwt_identity,
-    decode_token
 )
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from celery import Celery
-import concurrent.futures
-from sqlalchemy import inspect
-from threading import Lock
-import csv
-import zipfile
-import sqlite3
 from flask import Response
-import subprocess
 import base64
-import fabricUpload
-import kmlComputation
-from fabricUpload import Data
-from coordinateCluster import get_bounding_boxes
-import vectorTile
-import fabricUpload
-from authorization import user_exists
+from utils.settings import DATABASE_URL
+from database_op import fabric_ops
+from database_op import kml_ops
+from database_op import user_ops
+from database_op import vt_ops
+
+
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -61,18 +47,17 @@ logger.addHandler(console_handler)
 app = Flask(__name__)
 CORS(app)
 
-celery = Celery(app.name, broker='redis://bdk-redis-1:6379/0')
-app.config['CELERY_RESULT_BACKEND'] = 'redis://bdk-redis-1:6379/0'
+# For production
+# celery = Celery(app.name, broker='redis://bdk-redis-1:6379/0')
+# app.config['CELERY_RESULT_BACKEND'] = 'redis://bdk-redis-1:6379/0'
+# celery.conf.update(app.config)
+
+# For local testing
+celery = Celery(app.name, broker='redis://localhost:6379/0')
+app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 celery.conf.update(app.config)
 
-db_user = os.getenv('POSTGRES_USER')
-db_password = os.getenv('POSTGRES_PASSWORD')
-db_host = os.getenv('DB_HOST')
-db_port = os.getenv('DB_PORT')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
-Base = declarative_base()
-DATABASE_URL = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
-engine = create_engine(DATABASE_URL)
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -83,27 +68,17 @@ jwt = JWTManager(app)
 
 
 logging.basicConfig(level=logging.DEBUG)
-db_lock = Lock()
 
-states = [
-  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", 
-  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", 
-  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", 
-  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", 
-  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
-]
-
-@celery.task(bind=True)
-def process_input_file(self, file_name, task_id, username):
-    result = fabricUpload.write_to_db(file_name, username)
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def process_input_file(self, file_name, task_id):
+    result = fabric_ops.write_to_db(file_name)
     self.update_state(state='PROCESSED')
     return result
 
-
 @celery.task(bind=True)
-def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag, networkType, username):
+def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, techType, flag, networkType):
     try:
-        result = kmlComputation.add_network_data(fabric, network, flag, downloadSpeed, uploadSpeed, techType, networkType, username)
+        result = kml_ops.add_network_data(fabric, network, flag, downloadSpeed, uploadSpeed, techType, networkType)
         self.update_state(state='PROCESSED')
         return result
     except Exception as e:
@@ -113,17 +88,10 @@ def provide_kml_locations(self, fabric, network, downloadSpeed, uploadSpeed, tec
 
 @app.route("/served-data", methods=['GET'])
 def get_number_records():
-    return jsonify(kmlComputation.get_wired_data())
+    return jsonify(kml_ops.get_wired_data())
 
 @app.route('/submit-data', methods=['POST', 'GET'])
-@jwt_required()
 def submit_data():
-    currUser = get_jwt_identity()
-    username = currUser.get('username')
-
-    if not user_exists(username): 
-        return make_response('Invalid JWT Token', 401)
-
     if request.method == 'POST':
         names = []
 
@@ -159,7 +127,7 @@ def submit_data():
 
                 task_id = str(uuid.uuid4())
 
-                task = process_input_file.apply_async(args=[file_name, task_id, username])
+                task = process_input_file.apply_async(args=[file_name, task_id])
 
                 while not task.ready():
                     time.sleep(1)
@@ -167,7 +135,7 @@ def submit_data():
                 response_data = {'Status': "Ok"}
 
             elif file_name.endswith('.kml'):
-                if not fabricUpload.check_num_records_greater_zero():
+                if not fabric_ops.check_num_records_greater_zero():
                     return make_response('Error: Fabric records not in database', 400)
                 
 
@@ -179,7 +147,7 @@ def submit_data():
                 else: 
                     networkType = 1
 
-                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag, networkType, username])
+                task = provide_kml_locations.apply_async(args=[fabricName, file_name, downloadSpeed, uploadSpeed, techType, flag, networkType])
                 logging.info("Started KML processing task with ID %s %s %s", task_id, fabricName, file_name)
 
                 while not task.ready():
@@ -187,8 +155,10 @@ def submit_data():
 
                 logging.info("KML processing task %s completed", task_id)
                 flag = True
+                # result = task.result
+                # dict_values = result
                 kmlfile_path = os.path.join(os.getcwd(), file_name)
-                geojson_array.append(vectorTile.read_kml(kmlfile_path))
+                geojson_array.append(vt_ops.read_kml(kmlfile_path))
 
                 if task is False:
                     logging.error("KML processing task %s failed with error: %s", task_id, task.traceback)
@@ -196,10 +166,9 @@ def submit_data():
                 else:
                     response_data = {'Status': 'Ok'}
                     
-        vectorTile.create_tiles(geojson_array, username)
-        # print(names)
-        # for name in names:
-        #     os.remove(name)
+        vt_ops.create_tiles(geojson_array)
+        for name in names:
+            os.remove(name)
 
         return json.dumps(response_data)
 
@@ -217,125 +186,13 @@ def home():
 
     return response_body
 
-@app.route("/api/coordinates", methods=['POST'])
-def get_bounding_coordinates():
-    data = request.get_json()
-    filename = data['filename']
-
-    if not os.path.isfile(filename):
-        return jsonify({"error": "File not found"}), 404
-
-    df = pd.read_csv(filename)
-    if not {'latitude', 'longitude'}.issubset(df.columns):
-        return jsonify({"error": "CSV does not contain latitude or longitude column"}), 400
-
-    coordinates = df[['latitude', 'longitude']].to_dict('records')
-
-    return jsonify(coordinates)
-
 
 @app.route('/api/search', methods=['GET'])
 def search_location():
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
     query = request.args.get('query').upper()
-
-    results = []
-
-    if query:
-        query_split = query.split()
-
-        if len(query_split) >= 3:
-            primary_address = " ".join(query_split[:-2]).upper()
-            city = query_split[-2].upper().strip()
-            state = query_split[-1].upper().strip()
-
-            cursor.execute(
-                """
-                SELECT address_primary, city, state, zip_code, latitude, longitude
-                FROM "fabric"
-                WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s AND UPPER(state) = %s
-                LIMIT 1
-                """,
-                ('%' + primary_address + '%', city, state,)
-            )
-
-            results.extend(cursor.fetchall())
-
-        if len(query_split) >= 2:
-            primary_address = " ".join(query_split[:-1]).upper()
-            city_or_state = query_split[-1].upper().strip()
-
-            if city_or_state in states:  
-                cursor.execute(
-                    """
-                    SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM "fabric"
-                    WHERE UPPER(address_primary) LIKE %s AND UPPER(state) = %s
-                    LIMIT 3
-                    """,
-                    ('%' + primary_address + '%', city_or_state,)
-                )
-
-            else:  
-                cursor.execute(
-                    """
-                    SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM "fabric" 
-                    WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s
-                    LIMIT 3
-                    """,
-                    ('%' + primary_address + '%', city_or_state,)
-                )
-
-            results.extend(cursor.fetchall())
-
-        cursor.execute(
-            """
-            SELECT address_primary, city, state, zip_code, latitude, longitude
-            FROM "fabric" 
-            WHERE UPPER(address_primary) LIKE %s 
-            LIMIT 5
-            """,
-            ('%' + query.upper() + '%',)
-        )
-
-        results.extend(cursor.fetchall())
-
-    results_dict = [
-        {
-            "address": result[0],
-            "city": result[1],
-            "state": result[2],
-            "zipcode": result[3],
-            "latitude": result[4],
-            "longitude": result[5]
-        } for result in results
-    ]
-
-    cursor.close()
-    conn.close()
+    results_dict = fabric_ops.address_query(query)
     return jsonify(results_dict)
 
-
-# Check if the table exists
-inspector = inspect(engine)
-if not inspector.has_table('User'):
-    try:
-        Base.metadata.create_all(engine)
-    except ProgrammingError as e:
-        logging.exception("Error creating 'User' table: %s", str(e))
-
-db_lock = Lock()
-
-
-class User(Base):
-    __tablename__ = 'User'
-
-    id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True)
-    password = Column(String(256))
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -343,25 +200,10 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
+    new_user_id = user_ops.create_user_in_db(username, password)
 
-    cursor.execute("SELECT username FROM \"User\" WHERE username = %s", (username,))
-    existing_user = cursor.fetchone()
-
-    if existing_user:
-        cursor.close()
-        conn.close()
+    if not new_user_id:
         return jsonify({'status': 'error', 'message': 'Username already exists.'})
-
-    hashed_password = generate_password_hash(password, method='sha256')
-
-    cursor.execute("INSERT INTO \"User\" (username, password) VALUES (%s, %s) RETURNING id", (username, hashed_password))
-    new_user_id = cursor.fetchone()[0]
-
-    conn.commit()
-    cursor.close()
-    conn.close()
 
     access_token = create_access_token(identity={'id': new_user_id, 'username': username})
 
@@ -376,21 +218,13 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT * FROM \"User\" WHERE username = %s", (username,))
-    user = cursor.fetchone()
+    user = user_ops.get_user_from_db(username)
 
     if user is not None and check_password_hash(user[2], password):
         user_id = user[0]
         access_token = create_access_token(identity={'id': user_id, 'username': username})
-        cursor.close()
-        conn.close()
         return jsonify({'status': 'success', 'token': access_token})
     else:
-        cursor.close()
-        conn.close()
         return jsonify({'status': 'error', 'message': 'Invalid credentials'})
 
 
@@ -408,6 +242,7 @@ def get_user_info():
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
+
 @app.route('/export', methods=['GET'])
 def export():
     response_data = {'Status': 'Failure'}
@@ -415,9 +250,8 @@ def export():
     download_speed = request.args.get('downloadSpeed', default='', type=str)
     upload_speed = request.args.get('uploadSpeed', default='', type=str)
     tech_type = request.args.get('techType', default='', type=str)
-    username = request.args.get('username', default='', type=str)
 
-    filename = kmlComputation.export(download_speed, upload_speed, tech_type, username)
+    filename = kml_ops.export(download_speed, upload_speed, tech_type)
 
     if filename:
         response_data = {'Status': "Success"}
@@ -426,26 +260,6 @@ def export():
         return jsonify(response_data)
 
 
-# @app.route('/export-wireless', methods=['GET'])
-# def export_wireless():
-#     response_data = {'Status': 'Failure'}
-
-#     download_speed = request.args.get('downloadSpeed', default='', type=str)
-#     upload_speed = request.args.get('uploadSpeed', default='', type=str)
-#     tech_type = request.args.get('techType', default='', type=str)
-
-#     filename = kmlComputation.exportWireless(download_speed, upload_speed, tech_type)
-#     filename2 = kmlComputation.exportWireless2(download_speed, upload_speed, tech_type)
-
-#     if filename and filename2:
-#         with zipfile.ZipFile('wirelessCSVs.zip', 'w') as zipf:
-#             zipf.write(filename, os.path.basename(filename))
-#             zipf.write(filename2, os.path.basename(filename2))
-
-#         return send_file('wirelessCSVs.zip', as_attachment=True)
-#     else:
-#         return jsonify(response_data)
-
 @app.route("/tiles/<zoom>/<x>/<y>.pbf")
 def serve_tile(zoom, x, y):
     zoom = int(zoom)
@@ -453,21 +267,7 @@ def serve_tile(zoom, x, y):
     y = int(y)
     y = (2**zoom - 1) - y
 
-    username = request.args.get('username')
-
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    with db_lock:
-            cursor.execute(
-                """
-                SELECT tile_data
-                FROM "vt"
-                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s AND username = %s
-                """, 
-                (int(zoom), int(x), int(y), username)
-            )
-    tile = cursor.fetchone()
+    tile = vt_ops.retrieve_tiles(zoom, x, y)
 
     if tile is None:
         return Response('No tile found', status=404)
@@ -480,99 +280,18 @@ def serve_tile(zoom, x, y):
 @app.route('/toggle-markers', methods=['POST'])
 def toggle_markers():
     markers = request.json
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
+    response = vt_ops.toggle_tiles(markers)
 
-    geojson_data = []
-
-    try:
-        with db_lock:
-            for marker in markers:
-                cursor.execute(
-                    """
-                    UPDATE "KML"
-                    SET "served" = %s
-                    WHERE "location_id" = %s
-                    """, 
-                    (marker['served'], marker['id'],)
-                )
-                cursor.execute(
-                    """
-                    SELECT "KML".location_id, 
-                           "KML".served, 
-                           fabric.latitude, 
-                           fabric.address_primary, 
-                           fabric.longitude,
-                           "KML".wireless,
-                           "KML".lte,
-                           "KML".username,
-                           "KML"."coveredLocations",
-                           "KML"."maxDownloadNetwork",
-                           "KML"."maxDownloadSpeed" 
-                    FROM "KML"
-                    JOIN fabric ON "KML".location_id = fabric.location_id
-                    WHERE "KML".location_id = %s
-                    """, 
-                    (marker['id'],)
-                )
-                row = cursor.fetchone()
-
-                point_geojson = {
-                    "type": "Feature",
-                    "properties": {
-                        "location_id": row[0],
-                        "served": row[1],
-                        "address": row[3],
-                        "wireless": row[5],
-                        'lte': row[6],
-                        'username': row[7],
-                        'network_coverages': row[8],
-                        'maxDownloadNetwork': row[9],
-                        'maxDownloadSpeed': row[10],
-                        "feature_type": "Point"
-                    },
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [row[4], row[2]]  # Please adjust indices based on your column order
-                    }
-                }
-
-                geojson_data.append(point_geojson)
-
-        conn.commit()
-
-        
-        vectorTile.tiles_join(geojson_data)
-        message = 'Markers toggled successfully'
-        status_code = 200
-
-    except Exception as e:
-        conn.rollback()  # rollback transaction on error
-        message = str(e)  # send the error message to client
-        status_code = 500
-
-    finally:
-        cursor.close()
-        conn.close()
-
-    return jsonify(message=message), status_code
+    return jsonify(message=response[0]), response[1]
 
 
 @app.route('/api/mbtiles', methods=['GET'])
 def get_mbtiles():
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, filename, timestamp FROM mbt")
-    rows = cursor.fetchall()
-
-    if rows is None:
-        return Response('No mbtiles found', status=404)
-
-    mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
+    mbtiles = vt_ops.get_mbt_info()
+    if not mbtiles:
+        Response('No mbtiles found', status=404)
     return jsonify(mbtiles)
 
 
 if __name__ == '__main__':
-    Base.metadata.create_all(engine)
-    app.run(host="0.0.0.0", debug=True)
+    app.run(port=5000, debug=True)

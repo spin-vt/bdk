@@ -22,7 +22,6 @@ Flask-Login==0.6.2
 Flask-SQLAlchemy==3.0.3
 folium==0.14.0
 fonttools==4.39.3
-geojson2vt==1.0.1
 geopandas==0.12.2
 greenlet==2.0.2
 idna==3.4
@@ -69,3 +68,4 @@ vt2pbf==0.1.5
 wcwidth==0.2.6
 Werkzeug==2.3.6
 zipp==3.15.0
+alembic==1.11.1

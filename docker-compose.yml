@@ -33,6 +33,21 @@ services:
       - db
       - redis
 
+  worker:
+    build: ./back-end
+    command: celery -A routes.celery worker --loglevel=info
+    environment: 
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - DB_HOST=db
+      - DB_PORT=5432  # Set the database port to match your PostgreSQL service
+      - SECRET_KEY=ADFAKJFDLJEOQRIOPQ498689780
+      - JWT_SECRET=ADFAKJFDLJEOQRI
+    volumes:
+      - ./back-end:/app
+    depends_on:
+      - backend
+
   frontend:
     build: ./front-end
     volumes:

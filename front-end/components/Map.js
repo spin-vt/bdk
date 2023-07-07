@@ -241,11 +241,9 @@ function Map({ markers }) {
     if (existingSource) {
       map.current.removeSource("custom");
     }
-
-    const username = localStorage.getItem("username")
     map.current.addSource("custom", {
       type: "vector",
-      tiles: [`http://localhost:5000/tiles/{z}/{x}/{y}.pbf?username=${username}`],
+      tiles: [`http://localhost:5000/tiles/{z}/{x}/{y}.pbf`],
       maxzoom: 16,
     });
   };
@@ -555,7 +553,6 @@ function Map({ markers }) {
     toggleMarkers(selectedMarkerIds).finally(() => {
 
       const token = localStorage.getItem("token");
-      const username = localStorage.getItem("username")
 
 
       removeVectorTiles();
