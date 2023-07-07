@@ -8,8 +8,6 @@
 ├── alembic.ini
 ├── app.log
 ├── apps.py
-├── computation
-│   └── kml_com.py
 ├── database
 │   ├── base.py
 │   ├── models.py
@@ -19,7 +17,6 @@
 │   ├── kml_ops.py
 │   ├── user_ops.py
 │   └── vt_ops.py
-├── docker-entrypoint.sh
 ├── requirements.txt
 ├── routes.py
 └── utils

@@ -468,7 +468,7 @@ export default function Upload({ fetchMarkers }) {
         <ExportButton onClick={handleExportClick} />
         {exportSuccess && (
           <Button variant="contained" onClick={handleDownloadClick}>
-            Download CSV
+            Download Report
           </Button>
         )}
         <MapKey />
