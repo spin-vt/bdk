@@ -1,51 +1,59 @@
-version: '3'
-
+version: '3.8'
 services:
-  postgres:
-    image: 'postgres:latest'
+  db:
+    image: postgres:latest
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: db123
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST_AUTH_METHOD=trust
     ports:
-      - '5433:5432'
+      - 5433:5432
+      
 
   redis:
-    image: 'redis:latest'
+    image: redis:latest
     ports:
-      - '6379:6379'
-  
-  celery:
-    build:
-      context: ./back-end
-      dockerfile: Dockerfile
-    command: celery -A routes.celery worker --loglevel=DEBUG
+      - 6379:6379
+
+  backend:
+    build: ./back-end
+    environment: 
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - DB_HOST=db
+      - DB_PORT=5432  # Set the database port to match your PostgreSQL service
+      - SECRET_KEY=ADFAKJFDLJEOQRIOPQ498689780
+      - JWT_SECRET=ADFAKJFDLJEOQRI
+    volumes:
+      - ./back-end:/app
+    ports:
+      - 5000:5000
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: ./back-end
+    command: celery -A routes.celery worker --loglevel=info
+    environment: 
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - DB_HOST=db
+      - DB_PORT=5432  # Set the database port to match your PostgreSQL service
+      - SECRET_KEY=ADFAKJFDLJEOQRIOPQ498689780
+      - JWT_SECRET=ADFAKJFDLJEOQRI
     volumes:
       - ./back-end:/app
     depends_on:
-      - redis
-  
-  backend:
-    build:
-      context: ./back-end
-      dockerfile: Dockerfile
-    volumes:
-      - ./back-end:/app
-    ports:
-      - '8000:8000'
-    environment:
-      - DB_HOST=postgres
-  
+      - backend
+
   frontend:
-    build:
-      context: ./front-end
-      dockerfile: Dockerfile
+    build: ./front-end
     volumes:
       - ./front-end:/app
+    depends_on:
+      - backend
     ports:
-      - '3000:3000'
+      - 3000:3000
 
-volumes:
-  postgres_data: {}

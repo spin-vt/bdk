@@ -17,7 +17,6 @@ import InputLabel from "@mui/material/InputLabel";
 import { makeStyles } from "@mui/styles";
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
-import Swal from "sweetalert2";
 
 const useStyles = makeStyles({
   formControl: {
@@ -42,8 +41,8 @@ const useStyles = makeStyles({
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
-  Wired: "Wired",
-  Wireless: "Wireless",
+  "Wired": "Wired",
+  "Wireless": "Wireless"
 };
 let storage = JSON.parse(localStorage.getItem("storage")) || [];
 let storage2 = [];
@@ -59,6 +58,8 @@ const tech_types = {
   "Licensed-by-Rule Terrestrial Fixed Wireless": 72,
   Other: 0,
 };
+
+//Map key component
 
 function MapKey() {
   return (
@@ -116,10 +117,9 @@ export default function Upload({ fetchMarkers }) {
       downloadSpeed: downloadSpeed,
       uploadSpeed: uploadSpeed,
       techType: techType,
-      username: localStorage.getItem("username")
     });
 
-    window.location.href = `http://localhost:8000/export?${params.toString()}`;
+    window.location.href = `http://localhost:5000/export?${params.toString()}`;
   };
 
   const handleExportClick = (event) => {
@@ -138,33 +138,24 @@ export default function Upload({ fetchMarkers }) {
     });
 
     setIsLoading(true);
-    const token = localStorage.getItem("token");
-    console.log(token);
-    fetch("http://localhost:8000/submit-data", {
+
+    fetch("http://localhost:5000/submit-data", {
       method: "POST",
       body: formData,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
     })
       .then((response) => {
-        // If the user is not authorized, redirect to login page
-        if (response.status === 401 || response.status === 422) {
-          Swal.fire({
-            icon: "warning",
-            title: "Authentication required",
-            text: "Please log in before you submit your files",
-          }).then((result) => {
-            if (result.isConfirmed) {
-              window.location.href = 'http://localhost:3000/login';
-            }
-          });
-          return;
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
         }
-        else if (!response.ok) {
-          console.log(response);
-          throw new Error("Network response was not ok: " + response.status);
-        }
+        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
+        console.log("will show new buttons soon 1");
+        console.log("Status:", response); // log the status
+        setExportSuccess(true); // Set the export success state to true
+        setIsDataReady(true);
+        setIsLoading(false); // Set loading to false after API call
+        setTimeout(() => {
+          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        }, 5000);
         return response.json();
       })
       .then((data) => {
@@ -181,16 +172,13 @@ export default function Upload({ fetchMarkers }) {
         }
       })
       .catch((error) => {
+        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error("Error:", error);
         setIsDataReady(true);
-        console.log(isLoading);
-        Swal.fire({
-          icon: "info",
-          title: "A problem has occured",
-          text: error,
-        });
-        setIsLoading(false);
-        setIsDataReady(false);
+        setIsLoading(false); // Set loading to false after API call
+        setTimeout(() => {
+          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+        }, 5000);
       });
   };
 
@@ -346,7 +334,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
+      { (isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
       <ButtonGroup
         variant="contained"
         ref={buttonGroupRef}

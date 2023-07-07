@@ -20,3 +20,4 @@ front-end/Map_marker.svg:Zone.Identifier
 *.geojson
 *.pmtiles
 .env
+back-end/alembic/versions/

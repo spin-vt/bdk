@@ -1,76 +1,23 @@
-import logging
-from multiprocessing import Lock
-import shapely
-import geopandas
-import geopandas as gpd
-import pandas
-from shapely.geometry import Point
-from functools import partial
-import pyproj
-from shapely.ops import transform
-import fiona
-from sqlalchemy import inspect
-import fabricUpload
-from sqlalchemy import Column, Integer, Float, Boolean, String, create_engine, text
-from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
-import pandas as pd
-from sqlalchemy.exc import IntegrityError
-import geopandas as gpd
-from datetime import datetime
-import psycopg2
 import os
-from sqlalchemy import DateTime
-from sqlalchemy.sql import func
+import psycopg2
 import sqlite3
-from sqlalchemy import LargeBinary
-import kmlComputation
+from .kml_ops import get_wired_data
 import json
 import subprocess
-import csv
-from sqlalchemy import create_engine
-from io import StringIO
 from psycopg2.extensions import adapt, register_adapter, AsIs
 from psycopg2 import Binary
 from psycopg2.extras import execute_values
 from fastkml import kml
-
-logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-db_host = os.getenv('DB_HOST', 'bdk-db-1')
-
-Base = declarative_base()
-BATCH_SIZE = 50000
-
-class vector_tiles(Base):
-    __tablename__ = 'vt'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    zoom_level = Column(Integer)  
-    tile_column = Column(Integer) 
-    tile_row = Column(Integer)
-    tile_data = Column(LargeBinary)
-    username = Column(String)
-
-class mbtiles(Base):
-    __tablename__ = 'mbt'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    tile_data = Column(LargeBinary)
-    filename = Column(String)  # this will add a filename column
-    timestamp = Column(DateTime)  # this will add a timestamp column
-    
-DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-engine = create_engine(DATABASE_URL)
-
-inspector = inspect(engine)
-if not inspector.has_table('vt'):
-    Base.metadata.create_all(engine)
-
-if not inspector.has_table('mbt'):
-    Base.metadata.create_all(engine)
-
-session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-ScopedSession = scoped_session(session_factory)
-Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from utils.settings import DATABASE_URL
+from multiprocessing import Lock
+from datetime import datetime
+from database.sessions import ScopedSession
+from database.models import vector_tiles
+from celery_setup.celery_config import celery
+from celery_setup.celery_tasks import run_tippecanoe
 
 db_lock = Lock()
+
 
 def recursive_placemarks(folder):
     for feature in folder.features():
@@ -102,7 +49,7 @@ def read_kml(kml_file_path):
     return geojson_features
 
 
-def add_values_to_VT(mbtiles_file_path, username):
+def add_values_to_VT(mbtiles_file_path):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
         mb_c = mb_conn.cursor()
         mb_c.execute(
@@ -118,11 +65,11 @@ def add_values_to_VT(mbtiles_file_path, username):
             cur = conn.cursor()
             
             # Prepare the vector tile data
-            data = [(row[0], row[1], row[2], Binary(row[3]), username) for row in mb_c]
+            data = [(row[0], row[1], row[2], Binary(row[3])) for row in mb_c]
 
             # Execute values will generate a SQL INSERT query with placeholders for the parameters
             execute_values(cur, """
-                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, username) 
+                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data) 
                 VALUES %s
                 """, data)
 
@@ -199,7 +146,7 @@ def create_mbtiles_from_db(output_path):
     pg_session.close()
 
 def tiles_join(geojson_data):
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     # Extract the .mbtiles file from the database
@@ -216,17 +163,24 @@ def tiles_join(geojson_data):
     
     # Use tippecanoe to create a new .mbtiles file from the geojson_data
     command = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+    result = run_tippecanoe.delay(command)
 
-    if result.stderr:
-         print("Tippecanoe stderr:", result.stderr.decode())
+    result.wait()  # wait for the task to complete
+    if result.successful():
+        return_code = result.get()
+    else:
+        print("Task failed")
 
 
     # Use tile-join to merge the new .mbtiles file with the existing one
     command = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
-    if result.stderr:
-         print("Tippecanoe stderr:", result.stderr.decode())
+    result = run_tippecanoe.delay(command)
+
+    result.wait()  # wait for the task to complete
+    if result.successful():
+        return_code = result.get()
+    else:
+        print("Task failed")
 
     # Delete the existing .mbtiles file from the database
     cursor.execute("TRUNCATE TABLE mbt")
@@ -243,20 +197,20 @@ def tiles_join(geojson_data):
     cursor.close()
     conn.close()
 
-    val = add_values_to_VT("./merged.mbtiles", "temp")
+    val = add_values_to_VT("./merged.mbtiles")
 
     # Remove the temporary files
     os.remove('existing.mbtiles')
     os.remove('new.mbtiles')
     os.remove('data.geojson')
 
-def create_tiles(geojson_array, username):
-    conn = psycopg2.connect(f'postgresql://postgres:db123@{db_host}:5432/postgres')
+def create_tiles(geojson_array):
+    conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
     cursor.execute('TRUNCATE TABLE vt')
     conn.commit()
     conn.close()
-    network_data = kmlComputation.get_wired_data()
+    network_data = get_wired_data()
     point_geojson = {
          "type": "FeatureCollection",
          "features": [
@@ -283,15 +237,125 @@ def create_tiles(geojson_array, username):
          ]
      }
     
+    # print(geojson_array)
     point_geojson["features"].extend(geojson for geojson in geojson_array)
 
     with open('data.geojson', 'w') as f:
          json.dump(point_geojson, f)
-
+         
     command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+    result = run_tippecanoe.delay(command)
 
-    if result.stderr:
-         print("Tippecanoe stderr:", result.stderr.decode())
+    result.wait()  # wait for the task to complete
+    if result.successful():
+        return_code = result.get()
+    else:
+        print("Task failed")
     
-    val = add_values_to_VT("./output.mbtiles", username)
+    val = add_values_to_VT("./output.mbtiles")
+
+def retrieve_tiles(zoom, x, y):
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
+
+    with db_lock:
+            cursor.execute(
+                """
+                SELECT tile_data
+                FROM "vt"
+                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s
+                """, 
+                (int(zoom), int(x), int(y))
+            )
+    tile = cursor.fetchone()
+    return tile
+
+def toggle_tiles(markers):
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
+
+    geojson_data = []
+
+    try:
+        with db_lock:
+            for marker in markers:
+                cursor.execute(
+                    """
+                    UPDATE "KML"
+                    SET "served" = %s
+                    WHERE "location_id" = %s
+                    """, 
+                    (marker['served'], marker['id'],)
+                )
+                cursor.execute(
+                    """
+                    SELECT "KML".location_id, 
+                           "KML".served, 
+                           fabric.latitude, 
+                           fabric.address_primary, 
+                           fabric.longitude,
+                           "KML".wireless,
+                           "KML".lte,
+                           "KML".username,
+                           "KML"."coveredLocations",
+                           "KML"."maxDownloadNetwork",
+                           "KML"."maxDownloadSpeed" 
+                    FROM "KML"
+                    JOIN fabric ON "KML".location_id = fabric.location_id
+                    WHERE "KML".location_id = %s
+                    """, 
+                    (marker['id'],)
+                )
+                row = cursor.fetchone()
+
+                point_geojson = {
+                    "type": "Feature",
+                    "properties": {
+                        "location_id": row[0],
+                        "served": row[1],
+                        "address": row[3],
+                        "wireless": row[5],
+                        'lte': row[6],
+                        'username': row[7],
+                        'network_coverages': row[8],
+                        'maxDownloadNetwork': row[9],
+                        'maxDownloadSpeed': row[10],
+                        "feature_type": "Point"
+                    },
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [row[4], row[2]]  # Please adjust indices based on your column order
+                    }
+                }
+
+                geojson_data.append(point_geojson)
+
+        conn.commit()
+
+        
+        tiles_join(geojson_data)
+        message = 'Markers toggled successfully'
+        status_code = 200
+
+    except Exception as e:
+        conn.rollback()  # rollback transaction on error
+        message = str(e)  # send the error message to client
+        status_code = 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return (message, status_code)
+
+def get_mbt_info():
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, filename, timestamp FROM mbt")
+    rows = cursor.fetchall()
+
+    if rows is None:
+        return None
+    mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
+    return mbtiles
