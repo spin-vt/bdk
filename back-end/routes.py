@@ -10,12 +10,13 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity,
 )
+from celery.result import AsyncResult
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from utils.settings import DATABASE_URL
 from database.sessions import Session
 from database.models import File
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
-from controllers.celery_controller.celery_config import app
+from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data
 
 logging.basicConfig(level=logging.DEBUG)
@@ -58,7 +59,6 @@ def submit_data():
 
         file_data_list = request.form.getlist('fileData')
 
-        # Create a new session
         session = Session()
         file_names = []
 
@@ -69,13 +69,34 @@ def submit_data():
             session.commit()
             file_names.append(new_file.file_name)
 
-        process_data.apply_async(args=[file_names, file_data_list])
+        task = process_data.apply_async(args=[file_names, file_data_list]) # store the AsyncResult instance
         session.close()
-        return jsonify({'Status': "OK"}), 200
+        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     
     except:
         session.close()
         return jsonify({'Status': "Failed, server failed"}), 400
+
+@app.route('/status/<task_id>')
+def taskstatus(task_id):
+    task = AsyncResult(task_id, app=celery)
+
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+            'status': 'Pending...'
+        }
+    elif task.state != 'FAILURE':
+        response = {
+            'state': task.state,
+            'status': str(task.result)
+        }
+    else:
+        response = {
+            'state': task.state,
+            'status': str(task.info)
+        }
+    return jsonify(response)
 
 @app.route('/')
 def home():

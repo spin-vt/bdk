@@ -124,21 +124,19 @@ export default function Upload({ fetchMarkers }) {
 
   const handleExportClick = (event) => {
     event.preventDefault();
-
+  
     const formData = new FormData();
-    console.log(storage.length);
-
+  
     storage2.forEach((file) => {
       const fileObj = file[0];
       const newFile = file[1];
-
-      console.log(JSON.stringify(newFile));
+  
       formData.append("fileData", JSON.stringify(newFile));
       formData.append("file", fileObj);
     });
-
+  
     setIsLoading(true);
-
+  
     fetch("http://localhost:5000/submit-data", {
       method: "POST",
       body: formData,
@@ -147,32 +145,34 @@ export default function Upload({ fetchMarkers }) {
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
-        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
-        console.log("will show new buttons soon 1");
-        console.log("Status:", response); // log the status
-        setExportSuccess(true); // Set the export success state to true
-        setIsDataReady(true);
-        setIsLoading(false); // Set loading to false after API call
-        setTimeout(() => {
-          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        }, 5000);
         return response.json();
       })
       .then((data) => {
-        if (data) { // only process data if it exists
-          console.log("going to fetch markers");
-          console.log("Will show new buttons soon 2");
-          setExportSuccess(true);
-          setIsDataReady(true);
-          setIsLoading(false); // Set loading to false after API call
-          setTimeout(() => {
-            setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-          }, 5000);
-          window.location.href = 'http://localhost:3000/';
+        if (data) {
+          // Start polling task status
+          const intervalId = setInterval(() => {
+            console.log(data.task_id)
+            fetch(`http://localhost:5000/status/${data.task_id}`)
+              .then(response => response.json())
+              .then(status => {
+                if (status.state !== 'PENDING') { // change this to your actual 'complete' status
+                  // Clear the interval
+                  clearInterval(intervalId);
+  
+                  // Task is complete, handle post-task actions
+                  setExportSuccess(true); // Set the export success state to true
+                  setIsDataReady(true);
+                  setIsLoading(false); // Set loading to false after task is complete
+                  setTimeout(() => {
+                    setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+                  }, 5000);
+                  window.location.href = 'http://localhost:3000/';
+                }
+              });
+          }, 5000); // Poll every 5 seconds
         }
       })
       .catch((error) => {
-        // fetchMarkers(downloadSpeed, uploadSpeed, techType);
         console.error("Error:", error);
         setIsDataReady(true);
         setIsLoading(false); // Set loading to false after API call
@@ -180,7 +180,7 @@ export default function Upload({ fetchMarkers }) {
           setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
         }, 5000);
       });
-  };
+  };  
 
   // Call fetchMarkers when the Export button is clicked
   React.useEffect(() => {
