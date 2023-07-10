@@ -18,6 +18,7 @@ import { Select, MenuItem } from "@material-ui/core";
 import LayersIcon from "@mui/icons-material/Layers";
 import IconButton from "@material-ui/core/IconButton";
 import Menu from "@material-ui/core/Menu";
+import SmallLoadingEffect from "./SmallLoadingEffect";
 
 const useStyles = makeStyles({
   modal: {
@@ -201,8 +202,10 @@ function Map({ markers }) {
 
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
   const [showExpandButton, setShowExpandButton] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingForTimedEffect, setIsLoadingForTimedEffect] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
+  const loadingTimeInMs = 0.8 * 60 * 1000;
+  const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] = useState(false);
 
   const allMarkersRef = useRef([]); // create a ref for allMarkers
 
@@ -543,7 +546,7 @@ function Map({ markers }) {
   };
 
   const doneWithChanges = () => {
-    setIsLoading(true);
+    setIsLoadingForTimedEffect(true);
     const selectedMarkerIds = [];
     selectedMarkersRef.current.forEach((list) => {
       list.forEach((marker) => {
@@ -559,7 +562,7 @@ function Map({ markers }) {
       addVectorTiles();
 
       setIsDataReady(true);
-      setIsLoading(false);
+      setIsLoadingForTimedEffect(false);
 
       setTimeout(() => {
         setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
@@ -594,6 +597,7 @@ function Map({ markers }) {
       allMarkersRef.current === null ||
       allMarkersRef.current.length === 0
     ) {
+      setIsLoadingForUntimedEffect(true);
       return fetch("http://localhost:5000/served-data", {
         method: "GET",
       })
@@ -612,9 +616,11 @@ function Map({ markers }) {
           setFeatureStateForMarkers(newMarkers);
 
           allMarkersRef.current = newMarkers; // Here's the state update
+          setIsLoadingForUntimedEffect(false);
         })
         .catch((error) => {
           console.log(error);
+          setIsLoadingForUntimedEffect(false);
         });
     } else {
       setFeatureStateForMarkers(allMarkersRef.current);
@@ -629,7 +635,7 @@ function Map({ markers }) {
       color += letters[Math.floor(Math.random() * 16)];
     }
     return color;
-  }
+  };
 
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
@@ -799,7 +805,8 @@ function Map({ markers }) {
         </Menu>
       </div>
       <div>
-        {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
+        {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
+        {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
         {isModalVisible && (
           <div className={classes.modal}>
             <button

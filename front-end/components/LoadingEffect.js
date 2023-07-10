@@ -15,10 +15,10 @@ const useStyles = makeStyles({
     }
 });
 
-export default function LoadingEffect({ isLoading }) {
+export default function LoadingEffect({ isLoading, loadingTimeInMs }) {
     const classes = useStyles();
     const [progress, setProgress] = useState(0);
-    const loadingTimeInMs = 3 * 60 * 1000; // 3 minutes in milliseconds
+    // const loadingTimeInMs = 3 * 60 * 1000; // 3 minutes in milliseconds
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
@@ -40,7 +40,6 @@ export default function LoadingEffect({ isLoading }) {
                 }
             }, 1000);
         } else {
-            console.log('here');
             setProgress(100);
             setIsLoaded(true);
         }

@@ -15,7 +15,7 @@ from datetime import datetime
 from database.sessions import ScopedSession
 from database.models import vector_tiles, File
 from controllers.celery_controller.celery_config import celery
-from controllers.celery_controller.celery_tasks import run_tippecanoe
+from controllers.celery_controller.celery_tasks import run_tippecanoe, run_tippecanoe_tiles_join
 
 db_lock = Lock()
 
@@ -85,9 +85,9 @@ def add_values_to_VT(mbtiles_file_path, user_id):
             
             # Insert the .mbtiles data
             cur.execute("""
-                INSERT INTO mbt (tile_data, filename, timestamp)
+                INSERT INTO mbt (tile_data, filename, timestamp, user_id)
                 VALUES (%s, %s, %s)
-                """, (mbtiles_data, 'curr.mbtiles', datetime.now()))
+                """, (mbtiles_data, 'curr.mbtiles', datetime.now()), user_id)
 
             # Don't forget to commit the transaction
             conn.commit()
@@ -173,22 +173,12 @@ def tiles_join(geojson_data):
     # Use tile-join to merge the new .mbtiles file with the existing one
     command2 = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
 
-    # chain tasks
-    chain(run_tippecanoe(command1), run_tippecanoe(command2))()
-
-    # Delete the existing .mbtiles file from the database
-    cursor.execute("TRUNCATE TABLE mbt")
+    # cursor.execute("TRUNCATE TABLE mbt")
     conn.commit()
-
-    val = add_values_to_VT("./merged.mbtiles")
-
-    # Remove the temporary files
-    os.remove('existing.mbtiles')
-    os.remove('new.mbtiles')
-    os.remove('data.geojson')
-
     cursor.close()
     conn.close()
+    # chain tasks
+    run_tippecanoe_tiles_join(command1, command2, 1, ["./merged.mbtiles", "./existing.mbtiles", "./new.mbtiles"])()
 
 
 def create_tiles(geojson_array, user_id):
@@ -231,7 +221,7 @@ def create_tiles(geojson_array, user_id):
          json.dump(point_geojson, f)
          
     command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    run_tippecanoe(command, user_id) 
+    run_tippecanoe(command, user_id, "output.mbtiles") 
 
 def retrieve_tiles(zoom, x, y, username):
     conn = psycopg2.connect(DATABASE_URL)

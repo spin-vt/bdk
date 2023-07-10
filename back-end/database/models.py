@@ -58,6 +58,8 @@ class mbtiles(Base):
     tile_data = Column(LargeBinary)
     filename = Column(String)  # this will add a filename column
     timestamp = Column(DateTime)  # this will add a timestamp column
+    user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    user = relationship('user', backref='mbtiles')  # add this line to define a relationship
 
 class File(Base):
     __tablename__ = 'files'

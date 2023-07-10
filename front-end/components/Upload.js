@@ -108,6 +108,7 @@ export default function Upload({ fetchMarkers }) {
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [isDataReady, setIsDataReady] = React.useState(false);
+  const loadingTimeInMs = 3.5 * 60 * 1000;
 
   const handleDownloadClick = (event) => {
     event.preventDefault();
@@ -143,14 +144,25 @@ export default function Upload({ fetchMarkers }) {
       body: formData
     })
       .then((response) => {
+        // Submit-data end point needs to handle case for not login and return 401 or 422
+        if (response.status === 401 || response.status === 422) {
+          setIsLoading(false); // Set loading to false after API call
+          Swal.fire('Stop right there 👮✋', "Please be logged in to make a submission :)", 'error')
+            .then((result) => {
+              // Navigate to login after Swal modal has been dismissed
+              window.location.href = "http://localhost:3000/login";
+            });
+          throw new Error('Unauthorized/Unprocessable entity'); // Skip to the catch block
+        }
         if (!response.ok) {
-          throw new Error("Network response was not ok");
+          throw new Error("Network response was not ok"); // Some other status code, skip to the catch block
         }
         return response.json();
       })
       .then((data) => {
         if (data) {
           // Start polling task status
+          // This needs correct response status 401, 422 in the backend for correct handling of user login logic
           const intervalId = setInterval(() => {
             console.log(data.task_id);
             fetch(`http://localhost:5000/status/${data.task_id}`)
@@ -167,8 +179,8 @@ export default function Upload({ fetchMarkers }) {
                   setIsLoading(false); // Set loading to false after task is complete
                   setTimeout(() => {
                     setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+                    window.location.href = "http://localhost:3000/";
                   }, 5000);
-                  window.location.href = "http://localhost:3000/";
                 }
               });
           }, 5000); // Poll every 5 seconds
@@ -176,12 +188,7 @@ export default function Upload({ fetchMarkers }) {
       })
       .catch((error) => {
         console.error("Error:", error);
-        Swal.fire('Stop right there 👮✋', "Please be logged in to make a submission :)", 'error');
-        // setIsDataReady(true);
         setIsLoading(false); // Set loading to false after API call
-        setTimeout(() => {
-          setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
-        }, 5000);
       });
   };
 
@@ -337,7 +344,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
+      {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} loadingTimeInMs={loadingTimeInMs} />}
       <ButtonGroup
         variant="contained"
         ref={buttonGroupRef}
