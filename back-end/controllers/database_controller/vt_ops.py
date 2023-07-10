@@ -55,7 +55,7 @@ def read_kml(file_name):
     return geojson_features
 
 
-def add_values_to_VT(mbtiles_file_path):
+def add_values_to_VT(mbtiles_file_path, user_id):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
         mb_c = mb_conn.cursor()
         mb_c.execute(
@@ -71,11 +71,11 @@ def add_values_to_VT(mbtiles_file_path):
             cur = conn.cursor()
             
             # Prepare the vector tile data
-            data = [(row[0], row[1], row[2], Binary(row[3])) for row in mb_c]
+            data = [(row[0], row[1], row[2], Binary(row[3]), user_id) for row in mb_c]
 
             # Execute values will generate a SQL INSERT query with placeholders for the parameters
             execute_values(cur, """
-                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data) 
+                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, user_id) 
                 VALUES %s
                 """, data)
 
@@ -191,7 +191,7 @@ def tiles_join(geojson_data):
     conn.close()
 
 
-def create_tiles(geojson_array):
+def create_tiles(geojson_array, user_id):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
     cursor.execute('TRUNCATE TABLE vt')
@@ -231,20 +231,37 @@ def create_tiles(geojson_array):
          json.dump(point_geojson, f)
          
     command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    run_tippecanoe(command) 
+    run_tippecanoe(command, user_id) 
 
-def retrieve_tiles(zoom, x, y):
+def retrieve_tiles(zoom, x, y, username):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
+
+    # First, get the user ID
+    cursor.execute(
+        """
+        SELECT id
+        FROM "user"
+        WHERE username = %s
+        """, 
+        (username,)
+    )
+    user_id_result = cursor.fetchone()
+
+    # If the user ID is found, continue to the next query
+    if user_id_result:
+        user_id = user_id_result[0]
+    else: 
+        return None
 
     with db_lock:
             cursor.execute(
                 """
                 SELECT tile_data
                 FROM "vt"
-                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s
+                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s AND user_id = %s
                 """, 
-                (int(zoom), int(x), int(y))
+                (int(zoom), int(x), int(y), user_id)
             )
     tile = cursor.fetchone()
     return tile

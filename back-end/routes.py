@@ -49,6 +49,8 @@ def get_number_records():
 @app.route('/submit-data', methods=['POST', 'GET'])
 def submit_data():
     try:
+        username = request.form.get('username')
+        
         if 'file' not in request.files:
             return jsonify({'Status': "Failed, no file uploaded"}), 400
 
@@ -69,7 +71,7 @@ def submit_data():
             session.commit()
             file_names.append(new_file.file_name)
 
-        task = process_data.apply_async(args=[file_names, file_data_list]) # store the AsyncResult instance
+        task = process_data.apply_async(args=[file_names, file_data_list, username]) # store the AsyncResult instance
         session.close()
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     
@@ -183,12 +185,14 @@ def export():
 
 @app.route("/tiles/<zoom>/<x>/<y>.pbf")
 def serve_tile(zoom, x, y):
+    username = request.args.get('username')
+
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, username)
 
     if tile is None:
         return Response('No tile found', status=404)

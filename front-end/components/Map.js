@@ -9,16 +9,15 @@ import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import * as turf from "@turf/turf";
 import LoadingEffect from "./LoadingEffect";
-import { styled } from '@mui/material/styles';
-import { saveAs } from 'file-saver';
+import { styled } from "@mui/material/styles";
+import { saveAs } from "file-saver";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Select, MenuItem } from "@material-ui/core";
-import LayersIcon from '@mui/icons-material/Layers';
-import IconButton from '@material-ui/core/IconButton';
-import Menu from '@material-ui/core/Menu';
-
+import LayersIcon from "@mui/icons-material/Layers";
+import IconButton from "@material-ui/core/IconButton";
+import Menu from "@material-ui/core/Menu";
 
 const useStyles = makeStyles({
   modal: {
@@ -122,8 +121,8 @@ const useStyles = makeStyles({
     zIndex: 1000,
   },
   baseMap: {
-    width: '33px',
-    height: '33px',
+    width: "33px",
+    height: "33px",
     top: "33vh",
     position: "absolute",
     left: "10px",
@@ -134,8 +133,8 @@ const useStyles = makeStyles({
       backgroundColor: "rgba(255, 255, 255, 0.9)",
     },
     borderRadius: "4px", // added back borderRadius with a smaller value
-    padding: '10px', // decrease padding if it's too much
-    boxShadow: '0px 1px 4px rgba(0, 0, 0, 0.3)', // subtle shadow as seen in MapLibre controls
+    padding: "10px", // decrease padding if it's too much
+    boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.3)", // subtle shadow as seen in MapLibre controls
   },
 });
 
@@ -241,9 +240,11 @@ function Map({ markers }) {
     if (existingSource) {
       map.current.removeSource("custom");
     }
+
+    const user = localStorage.getItem("username");
     map.current.addSource("custom", {
       type: "vector",
-      tiles: [`http://localhost:5000/tiles/{z}/{x}/{y}.pbf`],
+      tiles: [`http://localhost:5000/tiles/{z}/{x}/{y}.pbf?username=${user}`],
       maxzoom: 16,
     });
   };
@@ -253,21 +254,21 @@ function Map({ markers }) {
     let fillColor;
 
     switch (selectedBaseMap) {
-      case 'STREETS':
-        lineColor = '#888';
-        fillColor = '#42004F';
+      case "STREETS":
+        lineColor = "#888";
+        fillColor = "#42004F";
         break;
-      case 'SATELLITE':
-        lineColor = '#FF00F7'; // Replace with appropriate color
-        fillColor = '#565EC1'; // Replace with appropriate color
+      case "SATELLITE":
+        lineColor = "#FF00F7"; // Replace with appropriate color
+        fillColor = "#565EC1"; // Replace with appropriate color
         break;
-      case 'DARK':
-        lineColor = '#FF00F7'; // Replace with appropriate color
-        fillColor = '#565EC1'; // Replace with appropriate color
+      case "DARK":
+        lineColor = "#FF00F7"; // Replace with appropriate color
+        fillColor = "#565EC1"; // Replace with appropriate color
         break;
       default:
-        lineColor = '#888';
-        fillColor = '#42004F';
+        lineColor = "#888";
+        fillColor = "#42004F";
     }
 
     map.current.addLayer({
@@ -306,9 +307,12 @@ function Map({ markers }) {
           "interpolate",
           ["linear"],
           ["zoom"],
-          5, 0.5, // When zoom is less than or equal to 12, circle radius will be 1
-          12, 2,
-          15, 3 // When zoom is more than 12, circle radius will be 3
+          5,
+          0.5, // When zoom is less than or equal to 12, circle radius will be 1
+          12,
+          2,
+          15,
+          3, // When zoom is more than 12, circle radius will be 3
         ],
         "circle-color": [
           "case",
@@ -320,25 +324,23 @@ function Map({ markers }) {
       filter: ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
       "source-layer": "data",
     });
-
   };
 
   const removeVectorTiles = () => {
-
-    if (map.current.getLayer('custom-point')) {
-      map.current.removeLayer('custom-point');
+    if (map.current.getLayer("custom-point")) {
+      map.current.removeLayer("custom-point");
     }
 
-    if (map.current.getLayer('custom-line')) {
-      map.current.removeLayer('custom-line');
+    if (map.current.getLayer("custom-line")) {
+      map.current.removeLayer("custom-line");
     }
 
-    if (map.current.getLayer('custom-polygon')) {
-      map.current.removeLayer('custom-polygon');
+    if (map.current.getLayer("custom-polygon")) {
+      map.current.removeLayer("custom-polygon");
     }
 
-    if (map.current.getSource('custom')) {
-      map.current.removeSource('custom');
+    if (map.current.getSource("custom")) {
+      map.current.removeSource("custom");
     }
   };
 
@@ -346,24 +348,22 @@ function Map({ markers }) {
     removeVectorTiles();
     const token = localStorage.getItem("token");
 
-
-    // fetch("http://localhost:8000/api/user", {
-    //   headers: {
-    //     Authorization: `Bearer ${token}`,
-    //   },
-    // })
-    //   .then((response) => {
-    //     if (!response.ok) {
-    //       throw new Error("Network response was not ok");
-    //     }
-    //     return response.json();
-    //   })
-    //   .then((data) => {
-    //     console.log(data);
+    fetch("http://localhost:5000/api/user", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log(data);
         addSource();
         function handleSourcedata(e) {
           if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
-            // Immediately remove the event listener
             map.current.off("sourcedata", handleSourcedata);
 
             fetchMarkers().then(() => {
@@ -372,13 +372,13 @@ function Map({ markers }) {
           }
         }
         map.current.on("sourcedata", handleSourcedata);
-      // })
-      // .catch((error) => {
-      //   console.log(
-      //     "There has been a problem with your fetch operation: ",
-      //     error
-      //   );
-      // });
+      })
+      .catch((error) => {
+        console.log(
+          "There has been a problem with your fetch operation: ",
+          error
+        );
+      });
 
     // console.log(allMarkersRef.current);
 
@@ -421,8 +421,6 @@ function Map({ markers }) {
         .addTo(map.current);
     });
     // });
-
-
   };
 
   const toggleMarkers = (markers) => {
@@ -534,7 +532,11 @@ function Map({ markers }) {
         }
       });
       selectedMarkersRef.current.pop();
-      if (selectedMarkersRef.current === undefined || selectedMarkersRef.current === null || selectedMarkersRef.current.length === 0) {
+      if (
+        selectedMarkersRef.current === undefined ||
+        selectedMarkersRef.current === null ||
+        selectedMarkersRef.current.length === 0
+      ) {
         toggleModalVisibility();
       }
     }
@@ -551,17 +553,14 @@ function Map({ markers }) {
     console.log(selectedMarkerIds);
     // Send request to server to change the selected markers to served
     toggleMarkers(selectedMarkerIds).finally(() => {
-
       const token = localStorage.getItem("token");
-
 
       removeVectorTiles();
       addVectorTiles();
 
-
       setIsDataReady(true);
       setIsLoading(false);
-      
+
       setTimeout(() => {
         setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
       }, 5000);
@@ -590,7 +589,11 @@ function Map({ markers }) {
   };
 
   const fetchMarkers = () => {
-    if (allMarkersRef.current === undefined || allMarkersRef.current === null || allMarkersRef.current.length === 0) {
+    if (
+      allMarkersRef.current === undefined ||
+      allMarkersRef.current === null ||
+      allMarkersRef.current.length === 0
+    ) {
       return fetch("http://localhost:5000/served-data", {
         method: "GET",
       })
@@ -626,8 +629,7 @@ function Map({ markers }) {
       color += letters[Math.floor(Math.random() * 16)];
     }
     return color;
-  };
-
+  }
 
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
@@ -781,12 +783,12 @@ function Map({ markers }) {
           open={Boolean(basemapAnchorEl)}
           onClose={handleBasemapMenuClose}
           anchorOrigin={{
-            vertical: 'top',
-            horizontal: 'right',
+            vertical: "top",
+            horizontal: "right",
           }}
           transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
+            vertical: "top",
+            horizontal: "left",
           }}
         >
           {Object.keys(baseMaps).map((key) => (

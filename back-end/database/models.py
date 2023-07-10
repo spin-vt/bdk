@@ -1,6 +1,8 @@
 from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime
 from sqlalchemy import Column, Integer, String, Float
 from database.base import Base
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
 
 class Data(Base):
     __tablename__ = 'fabric'
@@ -33,7 +35,6 @@ class kml_data(Base):
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
 
-
 class vector_tiles(Base):
     __tablename__ = 'vt'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -41,13 +42,8 @@ class vector_tiles(Base):
     tile_column = Column(Integer) 
     tile_row = Column(Integer)
     tile_data = Column(LargeBinary)
-
-class mbtiles(Base):
-    __tablename__ = 'mbt'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    tile_data = Column(LargeBinary)
-    filename = Column(String)  # this will add a filename column
-    timestamp = Column(DateTime)  # this will add a timestamp column
+    user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    user = relationship('user', backref='vector_tiles')  # add this line to define a relationship
 
 class user(Base):
     __tablename__ = 'user'
@@ -55,6 +51,13 @@ class user(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True)
     password = Column(String(256))
+
+class mbtiles(Base):
+    __tablename__ = 'mbt'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tile_data = Column(LargeBinary)
+    filename = Column(String)  # this will add a filename column
+    timestamp = Column(DateTime)  # this will add a timestamp column
 
 class File(Base):
     __tablename__ = 'files'

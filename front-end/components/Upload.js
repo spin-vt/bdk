@@ -41,8 +41,8 @@ const useStyles = makeStyles({
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
-  "Wired": "Wired",
-  "Wireless": "Wireless"
+  Wired: "Wired",
+  Wireless: "Wireless",
 };
 let storage = JSON.parse(localStorage.getItem("storage")) || [];
 let storage2 = [];
@@ -58,8 +58,6 @@ const tech_types = {
   "Licensed-by-Rule Terrestrial Fixed Wireless": 72,
   Other: 0,
 };
-
-//Map key component
 
 function MapKey() {
   return (
@@ -124,22 +122,24 @@ export default function Upload({ fetchMarkers }) {
 
   const handleExportClick = (event) => {
     event.preventDefault();
-  
+
     const formData = new FormData();
-  
+
     storage2.forEach((file) => {
       const fileObj = file[0];
       const newFile = file[1];
-  
+
       formData.append("fileData", JSON.stringify(newFile));
       formData.append("file", fileObj);
     });
-  
+
     setIsLoading(true);
-  
+    const user = localStorage.getItem("username");
+    formData.append("username", user);
+
     fetch("http://localhost:5000/submit-data", {
       method: "POST",
-      body: formData,
+      body: formData
     })
       .then((response) => {
         if (!response.ok) {
@@ -151,14 +151,15 @@ export default function Upload({ fetchMarkers }) {
         if (data) {
           // Start polling task status
           const intervalId = setInterval(() => {
-            console.log(data.task_id)
+            console.log(data.task_id);
             fetch(`http://localhost:5000/status/${data.task_id}`)
-              .then(response => response.json())
-              .then(status => {
-                if (status.state !== 'PENDING') { // change this to your actual 'complete' status
+              .then((response) => response.json())
+              .then((status) => {
+                if (status.state !== "PENDING") {
+                  // change this to your actual 'complete' status
                   // Clear the interval
                   clearInterval(intervalId);
-  
+
                   // Task is complete, handle post-task actions
                   setExportSuccess(true); // Set the export success state to true
                   setIsDataReady(true);
@@ -166,7 +167,7 @@ export default function Upload({ fetchMarkers }) {
                   setTimeout(() => {
                     setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
                   }, 5000);
-                  window.location.href = 'http://localhost:3000/';
+                  window.location.href = "http://localhost:3000/";
                 }
               });
           }, 5000); // Poll every 5 seconds
@@ -180,7 +181,7 @@ export default function Upload({ fetchMarkers }) {
           setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
         }, 5000);
       });
-  };  
+  };
 
   // Call fetchMarkers when the Export button is clicked
   React.useEffect(() => {
@@ -334,7 +335,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      { (isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
+      {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} />}
       <ButtonGroup
         variant="contained"
         ref={buttonGroupRef}
