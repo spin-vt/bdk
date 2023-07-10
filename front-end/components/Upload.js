@@ -17,6 +17,7 @@ import InputLabel from "@mui/material/InputLabel";
 import { makeStyles } from "@mui/styles";
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
+import Swal from 'sweetalert2';
 
 const useStyles = makeStyles({
   formControl: {
@@ -175,7 +176,8 @@ export default function Upload({ fetchMarkers }) {
       })
       .catch((error) => {
         console.error("Error:", error);
-        setIsDataReady(true);
+        Swal.fire('Stop right there 👮✋', "Please be logged in to make a submission :)", 'error');
+        // setIsDataReady(true);
         setIsLoading(false); // Set loading to false after API call
         setTimeout(() => {
           setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
