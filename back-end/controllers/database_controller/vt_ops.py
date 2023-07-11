@@ -231,7 +231,7 @@ def retrieve_tiles(zoom, x, y, username):
     cursor.execute(
         """
         SELECT id
-        FROM "user"
+        FROM \"user\"
         WHERE username = %s
         """, 
         (username,)
