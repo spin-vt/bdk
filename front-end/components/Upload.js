@@ -17,7 +17,7 @@ import InputLabel from "@mui/material/InputLabel";
 import { makeStyles } from "@mui/styles";
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
 
 const useStyles = makeStyles({
   formControl: {
@@ -141,54 +141,39 @@ export default function Upload({ fetchMarkers }) {
 
     fetch("http://localhost:5000/submit-data", {
       method: "POST",
-      body: formData
+      body: formData,
     })
       .then((response) => {
-        // Submit-data end point needs to handle case for not login and return 401 or 422
-        if (response.status === 401 || response.status === 422) {
-          setIsLoading(false); // Set loading to false after API call
-          Swal.fire('Stop right there 👮✋', "Please be logged in to make a submission :)", 'error')
-            .then((result) => {
-              // Navigate to login after Swal modal has been dismissed
-              window.location.href = "http://localhost:3000/login";
-            });
-          throw new Error('Unauthorized/Unprocessable entity'); // Skip to the catch block
-        }
         if (!response.ok) {
-          throw new Error("Network response was not ok"); // Some other status code, skip to the catch block
+          throw new Error(`HTTP status code: ${response.status}`);
         }
-        return response.json();
+        return response.json(); // Added return statement to provide data for the next then
       })
       .then((data) => {
         if (data) {
-          // Start polling task status
-          // This needs correct response status 401, 422 in the backend for correct handling of user login logic
           const intervalId = setInterval(() => {
             console.log(data.task_id);
             fetch(`http://localhost:5000/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
                 if (status.state !== "PENDING") {
-                  // change this to your actual 'complete' status
-                  // Clear the interval
                   clearInterval(intervalId);
-
-                  // Task is complete, handle post-task actions
-                  setExportSuccess(true); // Set the export success state to true
+                  setExportSuccess(true);
                   setIsDataReady(true);
-                  setIsLoading(false); // Set loading to false after task is complete
+                  setIsLoading(false);
                   setTimeout(() => {
-                    setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+                    setIsDataReady(false);
                     window.location.href = "http://localhost:3000/";
                   }, 5000);
                 }
               });
-          }, 5000); // Poll every 5 seconds
+          }, 5000);
         }
       })
       .catch((error) => {
         console.error("Error:", error);
-        setIsLoading(false); // Set loading to false after API call
+        setIsLoading(false);
+        Swal.fire("A problem has occured", error.toString(), "error"); // Used error.toString() to ensure that the error message is a string
       });
   };
 
@@ -344,7 +329,12 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} loadingTimeInMs={loadingTimeInMs} />}
+      {(isLoading || isDataReady) && (
+        <LoadingEffect
+          isLoading={isLoading}
+          loadingTimeInMs={loadingTimeInMs}
+        />
+      )}
       <ButtonGroup
         variant="contained"
         ref={buttonGroupRef}
