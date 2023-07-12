@@ -2,7 +2,7 @@
 Tool developed by the SPIN Lab at Virginia Tech. This branch is dedicated to build and use the app with docker
 
 # Line-ending on Windows
-This app run necessary shell scripts written in unix-style line-ending(LF). If you are building your container in Windows, you can use the following command to change your git global setting to ensure LF line-ending when you clone the repo. 
+This app run necessary shell scripts written in unix-style line-ending(LF). If you are building your container in Windows, you can use the following command to change your git global setting before you clone the repo to ensure LF line-ending. 
 1) `git config --global core.autocrlf false`
 2) `git config --global core.eol lf`
 
