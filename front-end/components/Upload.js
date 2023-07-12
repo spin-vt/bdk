@@ -108,7 +108,7 @@ export default function Upload({ fetchMarkers }) {
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [isDataReady, setIsDataReady] = React.useState(false);
-  const loadingTimeInMs = 3.5 * 60 * 1000;
+  const loadingTimeInMs = 6.5 * 60 * 1000;
 
   const handleDownloadClick = (event) => {
     event.preventDefault();

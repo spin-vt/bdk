@@ -204,7 +204,7 @@ function Map({ markers }) {
   const [showExpandButton, setShowExpandButton] = useState(true);
   const [isLoadingForTimedEffect, setIsLoadingForTimedEffect] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
-  const loadingTimeInMs = 0.8 * 60 * 1000;
+  const loadingTimeInMs = 2 * 60 * 1000;
   const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] = useState(false);
 
   const allMarkersRef = useRef([]); // create a ref for allMarkers

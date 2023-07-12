@@ -86,8 +86,8 @@ def add_values_to_VT(mbtiles_file_path, user_id):
             # Insert the .mbtiles data
             cur.execute("""
                 INSERT INTO mbt (tile_data, filename, timestamp, user_id)
-                VALUES (%s, %s, %s)
-                """, (mbtiles_data, 'curr.mbtiles', datetime.now()), user_id)
+                VALUES (%s, %s, %s, %s)
+                """, (mbtiles_data, 'curr.mbtiles', datetime.now(), user_id))
 
             # Don't forget to commit the transaction
             conn.commit()
