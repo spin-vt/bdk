@@ -45,9 +45,12 @@ app.config['JWT_ACCESS_COOKIE_NAME'] = 'token'
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 
-@app.route("/served-data", methods=['GET'])
-def get_number_records():
-    return jsonify(kml_ops.get_wired_data())
+@app.route("/served-data/<user>", methods=['GET'])
+def get_number_records(user):
+    session = Session()
+    userVal = session.query(user).filter(user.username == user).one()
+    session.close()
+    return jsonify(kml_ops.get_wired_data(userVal.id))
 
 @app.route('/submit-data', methods=['POST', 'GET'])
 def submit_data():

@@ -599,7 +599,9 @@ function Map({ markers }) {
       allMarkersRef.current.length === 0
     ) {
       setIsLoadingForUntimedEffect(true);
-      return fetch("http://localhost:5000/served-data", {
+      const user = localStorage.getItem("username");
+
+      return fetch(`http://localhost:5000/served-data/${user}`, {
         method: "GET",
       })
         .then((response) => response.json())
