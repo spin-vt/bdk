@@ -45,7 +45,6 @@ const Register = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.status === "success") {
-          localStorage.setItem('token', data.token);
           router.push('/');
         }
         else {

@@ -64,30 +64,42 @@ def add_values_to_VT(mbtiles_file_path, user_id):
             FROM tiles
             """
         )
-        
+
         try:
             # Create a new connection to Postgres
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()
-            
-            # Prepare the vector tile data
-            data = [(row[0], row[1], row[2], Binary(row[3]), user_id) for row in mb_c]
-
-            # Execute values will generate a SQL INSERT query with placeholders for the parameters
-            execute_values(cur, """
-                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, user_id) 
-                VALUES %s
-                """, data)
 
             # Open the .mbtiles file as binary and read the data
             with open(mbtiles_file_path, 'rb') as file:
                 mbtiles_data = Binary(file.read())
             
+            # Query the count of existing mbtiles for the user
+            cur.execute("SELECT COUNT(*) FROM mbt WHERE user_id = %s", (user_id,))
+            count = cur.fetchone()[0]
+
+            # Define new filename
+            cur.execute('SELECT "username" FROM "user" WHERE id = %s', (user_id,))
+            username = cur.fetchone()[0]
+            new_filename = f'{username}-{count+1}.mbtiles'
+
             # Insert the .mbtiles data
             cur.execute("""
                 INSERT INTO mbt (tile_data, filename, timestamp, user_id)
-                VALUES (%s, %s, %s, %s)
-                """, (mbtiles_data, 'curr.mbtiles', datetime.now(), user_id))
+                VALUES (%s, %s, %s, %s) RETURNING id
+                """, (mbtiles_data, new_filename, datetime.now(), user_id))
+
+            # Get the id of the mbtiles file
+            mbt_id = cur.fetchone()[0]
+
+            # Prepare the vector tile data
+            data = [(row[0], row[1], row[2], Binary(row[3]), mbt_id) for row in mb_c]
+
+            # Execute values will generate a SQL INSERT query with placeholders for the parameters
+            execute_values(cur, """
+                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, mbt_id) 
+                VALUES %s
+                """, data)
 
             # Don't forget to commit the transaction
             conn.commit()
@@ -151,12 +163,12 @@ def create_mbtiles_from_db(output_path):
     # Close the PostgreSQL session
     pg_session.close()
 
-def tiles_join(geojson_data):
+def tiles_join(geojson_data, user_id):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     # Extract the .mbtiles file from the database
-    cursor.execute("SELECT tile_data FROM mbt LIMIT 1")
+    cursor.execute("SELECT tile_data FROM mbt WHERE user_id = %s ORDER BY id DESC LIMIT 1", (user_id,))
     mbtiles_data = cursor.fetchone()[0]
 
     # Save the .mbtiles file temporarily on the disk
@@ -182,11 +194,11 @@ def tiles_join(geojson_data):
 
 
 def create_tiles(geojson_array, user_id):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-    cursor.execute('TRUNCATE TABLE vt')
-    conn.commit()
-    conn.close()
+    # conn = psycopg2.connect(DATABASE_URL)
+    # cursor = conn.cursor()
+    # cursor.execute('TRUNCATE TABLE vt')
+    # conn.commit()
+    # conn.close()
     network_data = get_wired_data()
     point_geojson = {
          "type": "FeatureCollection",
@@ -247,16 +259,18 @@ def retrieve_tiles(zoom, x, y, username):
     with db_lock:
             cursor.execute(
                 """
-                SELECT tile_data
-                FROM "vt"
-                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s AND user_id = %s
+                SELECT vt.tile_data
+                FROM vt
+                JOIN mbt ON vt.mbt_id = mbt.id
+                WHERE vt.zoom_level = %s AND vt.tile_column = %s AND vt.tile_row = %s AND mbt.user_id = %s
+                ORDER BY mbt.timestamp DESC
                 """, 
                 (int(zoom), int(x), int(y), user_id)
             )
     tile = cursor.fetchone()
     return tile
 
-def toggle_tiles(markers):
+def toggle_tiles(markers, user_id):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
@@ -319,7 +333,7 @@ def toggle_tiles(markers):
         conn.commit()
 
         
-        tiles_join(geojson_data)
+        tiles_join(geojson_data, user_id)
         message = 'Markers toggled successfully'
         status_code = 200
 

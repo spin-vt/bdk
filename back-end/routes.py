@@ -9,10 +9,10 @@ from flask_jwt_extended import (
     create_access_token,
     jwt_required,
     get_jwt_identity,
+    decode_token
 )
 from celery.result import AsyncResult
-from flask_jwt_extended.exceptions import NoAuthorizationError
-from utils.settings import DATABASE_URL
+from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
 from database.models import File
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
@@ -40,6 +40,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'ADFAKJFDLJEOQRIOPQ498689780')  # Use a default value for development if SECRET_KEY environment variable doesn't exist
 app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET', 'ADFAKJFDLJEOQRI').encode())  # Use a default value for development if JWT_SECRET environment variable doesn't exist
+app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+app.config['JWT_ACCESS_COOKIE_NAME'] = 'token'
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 
 @app.route("/served-data", methods=['GET'])
@@ -146,14 +149,18 @@ def login():
     if user is not None and check_password_hash(user[2], password):
         user_id = user[0]
         access_token = create_access_token(identity={'id': user_id, 'username': username})
-        return jsonify({'status': 'success', 'token': access_token})
+        response = make_response(jsonify({'status': 'success', 'token': access_token}))
+        response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+        return response
     else:
         return jsonify({'status': 'error', 'message': 'Invalid credentials'})
 
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    return jsonify({'status': 'success', 'token': ''})
+    response = make_response(jsonify({'status': 'success', 'message': 'Logged out'}))
+    response.delete_cookie('token')
+    return response
 
 
 @app.route('/api/user', methods=['GET'])
@@ -203,11 +210,16 @@ def serve_tile(zoom, x, y):
     return response
 
 @app.route('/toggle-markers', methods=['POST'])
+@jwt_required()
 def toggle_markers():
-    markers = request.json
-    response = vt_ops.toggle_tiles(markers)
+    try:
+        markers = request.json
+        identity = get_jwt_identity()
+        response = vt_ops.toggle_tiles(markers, identity['id'])
 
-    return jsonify(message=response[0]), response[1]
+        return jsonify(message=response[0]), response[1]
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
 @app.route('/api/mbtiles', methods=['GET'])
