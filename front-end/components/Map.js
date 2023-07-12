@@ -349,11 +349,12 @@ function Map({ markers }) {
 
   const addVectorTiles = () => {
     removeVectorTiles();
-    const token = localStorage.getItem("token");
 
     fetch("http://localhost:5000/api/user", {
+      method: "GET",
+      credentials: "include", // Include cookies in the request
       headers: {
-        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
       },
     })
       .then((response) => {
@@ -429,6 +430,7 @@ function Map({ markers }) {
   const toggleMarkers = (markers) => {
     return fetch("http://localhost:5000/toggle-markers", {
       method: "POST",
+      credentials: "include", // Include cookies in the request
       headers: {
         "Content-Type": "application/json",
       },
@@ -556,7 +558,6 @@ function Map({ markers }) {
     console.log(selectedMarkerIds);
     // Send request to server to change the selected markers to served
     toggleMarkers(selectedMarkerIds).finally(() => {
-      const token = localStorage.getItem("token");
 
       removeVectorTiles();
       addVectorTiles();

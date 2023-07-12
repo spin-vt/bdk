@@ -78,7 +78,7 @@ export default function Navbar() {
     const [storedValue, setStoredValue] = React.useState(() => {
       try {
         if (typeof window !== undefined) {
-        const item = window.localStorage.getItem(key);
+          const item = window.localStorage.getItem(key);
         }
         return item ? item : initialValue;
       } catch (error) {
@@ -86,17 +86,17 @@ export default function Navbar() {
         return initialValue;
       }
     });
-  
+
     const setValue = (value) => {
       try {
         if (value === null) {
           if (typeof window !== undefined) {
-          window.localStorage.removeItem(key);
+            window.localStorage.removeItem(key);
           }
           setStoredValue(null);
         } else {
           if (typeof window !== undefined) {
-          window.localStorage.setItem(key, value);
+            window.localStorage.setItem(key, value);
           }
           setStoredValue(value);
         }
@@ -104,10 +104,10 @@ export default function Navbar() {
         console.error(error);
       }
     };
-  
+
     return [storedValue, setValue];
   }
-  
+
   const searchInputRef = React.useRef(null);
   const buttonRef = React.useRef(null);
   const [username, setUsername] = useLocalStorage("username", null);
@@ -119,7 +119,7 @@ export default function Navbar() {
   const [menuWidth, setMenuWidth] = React.useState(null);
 
 
-  
+
 
   const handleMenuOpen = (event) => {
     setMenuOpen(true);
@@ -161,12 +161,12 @@ export default function Navbar() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies in the request
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.status === "success") {
-          localStorage.removeItem('token');
           localStorage.removeItem('username');  // Remove username from local storage
           setUsername(null);  // Update username state
           router.push('/');
@@ -184,13 +184,12 @@ export default function Navbar() {
     console.log(usernameFromStorage);
     if (!usernameFromStorage) {
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch('http://localhost:5000/api/user', {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
+          method: "GET",
+          credentials: "include", // Include cookies in the request
+          headers: {
+            Accept: "application/json",
+          },
         });
         if (response.ok) {
           const data = await response.json();
@@ -228,24 +227,24 @@ export default function Navbar() {
 
     fetchData();
   }, [username]);
-  
+
   if (!hasMounted) {
     return null;
   }
 
   let menuTopItem;
 
-  if(username) {
-    menuTopItem = {text: 'Hello, ' + username, href: '/profile', icon: <AccountCircleIcon className={classes.icon}/>};
+  if (username) {
+    menuTopItem = { text: 'Hello, ' + username, href: '/profile', icon: <AccountCircleIcon className={classes.icon} /> };
   } else {
-    menuTopItem = {text: 'Hello, sign in', href: '/login', icon: <LoginIcon className={classes.icon}/>};
+    menuTopItem = { text: 'Hello, sign in', href: '/login', icon: <LoginIcon className={classes.icon} /> };
   }
-  
+
   const menuItems = [
-    { text: 'Home', href: '/', icon: <HomeIcon className={classes.iconText}/> },
-    { text: 'About', href: '/about', icon: <InfoIcon className={classes.iconText}/> },
-    { text: 'Services', href: '/services', icon: <BusinessIcon className={classes.iconText}/> },
-    { text: 'Contact', href: '/contact', icon: <ContactMailIcon className={classes.iconText}/> },
+    { text: 'Home', href: '/', icon: <HomeIcon className={classes.iconText} /> },
+    { text: 'About', href: '/about', icon: <InfoIcon className={classes.iconText} /> },
+    { text: 'Services', href: '/services', icon: <BusinessIcon className={classes.iconText} /> },
+    { text: 'Contact', href: '/contact', icon: <ContactMailIcon className={classes.iconText} /> },
   ];
 
   return (
@@ -260,24 +259,24 @@ export default function Navbar() {
             sx={{ mr: 2 }}
             onClick={handleDrawerOpen}
           >
-            <MenuIcon className={classes.menuItem}/>
+            <MenuIcon className={classes.menuItem} />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }} className={classes.title}>
             Broadband Data Collection Helper
           </Typography>
-          <Searchbar className={classes.menuItem}/>
+          <Searchbar className={classes.menuItem} />
 
           <IconButton href='/previousfile'>
-            <FolderIcon sx={{color:"white", marginRight:"5px"}} />
+            <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
             <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
               Your Files
             </Typography>
           </IconButton>
- 
+
           <Box display="flex" alignItems="center">
             {username ? (
               <Box display="flex" alignItems="center">
-                <IconButton  ref={buttonRef} color="inherit" onClick={handleMenuOpen} >
+                <IconButton ref={buttonRef} color="inherit" onClick={handleMenuOpen} >
                   <AccountCircleIcon />
                   <Typography variant="body1">{username}</Typography>
                   {menuOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -292,10 +291,10 @@ export default function Navbar() {
                     },
                   }}
                 >
-                  <MenuItem onClick={() => handleMenuNavigation("/profile")}>     
-                      Profile
+                  <MenuItem onClick={() => handleMenuNavigation("/profile")}>
+                    Profile
                   </MenuItem>
-                  <MenuItem onClick={handleLogout}>                
+                  <MenuItem onClick={handleLogout}>
                     Logout
                   </MenuItem>
                 </Menu>
@@ -310,33 +309,33 @@ export default function Navbar() {
             )}
           </Box>
         </Toolbar>
-        </AppBar>
-    <Drawer 
-      anchor="left" open={isDrawerOpen} 
-      onClose={handleDrawerClose} 
-      className={classes.drawer}
-      classes={{
-      paper: classes.drawerPaper,
-    }}>
-      <List>
-        <Link href={menuTopItem.href}>
-          <ListItem onClick={handleDrawerClose} className={classes.listItemElem}>
-            
+      </AppBar>
+      <Drawer
+        anchor="left" open={isDrawerOpen}
+        onClose={handleDrawerClose}
+        className={classes.drawer}
+        classes={{
+          paper: classes.drawerPaper,
+        }}>
+        <List>
+          <Link href={menuTopItem.href}>
+            <ListItem onClick={handleDrawerClose} className={classes.listItemElem}>
+
               {menuTopItem.icon}
               <ListItemText primary={menuTopItem.text} />
 
-          </ListItem>
-        </Link>
-        {menuItems.map((item, index) => (
-          <Link href={item.href} key={item.text}>
-            <ListItem onClick={handleDrawerClose} className={classes.listItemElem} >
-            
-                {item.icon}
-                <ListItemText primary={item.text} />
             </ListItem>
           </Link>
-        ))}
-      </List>
+          {menuItems.map((item, index) => (
+            <Link href={item.href} key={item.text}>
+              <ListItem onClick={handleDrawerClose} className={classes.listItemElem} >
+
+                {item.icon}
+                <ListItemText primary={item.text} />
+              </ListItem>
+            </Link>
+          ))}
+        </List>
       </Drawer>
     </Box>
   );

@@ -70,7 +70,9 @@ class vector_tiles(Base):
     tile_row = Column(Integer)
     tile_data = Column(LargeBinary)
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
-    user = relationship('user', backref='vector_tiles')  # add this line to define a relationship
+    mbt_id = Column(Integer, ForeignKey('mbt.id'))  # change 'mbt.id' to 'mbtiles.id'
+    user = relationship('user', back_populates='vector_tiles')  # add this line
+    mbtiles = relationship('mbtiles', back_populates='vector_tiles')  # add this line
 
 class user(Base):
     __tablename__ = 'user'
@@ -78,6 +80,8 @@ class user(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True)
     password = Column(String(256))
+    vector_tiles = relationship('vector_tiles', back_populates='user')
+    mbtiles = relationship('mbtiles', back_populates='user')  # change backref to back_populates
 
 class mbtiles(Base):
     __tablename__ = 'mbt'
@@ -86,7 +90,8 @@ class mbtiles(Base):
     filename = Column(String)  # this will add a filename column
     timestamp = Column(DateTime)  # this will add a timestamp column
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
-    user = relationship('user', backref='mbtiles')  # add this line to define a relationship
+    user = relationship('user', back_populates='mbtiles')  # add this line
+    vector_tiles = relationship('vector_tiles', back_populates='mbtiles')  # add this line to define a relationship, change 'vt' to 'vector_tiles'
 
 class File(Base):
     __tablename__ = 'files'
