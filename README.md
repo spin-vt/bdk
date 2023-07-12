@@ -12,7 +12,7 @@ To build and run the docker container, simply goes to the "bdk" folder and run t
 2) `docker-compose up`
 
 # Database migration synchonization
-Database migration, managed by a tool call alembic, is only effective when postgres database is set up. On the first "docker-compose up" run the database might not be setup while migration command is issued, causing an no-op for database migration. You can verify if migration is successful by trying to register an account as shown in the picture below. You should be redirected to the homepage when you click on the "register" button after you put in your username and password. If not, You could simply stop and rerun your container, which should fix the issue.
+Database migration, managed by a tool call alembic, is only effective when postgres database is set up. On the first "docker-compose up" run the database might not be setup while migration command is issued, causing an no-op for database migration. You can verify if migration is successful by trying to register an account as shown in the picture below. You should be redirected to the homepage when you click on the "register" button after you put in your username and password. If not, You could simply stop and rerun your container with `docker-compose up`, which should fix the issue.
 ![Web capture_11-7-2023_225525_localhost](https://github.com/spin-vt/bdk/assets/36636157/ee39f6f8-7bc6-4a21-9d78-40dee3c2f706)
 
 # Additional notes
