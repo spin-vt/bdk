@@ -25,13 +25,9 @@ WORKDIR /app
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
-COPY . .
-
 # Copy the entrypoint script and wait-for script, and make them executable
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
-RUN mkdir -p /app/alembic/versions
 
 # Use the wait-for script in your entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

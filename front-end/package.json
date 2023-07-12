@@ -31,18 +31,15 @@
     "http-proxy-middleware": "^2.0.6",
     "lodash.debounce": "^4.0.8",
     "maplibre-gl": "^3.1.0",
-    "next": "^13.4.3",
+    "next": "latest",
     "papaparse": "^5.4.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.2.3",
-    "react-leaflet": "^4.2.1",
-    "react-leaflet-marker-layer": "^0.1.4",
-    "react-leaflet-markercluster": "^3.0.0-rc1",
-    "react-leaflet-vectorgrid": "^2.2.1",
     "react-loading": "^2.0.3",
     "react-swipeable-views": "^0.14.0",
     "sweetalert2": "^11.7.12",
-    "yup": "^1.2.0"
+    "yup": "^1.2.0",
+    "@maptiler/sdk": "latest"
   }
 }

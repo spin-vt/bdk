@@ -1,27 +1,40 @@
-FROM alpine:3.17
 
+FROM node:18-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install system packages and Node.js
-RUN apk update && \
-    apk add --no-cache git \
-    build-base \
-    sqlite-dev \
-    zlib-dev \
-    bash \
-    nodejs \
-    npm
+COPY package.json package-lock.json ./
+RUN  npm install --legacy-peer-deps
 
-# Verify installation
-RUN echo "Node version:" \
-  && node --version \
-  && echo "npm version:" \
-  && npm --version
-
-# Install application packages
-COPY package*.json ./
-RUN npm install --force
-
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-CMD ["npm", "run", "dev"]
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN npm run build
+
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/pages ./pages
+COPY --from=builder --chown=nextjs:nodejs /app/components ./components
+COPY --from=builder --chown=nextjs:nodejs /app/styles ./styles
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+
