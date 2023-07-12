@@ -15,7 +15,7 @@ from io import StringIO, BytesIO
 
 db_lock = Lock()
 
-def get_wired_data(): 
+def get_wired_data(id): 
     session = ScopedSession() 
 
     try:
@@ -35,6 +35,9 @@ def get_wired_data():
         ).join(
             Data,
             kml_data.location_id == Data.location_id
+        ).filter(
+            kml_data.user_id == id,  # Ensuring user_id in kml_data is the same as passed id
+            Data.user_id == id  # Ensuring user_id in Data is the same as passed id
         ).all()
 
         data = [{'location_id': r[0],
@@ -53,7 +56,7 @@ def get_wired_data():
 
     return data
 
-def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
+def add_to_db(pandaDF, networkName, fabric, flag, download, wireless, id):
     batch = [] 
     session = Session()
     for _, row in pandaDF.iterrows():
@@ -61,7 +64,7 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
             if row.location_id == '': 
                 continue
 
-            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
+            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id), user_id=id).first()
 
             if download == "": 
                 download = 0
@@ -75,7 +78,8 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
                     username = "vineet",
                     coveredLocations = networkName,
                     maxDownloadNetwork = networkName,
-                    maxDownloadSpeed = int(download)
+                    maxDownloadSpeed = int(download), 
+                    user_id = id
                 )
                 batch.append(newData)
             else:  # If the location_id exists
@@ -133,7 +137,8 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless):
             'username': "vineet",
             'coveredLocations': "",
             'maxDownloadNetwork': -1,
-            'maxDownloadSpeed': -1
+            'maxDownloadSpeed': -1, 
+            'user_id': id
         } for _, row in not_served_fabric.iterrows()]
 
         # Use chunks if rows_to_insert is very large
@@ -196,10 +201,10 @@ def export(download_speed, upload_speed, tech_type):
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, tech):
+def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, tech, id):
     session = ScopedSession()
-    fabric_file = session.query(File).filter_by(file_name=Fabric_FN).first()
-    coverage_file = session.query(File).filter_by(file_name=Coverage_fn).first()
+    fabric_file = session.query(File).filter_by(file_name=Fabric_FN, user_id=id).first()
+    coverage_file = session.query(File).filter_by(file_name=Coverage_fn, user_id=id).first()
     
     if fabric_file is None or coverage_file is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")
@@ -223,15 +228,15 @@ def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, t
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True)
+    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True, id)
     return res
 
-def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
+def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, id):
     # Open session
     session = ScopedSession()
 
     # Fetch Fabric file from database
-    fabric_file_record = session.query(File).filter(File.file_name == Fabric_FN).first()
+    fabric_file_record = session.query(File).filter(File.file_name == Fabric_FN, File.user_id == id).first()
     if not fabric_file_record:
         raise ValueError(f"No file found with name {Fabric_FN}")
     fabric_csv_data = fabric_file_record.data.decode()
@@ -241,9 +246,9 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
     df = pandas.read_csv(fabric_data)
 
     # Fetch Fiber file from database
-    fiber_file_record = session.query(File).filter(File.file_name == Fiber_FN).first()
+    fiber_file_record = session.query(File).filter(File.file_name == Fiber_FN, File.user_id == id).first()
     if not fiber_file_record:
-        raise ValueError(f"No file found with name {Fiber_FN}")
+        raise ValueError(f"No file found with name {Fiber_FN} and id {id}")
     fiber_kml_data = fiber_file_record.data
 
     # Convert the KML data bytes to a file-like object
@@ -274,15 +279,15 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech):
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False)
+    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False, id)
     return res 
 
-def add_network_data(Fabric_FN, Fiber_FN, flag, download, upload, tech, type):
+def add_network_data(Fabric_FN, Fiber_FN, flag, download, upload, tech, type, id):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech)
+        res = compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, id)
     elif type == 1: 
-        res = compute_wireless_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech)
+        res = compute_wireless_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, id)
     return res 
 
 

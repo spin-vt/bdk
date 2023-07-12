@@ -7,6 +7,29 @@ from sqlalchemy.orm import relationship
 class Data(Base):
     __tablename__ = 'fabric'
     
+    # id = Column(Integer, primary_key=True, autoincrement=True)
+    location_id = Column(Integer, primary_key=True)
+    address_primary = Column(String)
+    city = Column(String)
+    state = Column(String)
+    zip_code = Column(String)
+    zip_suffix = Column(String)
+    unit_count = Column(Integer)
+    bsl_flag = Column(String)
+    building_type_code = Column(String)
+    land_use_code = Column(Integer)
+    address_confidence_code = Column(String)
+    country_geoid = Column(String)
+    block_geoid = Column(String)
+    h3_9 = Column(String)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    user = relationship('user', backref='Data')  # add this line to define a relationship
+
+class Data_temp(Base):
+    __tablename__ = 'fabric_temp'
+    
     location_id = Column(Integer, primary_key=True)
     address_primary = Column(String)
     city = Column(String)
@@ -26,7 +49,9 @@ class Data(Base):
 
 class kml_data(Base):
     __tablename__ = 'KML'
-    location_id = Column(Integer, primary_key=True)
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    location_id = Column(Integer)
     served = Column(Boolean)
     wireless = Column(Boolean)
     lte = Column(Boolean)
@@ -34,6 +59,8 @@ class kml_data(Base):
     coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
+    user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    user = relationship('user', backref='kml_data')  # add this line to define a relationship
 
 class vector_tiles(Base):
     __tablename__ = 'vt'
@@ -67,6 +94,8 @@ class File(Base):
     id = Column(Integer, primary_key=True)
     file_name = Column(String, nullable=False)
     data = Column(LargeBinary, nullable=False)
+    user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    user = relationship('user', backref='File')  # add this line to define a relationship
 
 
     

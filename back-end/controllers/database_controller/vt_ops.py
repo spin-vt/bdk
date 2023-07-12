@@ -27,11 +27,11 @@ def recursive_placemarks(folder):
             yield from recursive_placemarks(feature)
 
 
-def read_kml(file_name):
+def read_kml(file_name, id):
 # Now you can extract all placemarks from the root KML object
     # geojson_array= []
     session = ScopedSession()
-    file_record = session.query(File).filter(File.file_name == file_name).first()
+    file_record = session.query(File).filter(File.file_name == file_name, File.user_id == id).first()
 
     if not file_record:
         raise ValueError(f"No file found with name {file_name}")
@@ -184,10 +184,9 @@ def tiles_join(geojson_data):
 def create_tiles(geojson_array, user_id):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
-    cursor.execute('TRUNCATE TABLE vt')
     conn.commit()
     conn.close()
-    network_data = get_wired_data()
+    network_data = get_wired_data(user_id)
     point_geojson = {
          "type": "FeatureCollection",
          "features": [

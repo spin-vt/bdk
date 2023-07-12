@@ -37,7 +37,7 @@ def process_data(self, file_names, file_data_list, username):
 
                 task_id = str(uuid.uuid4())
 
-                task = fabric_ops.write_to_db(file_name)
+                task = fabric_ops.write_to_db(file_name, userVal.id)
                 tasks.append(task)
 
             elif file_name.endswith('.kml'):
@@ -52,22 +52,23 @@ def process_data(self, file_names, file_data_list, username):
                 else: 
                     networkType = 1
 
-                task = kml_ops.add_network_data(fabricName, file_name, flag, downloadSpeed, uploadSpeed, techType, networkType)
+                task = kml_ops.add_network_data(fabricName, file_name, flag, downloadSpeed, uploadSpeed, techType, networkType, userVal.id)
                 tasks.append(task)
                 flag = True
-                geojson_array.append(vt_ops.read_kml(file_name))
+                geojson_array.append(vt_ops.read_kml(file_name, userVal.id))
 
         vt_ops.create_tiles(geojson_array, userVal.id)
         
-        # try:
-        #     for name in names:
-        #         file_to_delete = session.query(File).filter_by(file_name=name).first()  # get the file
-        #         if file_to_delete:
-        #             session.delete(file_to_delete)  # delete the file
-        #             session.commit()  # commit the transaction
-        # except Exception as e:
-        #     session.rollback()  # rollback the transaction in case of error
-        #     raise e  # propagate the error further
+        try:
+            for name in names:
+                file_to_delete = session.query(File).filter_by(file_name=name, user_id=userVal.id).first()  # get the file
+                if file_to_delete:
+                    session.delete(file_to_delete)  # delete the file
+                    session.commit()  # commit the transaction
+        except Exception as e:
+            session.rollback()  # rollback the transaction in case of error
+            raise e  # propagate the error further
+        
         session.close()
         return {'Status': "Ok"}
     

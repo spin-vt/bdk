@@ -14,7 +14,7 @@ from celery.result import AsyncResult
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from utils.settings import DATABASE_URL
 from database.sessions import Session
-from database.models import File
+from database.models import File, user
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data
@@ -62,11 +62,12 @@ def submit_data():
         file_data_list = request.form.getlist('fileData')
 
         session = Session()
+        userVal = session.query(user).filter(user.username == username).one()
         file_names = []
 
         for file in files:
             data = file.read()
-            new_file = File(file_name=file.filename, data=data)
+            new_file = File(file_name=file.filename, data=data, user_id=userVal.id)
             session.add(new_file)
             session.commit()
             file_names.append(new_file.file_name)
