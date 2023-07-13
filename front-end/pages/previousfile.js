@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
 import { useRouter } from 'next/router';
-import { TextField, Button, Typography, Container, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton } from '@material-ui/core';
+import { TextField, Typography, Container, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import Link from 'next/link'
 import Navbar from '../components/Navbar';
@@ -9,6 +9,18 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ClearIcon from '@mui/icons-material/Clear';
 import MapIcon from '@mui/icons-material/Map';
 import MbtilesContext from '../components/MbtilesContext';
+import Modal from '@mui/material/Modal';
+import { Box } from '@mui/system';
+import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
+
+import dynamic from 'next/dynamic';
+
+const Minimap = dynamic(
+  () => import('../components/Minimap'),
+  { ssr: false }
+);
+
 
 
 const useStyles = makeStyles((theme) => ({
@@ -30,18 +42,6 @@ const useStyles = makeStyles((theme) => ({
       color: '#d32f2f', // Darker red on hover
     },
   },
-  // deleteButton: {
-  //   backgroundColor: '#f44336', // Red color
-  //   color: '#fff', // White color
-  //   '&:hover': {
-  //     backgroundColor: '#d32f2f', // Darker red on hover
-  //   },
-  //   borderRadius: '10px',
-  //   padding: '4px',
-  //   margin: '4px',
-  //   border: 'none',
-  //   cursor: 'pointer',
-  // },
 }));
 
 
@@ -54,7 +54,14 @@ const PreviousFile = () => {
   const router = useRouter();
 
   // Inside your component
-  const {setMbtid} = useContext(MbtilesContext);
+  const { setMbtid } = useContext(MbtilesContext);
+
+  const [viewonlymapid, setViewonlymapid] = useState(null);
+
+  const [open, setOpen] = useState(false);
+
+  const handleOpen = () => setOpen(true);
+  const handleClose = () => setOpen(false);
 
   const fetchMbtiles = async () => {
     const response = await fetch("http://localhost:5000/api/mbtiles", {
@@ -105,11 +112,16 @@ const PreviousFile = () => {
     }
   };
 
-  const handleViewOnMap = (index) => {
-    console.log("view map clicked");
+  const handleEditMap = (index) => {
     const file = files[index];
     setMbtid(file.id);
     router.push("/");
+  };
+
+  const handleViewMap = (index) => {
+    const file = files[index];
+    setViewonlymapid(file.id);
+    handleOpen();
   };
 
   return (
@@ -119,6 +131,30 @@ const PreviousFile = () => {
         <Typography component="h1" variant="h5" className={classes.headertext}>
           Your Uploaded Files
         </Typography>
+        <Modal
+          open={open}
+          onClose={handleClose}
+          aria-labelledby="map-modal-title"
+          aria-describedby="map-modal-description"
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '80%', // 80% width of the viewport
+              maxHeight: '80%', // 80% max height of the viewport
+              bgcolor: 'background.paper',
+              boxShadow: 24,
+              p: 4,
+              overflow: 'hidden' // add scrollbar if content is taller than maxHeight
+            }}
+          >
+            <IconButton onClick={handleClose}><Typography>Close Map</Typography><CloseIcon /></IconButton>
+            <Minimap id={viewonlymapid} />
+          </Box>
+        </Modal>
         <TableContainer component={Paper}>
           <Table className={classes.table} aria-label="simple table">
             <TableHead>
@@ -136,16 +172,22 @@ const PreviousFile = () => {
                   </TableCell>
                   <TableCell align="right">{file.uploadDate}</TableCell>
                   <TableCell align="right">
-                    <IconButton className={classes.mapButton} onClick={() => handleViewOnMap(index)}>
-                      <MapIcon />
-                      <Typography sx={{ marginLeft: '10px'}}>
-                        View on Map
+                    <IconButton className={classes.mapButton} onClick={() => handleEditMap(index)}>
+                      <EditIcon />
+                      <Typography sx={{ marginLeft: '10px' }}>
+                        Edit map
                       </Typography>
                     </IconButton>
                     <IconButton className={classes.deleteButton} onClick={() => handleDelete(index)}>
                       <DeleteIcon />
-                      <Typography sx={{ marginLeft: '10px'}}>
-                        Delete
+                      <Typography sx={{ marginLeft: '10px' }}>
+                        Delete map
+                      </Typography>
+                    </IconButton>
+                    <IconButton onClick={() => handleViewMap(index)}>
+                      <MapIcon />
+                      <Typography sx={{ marginLeft: '10px' }}>
+                        View this Map
                       </Typography>
                     </IconButton>
                   </TableCell>
