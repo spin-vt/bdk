@@ -79,7 +79,7 @@ def get_kml_data(id):
 
     return data
 
-def add_to_db(pandaDF, networkName, download, wireless, id):
+def add_to_db(pandaDF, networkName, download, upload, tech, wireless, id):
     batch = [] 
     session = Session()
     userVal = session.query(user).filter(user.id == id).one()
@@ -104,6 +104,8 @@ def add_to_db(pandaDF, networkName, download, wireless, id):
                     coveredLocations = networkName,
                     maxDownloadNetwork = networkName,
                     maxDownloadSpeed = int(download), 
+                    maxUploadSpeed = int(upload), 
+                    techType = tech, 
                     user_id = id
                 )
                 batch.append(newData)
@@ -122,6 +124,8 @@ def add_to_db(pandaDF, networkName, download, wireless, id):
                 if int(download) > int(existing_data.maxDownloadSpeed): 
                     existing_data.maxDownloadNetwork = networkName
                     existing_data.maxDownloadSpeed = int(download)
+                if int(upload) > int(existing_data.maxUploadSpeed): 
+                    existing_data.maxUploadSpeed = int(upload)
 
             if len(batch) >= BATCH_SIZE:
                 with db_lock:
@@ -148,14 +152,9 @@ def add_to_db(pandaDF, networkName, download, wireless, id):
 
     return True 
 
-def export(download_speed, upload_speed, tech_type): 
+def export(): 
     PROVIDER_ID = 000 
     BRAND_NAME = 'Test' 
-
-    TECHNOLOGY_CODE = tech_type
-    MAX_DOWNLOAD_SPEED = download_speed
-    MAX_UPLOAD_SPEED = upload_speed
-
     LATENCY = 0 
     BUSINESS_CODE = 0
 
@@ -164,7 +163,7 @@ def export(download_speed, upload_speed, tech_type):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT location_id FROM "KML" WHERE served = true')
+    cursor.execute('SELECT location_id, "maxDownloadSpeed", "maxUploadSpeed", "techType" FROM "KML" WHERE served = true')
     result = cursor.fetchall()
 
     cursor.close()
@@ -173,16 +172,16 @@ def export(download_speed, upload_speed, tech_type):
     availability_csv['location_id'] = [row[0] for row in result]
     availability_csv['provider_id'] = PROVIDER_ID
     availability_csv['brand_name'] = BRAND_NAME
-    availability_csv['technology'] = TECHNOLOGY_CODE
-    availability_csv['max_advertised_download_speed'] = MAX_DOWNLOAD_SPEED
-    availability_csv['max_advertised_upload_speed'] = MAX_UPLOAD_SPEED
+    availability_csv['technology'] = [row[3] for row in result]
+    availability_csv['max_advertised_download_speed'] = [row[1] for row in result]
+    availability_csv['max_advertised_upload_speed'] = [row[2] for row in result]
     availability_csv['low_latency'] = LATENCY
     availability_csv['business_residential_code'] = BUSINESS_CODE
 
     availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
                                         'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
 
-    filename = 'FCC_broadband.csv'
+    filename = '../../FCC_broadband.csv'
     availability_csv.to_csv(filename, index=False)
     return filename
 
@@ -215,7 +214,7 @@ def compute_wireless_locations(Fabric_FN, Coverage_fn, download, upload, tech, i
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, download, True, id)
+    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, download, upload, tech, True, id)
     return res
 
 def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id):
@@ -266,7 +265,7 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id):
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, download, False, id)
+    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, download, upload, tech, False, id)
     return res 
 
 def add_network_data(Fabric_FN, Fiber_FN,download, upload, tech, type, id):

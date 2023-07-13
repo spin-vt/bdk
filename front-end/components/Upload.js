@@ -110,18 +110,6 @@ export default function Upload({ fetchMarkers }) {
   const [isDataReady, setIsDataReady] = React.useState(false);
   const loadingTimeInMs = 3.5 * 60 * 1000;
 
-  const handleDownloadClick = (event) => {
-    event.preventDefault();
-
-    const params = new URLSearchParams({
-      downloadSpeed: downloadSpeed,
-      uploadSpeed: uploadSpeed,
-      techType: techType,
-    });
-
-    window.location.href = `http://localhost:5000/export?${params.toString()}`;
-  };
-
   const handleExportClick = (event) => {
     event.preventDefault();
 
@@ -466,11 +454,6 @@ export default function Upload({ fetchMarkers }) {
       </Box>
       <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
         <ExportButton onClick={handleExportClick} />
-        {exportSuccess && (
-          <Button variant="contained" onClick={handleDownloadClick}>
-            Download Report
-          </Button>
-        )}
         <MapKey />
       </Box>
     </React.Fragment>

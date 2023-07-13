@@ -59,6 +59,8 @@ class kml_data(Base):
     coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
+    maxUploadSpeed = Column(Integer)
+    techType = Column(String)
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
     user = relationship('user', backref='kml_data')  # add this line to define a relationship
 

@@ -181,12 +181,11 @@ def get_user_info():
 def export():
     response_data = {'Status': 'Failure'}
 
-    download_speed = request.args.get('downloadSpeed', default='', type=str)
-    upload_speed = request.args.get('uploadSpeed', default='', type=str)
-    tech_type = request.args.get('techType', default='', type=str)
+    # download_speed = request.args.get('downloadSpeed', default='', type=str)
+    # upload_speed = request.args.get('uploadSpeed', default='', type=str)
+    # tech_type = request.args.get('techType', default='', type=str)
 
-    filename = kml_ops.export(download_speed, upload_speed, tech_type)
-
+    filename = kml_ops.export()
     if filename:
         response_data = {'Status': "Success"}
         return send_file(filename, as_attachment=True)
