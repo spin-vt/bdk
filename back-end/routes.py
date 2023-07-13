@@ -186,7 +186,7 @@ def get_user_info():
 @app.route('/export', methods=['GET'])
 def export():
     response_data = {'Status': 'Failure'}
-    
+
     filename = kml_ops.export()
     if filename:
         response_data = {'Status': "Success"}

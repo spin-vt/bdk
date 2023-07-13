@@ -26,11 +26,13 @@ def process_data(self, file_names, file_data_list, username):
             existing_file = session.query(File).filter(File.file_name == file_name, File.user_id == userVal.id).first()
             print(existing_file)
             # If file name exists, skip to the next iteration
-            if existing_file:
+            if existing_file and existing_file.computed:
                 print("skip")
                 continue
             
             names.append(file_name)
+            existing_file.computed = True 
+            session.commit() #commit the change 
 
             file_data = json.loads(file_data_str)
 

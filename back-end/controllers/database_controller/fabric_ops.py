@@ -34,15 +34,16 @@ def write_to_db(file_name, id):
 
             # Copy data to temporary table
             output = StringIO(csv_data)
+            cur.copy_expert("COPY temp_fabric FROM STDIN CSV HEADER DELIMITER ','", output)
+            output.seek(0)
+
+             # Insert data from temporary table to final table with user_id
             try:
-                cur.copy_expert("COPY temp_fabric FROM STDIN CSV HEADER DELIMITER ','", output)
-                output.seek(0)
+                cur.execute(f'INSERT INTO fabric SELECT *, {id} as user_id FROM temp_fabric;')
+                connection.commit()
             except psycopg2.errors.UniqueViolation:
                 print("UniqueViolation occurred, ignoring.")
-
-            # Insert data from temporary table to final table with user_id
-            cur.execute(f'INSERT INTO fabric SELECT *, {id} as user_id FROM temp_fabric;')
-
+                
             connection.commit()
     finally:
         connection.close()

@@ -1,14 +1,13 @@
 from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime
 from sqlalchemy import Column, Integer, String, Float
 from database.base import Base
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 class Data(Base):
     __tablename__ = 'fabric'
     
-    # id = Column(Integer, primary_key=True, autoincrement=True)
-    location_id = Column(Integer, primary_key=True)
+    location_id = Column(Integer)
     address_primary = Column(String)
     city = Column(String)
     state = Column(String)
@@ -25,7 +24,10 @@ class Data(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    id = Column(Integer, primary_key=True, autoincrement=True)  # Unique primary key
     user = relationship('user', backref='Data')  # add this line to define a relationship
+
+    __table_args__ = (UniqueConstraint('location_id', 'user_id', name='location_user_uc'),)
 
 class Data_temp(Base):
     __tablename__ = 'fabric_temp'
@@ -101,6 +103,7 @@ class File(Base):
     id = Column(Integer, primary_key=True)
     file_name = Column(String, nullable=False)
     data = Column(LargeBinary, nullable=False)
+    computed = Column(Boolean, default=False)
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
     user = relationship('user', backref='File')  # add this line to define a relationship
 
