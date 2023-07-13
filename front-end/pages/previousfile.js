@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
 import { useRouter } from 'next/router';
 import { TextField, Typography, Container, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
+import { Select, MenuItem, FormControl, InputLabel, Checkbox, Grid } from '@material-ui/core';
+import { makeStyles, useTheme } from '@material-ui/core/styles';
 import Link from 'next/link'
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
@@ -13,6 +14,8 @@ import Modal from '@mui/material/Modal';
 import { Box } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
+import MergeIcon from '@mui/icons-material/Merge';
+import Searchbar from "../components/Searchbar";
 
 import dynamic from 'next/dynamic';
 
@@ -32,7 +35,7 @@ const useStyles = makeStyles((theme) => ({
   },
   container: {
     position: 'relative',
-    width: '100%',
+    minWidth: '80%',
     height: '90vh',
     marginTop: '20px'
   },
@@ -50,8 +53,12 @@ const useStyles = makeStyles((theme) => ({
 const PreviousFile = () => {
 
   const classes = useStyles();
+  const theme = useTheme();
   const [files, setFiles] = useState([]);
   const router = useRouter();
+
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [sortBy, setSortBy] = useState('newest');
 
   // Inside your component
   const { setMbtid } = useContext(MbtilesContext);
@@ -124,10 +131,22 @@ const PreviousFile = () => {
     handleOpen();
   };
 
+  useEffect(() => {
+    setFiles(prevFiles => [...prevFiles].sort((a, b) => {
+      if (sortBy === 'newest') {
+        return new Date(b.uploadDate) - new Date(a.uploadDate);
+      } else if (sortBy === 'oldest') {
+        return new Date(a.uploadDate) - new Date(b.uploadDate);
+      } else {
+        return 0;
+      }
+    }));
+  }, [sortBy]);
+
   return (
     <div>
       <Navbar />
-      <Container component="main" maxWidth="md">
+      <Container component="main" maxWidth="md" className={classes.container}>
         <Typography component="h1" variant="h5" className={classes.headertext}>
           Your Uploaded Files
         </Typography>
@@ -148,25 +167,100 @@ const PreviousFile = () => {
               bgcolor: 'background.paper',
               boxShadow: 24,
               p: 4,
-              overflow: 'hidden' // add scrollbar if content is taller than maxHeight
+              overflow: 'hidden', // add scrollbar if content is taller than maxHeight
             }}
           >
-            <IconButton onClick={handleClose}><Typography>Close Map</Typography><CloseIcon /></IconButton>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '100%',
+                marginBottom: '20px',
+              }}
+            >
+              <IconButton onClick={handleClose}><Typography>Close Map</Typography><CloseIcon /></IconButton>
+              <Searchbar />
+            </Box>
             <Minimap id={viewonlymapid} />
           </Box>
         </Modal>
         <TableContainer component={Paper}>
-          <Table className={classes.table} aria-label="simple table">
+          <Box display="flex" justifyContent="flex-end" p={1} border={1} borderColor={theme.palette.divider}>
+            <Grid container alignItems="center" justifyContent="flex-end">
+              <Grid item style={{ marginRight: '30px' }}>
+                <IconButton
+                  onClick={() => handleMergeSelected()} // Here create and use handleMergeSelected
+                >
+                  {/* Assuming you have a MergeIcon */}
+                  <MergeIcon />
+                  <Typography sx={{ marginLeft: '10px' }}>
+                    Merge Selected Files
+                  </Typography>
+                </IconButton>
+                <IconButton
+                  className={classes.deleteButton}
+                  onClick={() => handleDeleteSelected()} // Here create and use handleDeleteSelected
+                >
+                  <DeleteIcon />
+                  <Typography sx={{ marginLeft: '10px' }}>
+                    Delete Selected Files
+                  </Typography>
+                </IconButton>
+              </Grid>
+              <Grid item>
+                <FormControl>
+                  <InputLabel id="sort-by-label">Sort by</InputLabel>
+                  <Select
+                    labelId="sort-by-label"
+                    id="sort-by-select"
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
+                  >
+                    <MenuItem value={'newest'}>Newest First</MenuItem>
+                    <MenuItem value={'oldest'}>Oldest First</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+          <Table className={classes.table} aria-label="file table">
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={selectedFiles.length > 0 && selectedFiles.length < files.length}
+                    checked={files.length > 0 && selectedFiles.length === files.length}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        setSelectedFiles(files.map((file, index) => index));
+                      } else {
+                        setSelectedFiles([]);
+                      }
+                    }}
+                  />
+                </TableCell>
                 <TableCell>Filename</TableCell>
                 <TableCell align="right">Created Time</TableCell>
                 <TableCell align="right">Action</TableCell>
+
               </TableRow>
             </TableHead>
             <TableBody>
               {files.map((file, index) => (
                 <TableRow key={index}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedFiles.indexOf(index) !== -1}
+                      onChange={(event) => {
+                        if (event.target.checked) {
+                          setSelectedFiles([...selectedFiles, index]);
+                        } else {
+                          setSelectedFiles(selectedFiles.filter(i => i !== index));
+                        }
+                      }}
+                    />
+                  </TableCell>
                   <TableCell component="th" scope="row">
                     {file.name}
                   </TableCell>

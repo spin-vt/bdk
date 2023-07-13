@@ -4,6 +4,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Menu, IconButton, MenuItem } from '@material-ui/core';
 import LayersIcon from "@mui/icons-material/Layers";
+import SelectedLocationContext from "./SelectedLocationContext";
 
 const useStyles = makeStyles({
     baseMap: {
@@ -41,6 +42,9 @@ function Minimap({ id }) {
     const [selectedBaseMap, setSelectedBaseMap] = useState("STREETS");
 
     const [basemapAnchorEl, setBasemapAnchorEl] = useState(null);
+
+    const { location } = useContext(SelectedLocationContext);
+    const distinctMarkerRef = useRef(null);
 
     const handleBasemapMenuOpen = (event) => {
         setBasemapAnchorEl(event.currentTarget);
@@ -229,6 +233,33 @@ function Minimap({ id }) {
             map.current.resize(); // Resize map when container size changes
         //   }, 200);
       }, [id]); // Depend on 'id', so this runs whenever 'id' changes
+
+      useEffect(() => {
+        if (location && map.current) {
+          const { latitude, longitude, zoomlevel } = location;
+    
+          if (distinctMarkerRef.current) {
+            distinctMarkerRef.current.remove();
+          }
+    
+          distinctMarkerRef.current = new maplibregl.Marker({
+            color: "#FFFFFF",
+            draggable: false,
+          })
+            .setLngLat([longitude, latitude])
+            .addTo(map.current);
+    
+          map.current.flyTo({
+            center: [longitude, latitude],
+            zoom: zoomlevel,
+          });
+        } else {
+          if (distinctMarkerRef.current) {
+            distinctMarkerRef.current.remove();
+            distinctMarkerRef.current = null;
+          }
+        }
+      }, [location]);
 
     return (
         <div>
