@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import sqlite3
-from controllers.database_controller.kml_ops import get_wired_data
+from controllers.database_controller.kml_ops import get_kml_data
 import json
 import subprocess
 from psycopg2.extensions import adapt, register_adapter, AsIs
@@ -27,11 +27,11 @@ def recursive_placemarks(folder):
             yield from recursive_placemarks(feature)
 
 
-def read_kml(file_name):
+def read_kml(file_name, id):
 # Now you can extract all placemarks from the root KML object
     # geojson_array= []
     session = ScopedSession()
-    file_record = session.query(File).filter(File.file_name == file_name).first()
+    file_record = session.query(File).filter(File.file_name == file_name, File.user_id == id).first()
 
     if not file_record:
         raise ValueError(f"No file found with name {file_name}")
@@ -55,7 +55,7 @@ def read_kml(file_name):
     return geojson_features
 
 
-def add_values_to_VT(mbtiles_file_path, user_id):
+def add_values_to_VT(mbtiles_file_path, user_id, operation_id):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
         mb_c = mb_conn.cursor()
         mb_c.execute(
@@ -85,19 +85,19 @@ def add_values_to_VT(mbtiles_file_path, user_id):
 
             # Insert the .mbtiles data
             cur.execute("""
-                INSERT INTO mbt (tile_data, filename, timestamp, user_id)
-                VALUES (%s, %s, %s, %s) RETURNING id
-                """, (mbtiles_data, new_filename, datetime.now(), user_id))
+                INSERT INTO mbt (tile_data, filename, timestamp, user_id, op_id)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id
+                """, (mbtiles_data, new_filename, datetime.now(), user_id, operation_id))
 
             # Get the id of the mbtiles file
             mbt_id = cur.fetchone()[0]
 
             # Prepare the vector tile data
-            data = [(row[0], row[1], row[2], Binary(row[3]), mbt_id) for row in mb_c]
+            data = [(row[0], row[1], row[2], Binary(row[3]), mbt_id, operation_id) for row in mb_c]
 
             # Execute values will generate a SQL INSERT query with placeholders for the parameters
             execute_values(cur, """
-                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, mbt_id) 
+                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, mbt_id, op_id) 
                 VALUES %s
                 """, data)
 
@@ -193,13 +193,13 @@ def tiles_join(geojson_data, user_id):
     run_tippecanoe_tiles_join(command1, command2, 1, ["./merged.mbtiles", "./existing.mbtiles", "./new.mbtiles"])()
 
 
-def create_tiles(geojson_array, user_id):
+def create_tiles(geojson_array, user_id, operation_id):
     # conn = psycopg2.connect(DATABASE_URL)
     # cursor = conn.cursor()
     # cursor.execute('TRUNCATE TABLE vt')
     # conn.commit()
     # conn.close()
-    network_data = get_wired_data()
+    network_data = get_kml_data(user_id)
     point_geojson = {
          "type": "FeatureCollection",
          "features": [
@@ -233,7 +233,7 @@ def create_tiles(geojson_array, user_id):
          json.dump(point_geojson, f)
          
     command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    run_tippecanoe(command, user_id, "output.mbtiles") 
+    run_tippecanoe(command, user_id, "output.mbtiles", operation_id) 
 
 def retrieve_tiles(zoom, x, y, username, mbtile_id=None):
     conn = psycopg2.connect(DATABASE_URL)

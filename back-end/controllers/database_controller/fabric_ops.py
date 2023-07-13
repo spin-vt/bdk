@@ -14,10 +14,10 @@ def check_num_records_greater_zero():
     session = Session()
     return session.query(Data).count() > 0
 
-def write_to_db(file_name): 
+def write_to_db(file_name, id, operation_id): 
     session = ScopedSession()
     with db_lock: 
-        file_record = session.query(File).filter(File.file_name == file_name).first()
+        file_record = session.query(File).filter(File.file_name == file_name, File.user_id == id).first()
         session.close() 
 
     if not file_record:
@@ -29,12 +29,21 @@ def write_to_db(file_name):
     connection = engine.raw_connection()
     try:
         with connection.cursor() as cur:
+            # Create temporary table
+            cur.execute('CREATE TEMP TABLE temp_fabric AS SELECT * FROM fabric_temp LIMIT 0;')
+
+            # Copy data to temporary table
             output = StringIO(csv_data)
+            cur.copy_expert("COPY temp_fabric FROM STDIN CSV HEADER DELIMITER ','", output)
+            output.seek(0)
+
+             # Insert data from temporary table to final table with user_id
             try:
-                cur.copy_expert("COPY fabric FROM STDIN CSV HEADER DELIMITER ','", output)
-                output.seek(0)
-            except UniqueViolation:
+                cur.execute(f'INSERT INTO fabric SELECT *, {id} as user_id , \'{operation_id}\' as op_id FROM temp_fabric;')
+                connection.commit()
+            except psycopg2.errors.UniqueViolation:
                 print("UniqueViolation occurred, ignoring.")
+                
             connection.commit()
     finally:
         connection.close()
@@ -120,3 +129,6 @@ def address_query(query):
     conn.close()
 
     return results_dict
+
+if __name__ == "__main__":
+    write_to_db("FCC_Active_BSL_12312022_ver1.csv", 1)

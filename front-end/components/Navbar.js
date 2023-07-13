@@ -25,6 +25,7 @@ import LoginIcon from '@mui/icons-material/Login';
 import UploadIcon from '@mui/icons-material/Upload';
 import Searchbar from './Searchbar';
 import FolderIcon from '@mui/icons-material/Folder';
+// import handleDownloadClick from "./Upload"
 
 
 const useStyles = makeStyles((theme) => ({
@@ -122,7 +123,10 @@ export default function Navbar() {
   const [menuWidth, setMenuWidth] = React.useState(null);
 
 
-
+  const handleDownloadClick = (event) => {
+    event.preventDefault();
+    window.location.href = "http://localhost:5000/export";
+  };
 
   const handleMenuOpen = (event) => {
     setMenuOpen(true);
@@ -268,6 +272,13 @@ export default function Navbar() {
             <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
             <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
               Your Files
+            </Typography>
+          </IconButton>
+
+          <IconButton href='/previousfile'>
+            <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
+            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title} onClick={handleDownloadClick}>
+              Export 
             </Typography>
           </IconButton>
 

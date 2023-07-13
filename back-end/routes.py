@@ -1,4 +1,4 @@
-import logging, os, base64
+import logging, os, base64, uuid
 from logging.handlers import RotatingFileHandler
 from logging import getLogger
 from werkzeug.security import check_password_hash
@@ -14,7 +14,7 @@ from flask_jwt_extended import (
 from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
-from database.models import File
+from database.models import File, user
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data
@@ -45,9 +45,12 @@ app.config['JWT_ACCESS_COOKIE_NAME'] = 'token'
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 
-@app.route("/served-data", methods=['GET'])
-def get_number_records():
-    return jsonify(kml_ops.get_wired_data())
+@app.route("/served-data/<userVal>", methods=['GET'])
+def get_number_records(userVal):
+    session = Session()
+    userValue = session.query(user).filter(user.username == userVal).one()
+    session.close()
+    return jsonify(kml_ops.get_kml_data(userValue.id))
 
 @app.route('/submit-data', methods=['POST', 'GET'])
 def submit_data():
@@ -62,19 +65,27 @@ def submit_data():
         if len(files) <= 0:
             return jsonify({'Status': "Failed, no file uploaded"}), 400
 
+        operation_id = str(uuid.uuid4())
         file_data_list = request.form.getlist('fileData')
 
         session = Session()
+        userVal = session.query(user).filter(user.username == username).one()
         file_names = []
 
         for file in files:
+            existing_file = session.query(File).filter(File.file_name == file.filename, File.user_id == userVal.id).first()
+            if existing_file is not None:
+                # If file already exists, append its name to file_names and skip to next file
+                file_names.append(existing_file.file_name)
+                continue
+
             data = file.read()
-            new_file = File(file_name=file.filename, data=data)
+            new_file = File(file_name=file.filename, data=data, user_id=userVal.id, op_id=operation_id)
             session.add(new_file)
             session.commit()
             file_names.append(new_file.file_name)
 
-        task = process_data.apply_async(args=[file_names, file_data_list, username]) # store the AsyncResult instance
+        task = process_data.apply_async(args=[file_names, file_data_list, username, operation_id]) # store the AsyncResult instance
         session.close()
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     
@@ -177,12 +188,7 @@ def get_user_info():
 def export():
     response_data = {'Status': 'Failure'}
 
-    download_speed = request.args.get('downloadSpeed', default='', type=str)
-    upload_speed = request.args.get('uploadSpeed', default='', type=str)
-    tech_type = request.args.get('techType', default='', type=str)
-
-    filename = kml_ops.export(download_speed, upload_speed, tech_type)
-
+    filename = kml_ops.export()
     if filename:
         response_data = {'Status': "Success"}
         return send_file(filename, as_attachment=True)
