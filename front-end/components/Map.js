@@ -19,6 +19,8 @@ import LayersIcon from "@mui/icons-material/Layers";
 import IconButton from "@material-ui/core/IconButton";
 import Menu from "@material-ui/core/Menu";
 import SmallLoadingEffect from "./SmallLoadingEffect";
+import { useRouter } from "next/router";
+import MbtilesContext from './MbtilesContext';
 
 const useStyles = makeStyles({
   modal: {
@@ -212,6 +214,12 @@ function Map({ markers }) {
   const [isModalVisible, setModalVisible] = useState(false);
   const selectedMarkersRef = useRef([]);
 
+  const {mbtid} = useContext(MbtilesContext);
+
+  // Use mbtiles to determine which tiles to fetc
+
+  const router = useRouter();
+
   const baseMaps = {
     STREETS:
       "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
@@ -245,9 +253,12 @@ function Map({ markers }) {
     }
 
     const user = localStorage.getItem("username");
+    const tilesURL = mbtid
+    ? `http://localhost:5000/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
+    : `http://localhost:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
-      tiles: [`http://localhost:5000/tiles/{z}/{x}/{y}.pbf?username=${user}`],
+      tiles: [tilesURL],
       maxzoom: 16,
     });
   };
@@ -436,9 +447,18 @@ function Map({ markers }) {
       },
       body: JSON.stringify(markers),
     })
-      .then((response) => response.json())
+      .then((response) => {
+        if (response.status === 401) {
+          // Redirect the user to the login page or other unauthorized handling page
+          router.push("/login");
+        } else {
+          return response.json();
+        }
+      })
       .then((data) => {
-        console.log(data.message);
+        if (data) { // to make sure data is not undefined when status is 401
+          console.log(data.message);
+        }
       })
       .catch((error) => {
         console.log(error);
@@ -645,6 +665,8 @@ function Map({ markers }) {
     let currentZoom = 4;
     let currentCenter = [-98.35, 39.5];
 
+    console.log(mbtid);
+
     if (map.current) {
       currentZoom = map.current.getZoom();
       currentCenter = map.current.getCenter().toArray();
@@ -695,7 +717,7 @@ function Map({ markers }) {
       addVectorTiles();
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap]);
+  }, [selectedBaseMap, mbtid]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);

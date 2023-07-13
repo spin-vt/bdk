@@ -79,8 +79,11 @@ export default function Navbar() {
       try {
         if (typeof window !== undefined) {
           const item = window.localStorage.getItem(key);
+          return item ? item : initialValue;
         }
-        return item ? item : initialValue;
+        else {
+          return null;
+        }
       } catch (error) {
         console.error(error);
         return initialValue;
@@ -181,8 +184,7 @@ export default function Navbar() {
 
   const fetchUserInfo = async () => {
     const usernameFromStorage = localStorage.getItem("username");
-    console.log(usernameFromStorage);
-    if (!usernameFromStorage) {
+    console.log(usernameFromStorage);  
       try {
         const response = await fetch('http://localhost:5000/api/user', {
           method: "GET",
@@ -209,11 +211,7 @@ export default function Navbar() {
         setUsername(null); // Clear the username state variable
         localStorage.removeItem("username");
       }
-    }
-    else {
-      setUsername(usernameFromStorage);
-      return usernameFromStorage;
-    }
+    
   };
 
 

@@ -188,18 +188,39 @@ def export():
         return send_file(filename, as_attachment=True)
     else:
         return jsonify(response_data)
+    
 
-
-@app.route("/tiles/<zoom>/<x>/<y>.pbf")
-def serve_tile(zoom, x, y):
-    username = request.args.get('username')
+@app.route("/tiles/<mbtile_id>/<username>/<zoom>/<x>/<y>.pbf")
+def serve_tile_withid(mbtile_id, username, zoom, x, y):
+    username = str(username)
+    mbtile_id = int(mbtile_id)
 
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, username)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, username, mbtile_id)
+
+    if tile is None:
+        return Response('No tile found', status=404)
+        
+    response = make_response(bytes(tile[0]))    
+    response.headers['Content-Type'] = 'application/x-protobuf'
+    response.headers['Content-Encoding'] = 'gzip'  
+    return response
+
+
+@app.route("/tiles/<username>/<zoom>/<x>/<y>.pbf")
+def serve_tile(username, zoom, x, y):
+    username = str(username)
+
+    zoom = int(zoom)
+    x = int(x)
+    y = int(y)
+    y = (2**zoom - 1) - y
+
+    tile = vt_ops.retrieve_tiles(zoom, x, y, username, None)
 
     if tile is None:
         return Response('No tile found', status=404)
@@ -223,11 +244,26 @@ def toggle_markers():
 
 
 @app.route('/api/mbtiles', methods=['GET'])
+@jwt_required()
 def get_mbtiles():
-    mbtiles = vt_ops.get_mbt_info()
-    if not mbtiles:
-        Response('No mbtiles found', status=404)
-    return jsonify(mbtiles)
+    try:
+        identity = get_jwt_identity()
+        mbtiles = vt_ops.get_mbt_info(identity["id"])
+        if not mbtiles:
+            Response('No mbtiles found', status=404)
+        return jsonify(mbtiles)
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    
+@app.route('/api/delmbtiles/<int:mbtiles_id>', methods=['DELETE'])
+@jwt_required()
+def delete_mbtiles(mbtiles_id):
+    try:
+        identity = get_jwt_identity()
+        vt_ops.delete_mbtiles(mbtiles_id, identity["id"])
+        return jsonify({'message': 'mbtiles successfully deleted'}), 200
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
 if __name__ == '__main__':

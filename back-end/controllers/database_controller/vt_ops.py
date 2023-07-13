@@ -235,7 +235,7 @@ def create_tiles(geojson_array, user_id):
     command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
     run_tippecanoe(command, user_id, "output.mbtiles") 
 
-def retrieve_tiles(zoom, x, y, username):
+def retrieve_tiles(zoom, x, y, username, mbtile_id=None):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
@@ -257,6 +257,17 @@ def retrieve_tiles(zoom, x, y, username):
         return None
 
     with db_lock:
+        if mbtile_id:
+            cursor.execute(
+                """
+                SELECT vt.tile_data
+                FROM vt
+                JOIN mbt ON vt.mbt_id = mbt.id
+                WHERE vt.zoom_level = %s AND vt.tile_column = %s AND vt.tile_row = %s AND mbt.user_id = %s AND mbt.id = %s
+                """, 
+                (int(zoom), int(x), int(y), user_id, mbtile_id)
+            )
+        else:
             cursor.execute(
                 """
                 SELECT vt.tile_data
@@ -267,7 +278,7 @@ def retrieve_tiles(zoom, x, y, username):
                 """, 
                 (int(zoom), int(x), int(y), user_id)
             )
-    tile = cursor.fetchone()
+        tile = cursor.fetchone()
     return tile
 
 def toggle_tiles(markers, user_id):
@@ -348,14 +359,24 @@ def toggle_tiles(markers, user_id):
 
     return (message, status_code)
 
-def get_mbt_info():
+def get_mbt_info(user_id):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, filename, timestamp FROM mbt")
+    cursor.execute("SELECT id, filename, timestamp FROM mbt WHERE user_id = %s", (user_id,))
     rows = cursor.fetchall()
 
     if rows is None:
         return None
     mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
     return mbtiles
+
+def delete_mbtiles(mbtiles_id, user_id):
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM mbt WHERE id = %s AND user_id = %s", (mbtiles_id, user_id))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
