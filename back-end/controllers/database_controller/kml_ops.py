@@ -79,7 +79,7 @@ def get_kml_data(id):
 
     return data
 
-def add_to_db(pandaDF, networkName, download, upload, tech, wireless, id):
+def add_to_db(pandaDF, networkName, download, upload, tech, wireless, id, operation_id):
     batch = [] 
     session = Session()
     userVal = session.query(user).filter(user.id == id).one()
@@ -106,7 +106,8 @@ def add_to_db(pandaDF, networkName, download, upload, tech, wireless, id):
                     maxDownloadSpeed = int(download), 
                     maxUploadSpeed = int(upload), 
                     techType = tech, 
-                    user_id = id
+                    user_id = id,
+                    op_id = operation_id
                 )
                 batch.append(newData)
             else:  # If the location_id exists
@@ -187,7 +188,7 @@ def export():
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(Fabric_FN, Coverage_fn, download, upload, tech, id):
+def compute_wireless_locations(Fabric_FN, Coverage_fn, download, upload, tech, id, operation_id):
     session = ScopedSession()
     fabric_file = session.query(File).filter_by(file_name=Fabric_FN, user_id=id).first()
     coverage_file = session.query(File).filter_by(file_name=Coverage_fn, user_id=id).first()
@@ -214,10 +215,10 @@ def compute_wireless_locations(Fabric_FN, Coverage_fn, download, upload, tech, i
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, download, upload, tech, True, id)
+    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, download, upload, tech, True, id, operation_id)
     return res
 
-def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id):
+def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, operation_id):
     # Open session
     session = ScopedSession()
 
@@ -265,15 +266,15 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id):
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, download, upload, tech, False, id)
+    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, download, upload, tech, False, id, operation_id)
     return res 
 
-def add_network_data(Fabric_FN, Fiber_FN,download, upload, tech, type, id):
+def add_network_data(Fabric_FN, Fiber_FN,download, upload, tech, type, id, operation_id):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id)
+        res = compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, operation_id)
     elif type == 1: 
-        res = compute_wireless_locations(Fabric_FN, Fiber_FN, download, upload, tech, id)
+        res = compute_wireless_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, operation_id)
     return res 
 
 

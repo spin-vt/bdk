@@ -5,7 +5,7 @@ from database.models import File, user
 from database.sessions import Session
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def process_data(self, file_names, file_data_list, username): 
+def process_data(self, file_names, file_data_list, username, operation_id): 
     from controllers.database_controller import vt_ops
     print(file_names)
     try:
@@ -46,7 +46,7 @@ def process_data(self, file_names, file_data_list, username):
 
                 task_id = str(uuid.uuid4())
 
-                task = fabric_ops.write_to_db(file_name, userVal.id)
+                task = fabric_ops.write_to_db(file_name, userVal.id, operation_id)
                 tasks.append(task)
 
             elif file_name.endswith('.kml'):
@@ -61,14 +61,14 @@ def process_data(self, file_names, file_data_list, username):
                 else: 
                     networkType = 1
 
-                task = kml_ops.add_network_data(fabricName, file_name, downloadSpeed, uploadSpeed, techType, networkType, userVal.id)
+                task = kml_ops.add_network_data(fabricName, file_name, downloadSpeed, uploadSpeed, techType, networkType, userVal.id, operation_id)
                 tasks.append(task)
                 geojson_array.append(vt_ops.read_kml(file_name, userVal.id))
         
         print("finished kml processing, now creating tiles")
         if geojson_array != []: 
             print("going to create tiles now")
-            vt_ops.create_tiles(geojson_array, userVal.id)
+            vt_ops.create_tiles(geojson_array, userVal.id, operation_id)
         
         # try:
         #     for name in names:
@@ -95,14 +95,14 @@ def process_data(self, file_names, file_data_list, username):
         raise e
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def run_tippecanoe(self, command, user_id, mbtilepath):
+def run_tippecanoe(self, command, user_id, mbtilepath, operation_id):
     from controllers.database_controller import vt_ops
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
     if result.stderr:
         print("Tippecanoe stderr:", result.stderr.decode())
 
-    vt_ops.add_values_to_VT(mbtilepath, user_id)
+    vt_ops.add_values_to_VT(mbtilepath, user_id, operation_id)
     return result.returncode 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)

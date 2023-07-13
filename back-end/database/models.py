@@ -24,6 +24,7 @@ class Data(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    op_id = Column(String)
     id = Column(Integer, primary_key=True, autoincrement=True)  # Unique primary key
     user = relationship('user', backref='Data')  # add this line to define a relationship
 
@@ -64,6 +65,7 @@ class kml_data(Base):
     maxUploadSpeed = Column(Integer)
     techType = Column(String)
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    op_id = Column(String)
     user = relationship('user', backref='kml_data')  # add this line to define a relationship
 
 class vector_tiles(Base):
@@ -77,6 +79,7 @@ class vector_tiles(Base):
     mbt_id = Column(Integer, ForeignKey('mbt.id', ondelete='CASCADE'))  # specify ondelete behavior
     user = relationship('user', back_populates='vector_tiles')
     mbtiles = relationship('mbtiles', back_populates='vector_tiles')
+    op_id = Column(String)
 
 class user(Base):
     __tablename__ = 'user'
@@ -86,6 +89,7 @@ class user(Base):
     password = Column(String(256))
     vector_tiles = relationship('vector_tiles', back_populates='user')
     mbtiles = relationship('mbtiles', back_populates='user')  # change backref to back_populates
+    
 
 class mbtiles(Base):
     __tablename__ = 'mbt'
@@ -96,6 +100,7 @@ class mbtiles(Base):
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))  # specify ondelete behavior
     user = relationship('user', back_populates='mbtiles')
     vector_tiles = relationship('vector_tiles', back_populates='mbtiles')
+    op_id = Column(String)
 
 class File(Base):
     __tablename__ = 'files'
@@ -105,6 +110,7 @@ class File(Base):
     data = Column(LargeBinary, nullable=False)
     computed = Column(Boolean, default=False)
     user_id = Column(Integer, ForeignKey('user.id'))  # add this line to establish a foreign key
+    op_id = Column(String)
     user = relationship('user', backref='File')  # add this line to define a relationship
 
 

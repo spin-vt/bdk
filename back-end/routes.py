@@ -1,4 +1,4 @@
-import logging, os, base64
+import logging, os, base64, uuid
 from logging.handlers import RotatingFileHandler
 from logging import getLogger
 from werkzeug.security import check_password_hash
@@ -65,6 +65,7 @@ def submit_data():
         if len(files) <= 0:
             return jsonify({'Status': "Failed, no file uploaded"}), 400
 
+        operation_id = str(uuid.uuid4())
         file_data_list = request.form.getlist('fileData')
 
         session = Session()
@@ -79,12 +80,12 @@ def submit_data():
                 continue
 
             data = file.read()
-            new_file = File(file_name=file.filename, data=data, user_id=userVal.id)
+            new_file = File(file_name=file.filename, data=data, user_id=userVal.id, op_id=operation_id)
             session.add(new_file)
             session.commit()
             file_names.append(new_file.file_name)
 
-        task = process_data.apply_async(args=[file_names, file_data_list, username]) # store the AsyncResult instance
+        task = process_data.apply_async(args=[file_names, file_data_list, username, operation_id]) # store the AsyncResult instance
         session.close()
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     

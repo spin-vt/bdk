@@ -14,7 +14,7 @@ def check_num_records_greater_zero():
     session = Session()
     return session.query(Data).count() > 0
 
-def write_to_db(file_name, id): 
+def write_to_db(file_name, id, operation_id): 
     session = ScopedSession()
     with db_lock: 
         file_record = session.query(File).filter(File.file_name == file_name, File.user_id == id).first()
@@ -39,7 +39,7 @@ def write_to_db(file_name, id):
 
              # Insert data from temporary table to final table with user_id
             try:
-                cur.execute(f'INSERT INTO fabric SELECT *, {id} as user_id FROM temp_fabric;')
+                cur.execute(f'INSERT INTO fabric SELECT *, {id} as user_id , \'{operation_id}\' as op_id FROM temp_fabric;')
                 connection.commit()
             except psycopg2.errors.UniqueViolation:
                 print("UniqueViolation occurred, ignoring.")
