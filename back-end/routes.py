@@ -72,6 +72,12 @@ def submit_data():
         file_names = []
 
         for file in files:
+            existing_file = session.query(File).filter(File.file_name == file.filename, File.user_id == userVal.id).first()
+            if existing_file is not None:
+                # If file already exists, append its name to file_names and skip to next file
+                file_names.append(existing_file.file_name)
+                continue
+
             data = file.read()
             new_file = File(file_name=file.filename, data=data, user_id=userVal.id)
             session.add(new_file)
@@ -180,11 +186,7 @@ def get_user_info():
 @app.route('/export', methods=['GET'])
 def export():
     response_data = {'Status': 'Failure'}
-
-    # download_speed = request.args.get('downloadSpeed', default='', type=str)
-    # upload_speed = request.args.get('uploadSpeed', default='', type=str)
-    # tech_type = request.args.get('techType', default='', type=str)
-
+    
     filename = kml_ops.export()
     if filename:
         response_data = {'Status': "Success"}

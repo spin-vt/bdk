@@ -10,8 +10,8 @@ def process_data(self, file_names, file_data_list, username):
     print(file_names)
     try:
         # Start profiling
-        profiler = cProfile.Profile()
-        profiler.enable()
+        # profiler = cProfile.Profile()
+        # profiler.enable()
 
         fabricName = ""
         names = []
@@ -22,12 +22,13 @@ def process_data(self, file_names, file_data_list, username):
         userVal = session.query(user).filter(user.username == username).one()
 
         for file_name, file_data_str in zip(file_names, file_data_list):
-            # # Check if file name already exists in the database for this user
-            # existing_file = session.query(File).filter(File.file_name == file_name, File.user_id == userVal.id).first()
-
-            # # If file name exists, skip to the next iteration
-            # if existing_file:
-            #     continue
+            # Check if file name already exists in the database for this user
+            existing_file = session.query(File).filter(File.file_name == file_name, File.user_id == userVal.id).first()
+            print(existing_file)
+            # If file name exists, skip to the next iteration
+            if existing_file:
+                print("skip")
+                continue
             
             names.append(file_name)
 
@@ -63,7 +64,9 @@ def process_data(self, file_names, file_data_list, username):
                 geojson_array.append(vt_ops.read_kml(file_name, userVal.id))
         
         print("finished kml processing, now creating tiles")
-        vt_ops.create_tiles(geojson_array, userVal.id)
+        if geojson_array != []: 
+            print("going to create tiles now")
+            vt_ops.create_tiles(geojson_array, userVal.id)
         
         # try:
         #     for name in names:
@@ -78,10 +81,9 @@ def process_data(self, file_names, file_data_list, username):
         session.close()
 
         # Stop profiling
-        profiler.disable()
-        filepath = f'profiler_output_{os.getpid()}_{self.request.id}.txt'
-        profiler.dump_stats(filepath)
-
+        # profiler.disable()
+        # filepath = f'profiler_output_{os.getpid()}_{self.request.id}.txt'
+        # profiler.dump_stats(filepath)
 
         return {'Status': "Ok"}
     
