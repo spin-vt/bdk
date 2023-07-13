@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import sqlite3
-from controllers.database_controller.kml_ops import get_wired_data
+from controllers.database_controller.kml_ops import get_kml_data
 import json
 import subprocess
 from psycopg2.extensions import adapt, register_adapter, AsIs
@@ -199,7 +199,7 @@ def create_tiles(geojson_array, user_id):
     # cursor.execute('TRUNCATE TABLE vt')
     # conn.commit()
     # conn.close()
-    network_data = get_wired_data(user_id)
+    network_data = get_kml_data(user_id)
     point_geojson = {
          "type": "FeatureCollection",
          "features": [

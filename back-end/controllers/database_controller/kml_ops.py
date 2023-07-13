@@ -1,4 +1,4 @@
-from database.models import kml_data, Data, File
+from database.models import kml_data, Data, File, user
 from sqlalchemy.exc import IntegrityError
 from utils.settings import BATCH_SIZE, DATABASE_URL
 from multiprocessing import Lock
@@ -15,50 +15,75 @@ from io import StringIO, BytesIO
 
 db_lock = Lock()
 
-def get_wired_data(id): 
+def get_kml_data(id): 
     session = ScopedSession() 
+    userVal = session.query(user).filter(user.id == id).one()
 
     try:
-        # Define a relationship between kml_data and fabricUpload.Data
-        results = session.query(
+        # Query all locations in Data
+        all_locations = session.query(
+            Data.location_id,
+            Data.latitude, 
+            Data.address_primary,
+            Data.longitude
+        ).filter(Data.user_id == id).all()
+
+        # Initialize an empty dictionary to hold location_id as key and its data as value, including location_id itself
+        all_data = {r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3]} for r in all_locations}
+
+        # Query all locations that are served
+        resultsServed = session.query(
             kml_data.location_id, 
             kml_data.served, 
-            Data.latitude, 
-            Data.address_primary, 
-            Data.longitude,
             kml_data.wireless,
             kml_data.lte,
             kml_data.username,
             kml_data.coveredLocations,
             kml_data.maxDownloadNetwork,
             kml_data.maxDownloadSpeed
-        ).join(
-            Data,
-            kml_data.location_id == Data.location_id
         ).filter(
-            kml_data.user_id == id,  # Ensuring user_id in kml_data is the same as passed id
-            Data.user_id == id  # Ensuring user_id in Data is the same as passed id
+            kml_data.user_id == id  # Ensuring user_id in kml_data is the same as passed id
         ).all()
 
-        data = [{'location_id': r[0],
+        # Add served data to the respective location in all_data
+        for r in resultsServed:
+            all_data[r[0]].update({
                 'served': r[1],
-                'latitude': r[2],
-                'address': r[3],
-                'longitude': r[4],
-                'wireless': r[5],
-                'lte': r[6],
-                'username': r[7],
-                'coveredLocations' : r[8],
-                'maxDownloadNetwork': r[9],
-                'maxDownloadSpeed': r[10]} for r in results]
+                'wireless': r[2],
+                'lte': r[3],
+                'username': r[4],
+                'coveredLocations': r[5],
+                'maxDownloadNetwork': r[6],
+                'maxDownloadSpeed': r[7]
+            })
+        
+        # For all other locations, fill with default values
+        default_data = {
+            'served': False,
+            'wireless': False,
+            'lte': False,
+            'username': userVal.username,
+            'coveredLocations': "",
+            'maxDownloadNetwork': -1,
+            'maxDownloadSpeed': -1
+        }
+        for loc in all_data.values():
+            for key, value in default_data.items():
+                loc.setdefault(key, value)
+
+        # Convert dictionary values to a list
+        data = list(all_data.values())
+
     finally:
         session.close()
 
     return data
 
-def add_to_db(pandaDF, networkName, fabric, flag, download, wireless, id):
+def add_to_db(pandaDF, networkName, download, wireless, id):
     batch = [] 
     session = Session()
+    userVal = session.query(user).filter(user.id == id).one()
+
     for _, row in pandaDF.iterrows():
         try:
             if row.location_id == '': 
@@ -75,7 +100,7 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless, id):
                     served = True,
                     wireless = wireless,
                     lte = False,
-                    username = "vineet",
+                    username = userVal.username,
                     coveredLocations = networkName,
                     maxDownloadNetwork = networkName,
                     maxDownloadSpeed = int(download), 
@@ -121,44 +146,6 @@ def add_to_db(pandaDF, networkName, fabric, flag, download, wireless, id):
     session.commit()
     session.close()
 
-    print("did fabric in coverage")
-    if not flag: 
-        session = Session()
-        batch = [] 
-        not_served_fabric = fabric[~fabric['location_id'].isin(pandaDF['location_id'])]
-        not_served_fabric = not_served_fabric.drop_duplicates()
-
-        # Prepare a list of dictionaries to insert to the kml_data table
-        rows_to_insert = [{
-            'location_id': int(row.location_id),
-            'served': False,
-            'wireless': False,
-            'lte': False,
-            'username': "vineet",
-            'coveredLocations': "",
-            'maxDownloadNetwork': -1,
-            'maxDownloadSpeed': -1, 
-            'user_id': id
-        } for _, row in not_served_fabric.iterrows()]
-
-        # Use chunks if rows_to_insert is very large
-        chunks = [rows_to_insert[i:i + BATCH_SIZE] for i in range(0, len(rows_to_insert), BATCH_SIZE)]
-
-        for chunk in chunks:
-            try:
-                # Insert the chunk of records into the kml_data table
-                session.bulk_insert_mappings(kml_data, chunk)
-                session.commit()
-            except IntegrityError:
-                session.rollback()
-                logging.error("IntegrityError occurred while inserting data.")
-                return False
-            except Exception as e:
-                session.rollback()
-                logging.error(f"Error occurred while inserting data: {e}")
-                return False
-
-        session.close()
     return True 
 
 def export(download_speed, upload_speed, tech_type): 
@@ -201,7 +188,7 @@ def export(download_speed, upload_speed, tech_type):
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, tech, id):
+def compute_wireless_locations(Fabric_FN, Coverage_fn, download, upload, tech, id):
     session = ScopedSession()
     fabric_file = session.query(File).filter_by(file_name=Fabric_FN, user_id=id).first()
     coverage_file = session.query(File).filter_by(file_name=Coverage_fn, user_id=id).first()
@@ -228,10 +215,10 @@ def compute_wireless_locations(Fabric_FN, Coverage_fn, flag, download, upload, t
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, fabric, flag, download, True, id)
+    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, download, True, id)
     return res
 
-def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, id):
+def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id):
     # Open session
     session = ScopedSession()
 
@@ -279,15 +266,15 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, i
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, fabric, flag, download, False, id)
+    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, download, False, id)
     return res 
 
-def add_network_data(Fabric_FN, Fiber_FN, flag, download, upload, tech, type, id):
+def add_network_data(Fabric_FN, Fiber_FN,download, upload, tech, type, id):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, id)
+        res = compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id)
     elif type == 1: 
-        res = compute_wireless_locations(Fabric_FN, Fiber_FN, flag, download, upload, tech, id)
+        res = compute_wireless_locations(Fabric_FN, Fiber_FN, download, upload, tech, id)
     return res 
 
 
