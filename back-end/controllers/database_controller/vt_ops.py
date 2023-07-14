@@ -17,6 +17,8 @@ from database.models import vector_tiles, file, folder, kml_data, fabric_data
 from controllers.celery_controller.celery_config import celery
 from controllers.celery_controller.celery_tasks import run_tippecanoe, run_tippecanoe_tiles_join
 from sqlalchemy import desc
+from .file_ops import get_file_with_id, get_files_with_postfix, create_file
+from .folder_ops import get_folder
 
 db_lock = Lock()
 
@@ -30,12 +32,13 @@ def recursive_placemarks(folder):
 
 def read_kml(fileid):
 # Now you can extract all placemarks from the root KML object
-    # geojson_array= []
-    session = ScopedSession()
-    file_record = session.query(file).filter(file.id == fileid).first()
+    # geojson_array= [
+    file_record = get_file_with_id(fileid)
 
     if not file_record:
         raise ValueError(f"No file found with name {file_record.name}")
+    
+    session = ScopedSession()
     
     kml_obj = kml.KML()
     doc = file_record.data
@@ -247,42 +250,38 @@ def retrieve_tiles(zoom, x, y, username, mbtileid=None):
             )
         tile = cursor.fetchone()
 
-
+    cursor.close()
+    conn.close()
     return tile
 
 def toggle_tiles(markers, userid):
 
-    session = Session()
+    
     message = ''
     status_code = 0
-
+    session = Session()
     try:
         # Get the last folder of the user
-        user_last_folder = session.query(folder).filter(user_id=userid).order_by(desc(folder.id)).first()
+        user_last_folder = get_folder(userid)
         if user_last_folder:
             # Count files with deletion identifier in the folder
-            deletion_count = session.query(file).filter(file.folder_id == user_last_folder.id, file.name.endswith("/")).count()
-            
-            # Create a new File record for the deletion operation
-            new_file = file(name=f"mark_unserved{deletion_count+1}/", folder_id=user_last_folder.id)
+            deletion_count = len(get_files_with_postfix(user_last_folder.id, "/"))
+            new_file = create_file(f"mark_unserved{deletion_count+1}/", None, user_last_folder.id, session)
             session.add(new_file)
-            session.flush()  # to get the new file id
-            new_file_id = new_file.id
+            session.commit()
         else:
             raise Exception('No last folder for the user')
 
         geojson_data = []
-
         for marker in markers:
             # Retrieve all kml_data entries where location_id equals to marker['id']
-            kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
 
+            kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
             for kml_data_entry in kml_data_entries:
                 # Update each entry
-                kml_data_entry.file_id = new_file_id
+                kml_data_entry.file_id = new_file.id
                 kml_data_entry.served = marker['served']
                 session.flush()
-
                 # Retrieve fabric_data for this kml_data
                 fabric_data_entry = session.query(fabric_data).join(file).filter(fabric_data.location_id == kml_data_entry.location_id, file.folder_id == user_last_folder.id).first()
 
@@ -335,6 +334,8 @@ def get_mbt_info(user_id):
     if rows is None:
         return None
     mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
+    cursor.close()
+    conn.close()
     return mbtiles
 
 def delete_mbtiles(mbtiles_id, user_id):

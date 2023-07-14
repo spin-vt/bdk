@@ -19,8 +19,6 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         tasks = []  
 
         session = Session()
-        # userVal = session.query(user).filter(user.username == username).one()
-        # folderVal = session.query(folder).filter(folder.user_id == userVal.id).order_by(folder.id.desc()).first()
 
         for file_name, file_data_str in zip(file_names, file_data_list):
             # Check if file name already exists in the database for this user
@@ -65,6 +63,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
                 task = kml_ops.add_network_data(fabric_id, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid)
                 tasks.append(task)
         
+        # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()
         for kml_f in all_kmls:
             geojson_array.append(vt_ops.read_kml(kml_f.id))

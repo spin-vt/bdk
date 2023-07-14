@@ -71,7 +71,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export default function Navbar() {
+export default function Navbar({handleMyFileOpen}) {
   const router = useRouter();
   const classes = useStyles();
 
@@ -268,7 +268,7 @@ export default function Navbar() {
           </Typography>
           <Searchbar className={classes.menuItem} />
 
-          <IconButton href='/previousfile'>
+          <IconButton onClick={handleMyFileOpen}>
             <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
             <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
               Your Files

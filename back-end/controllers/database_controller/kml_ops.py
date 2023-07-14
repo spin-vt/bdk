@@ -12,22 +12,24 @@ from shapely.geometry import Point
 import fiona
 from utils.settings import DATABASE_URL
 from io import StringIO, BytesIO
+from .user_ops import get_user_with_id
+from .file_ops import get_files_with_postfix, get_file_with_id
 
 db_lock = Lock()
 
 def get_kml_data(userid, folderid): 
     session = ScopedSession() 
-    userVal = session.query(user).filter(user.id == userid).one()
+    userVal = get_user_with_id(userid)
 
     try:
         # Query the File records related to the folder_id
-        fabric_file = session.query(file).filter(file.folder_id == folderid, file.name.endswith('.csv')).first()
-        kml_files = session.query(file).filter(file.folder_id == folderid, file.name.endswith('.kml')).all()
+        fabric_file = get_files_with_postfix(folderid, ".csv")[0]
+        kml_files = get_files_with_postfix(folderid, ".kml")
 
         if not fabric_file or not kml_files:
             raise FileNotFoundError("Either fabric or KML files not found")
 
-        # Query all locations in fabric_data
+        # Query all locations in fabric_data, needs handling of multiple fabrics!
         all_locations = session.query(
             fabric_data.location_id,
             fabric_data.latitude, 
@@ -99,8 +101,8 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
     batch = [] 
     session = Session()
 
-    userVal = session.query(user).filter(user.id == userid).one()
-    fileVal = session.query(file).filter(file.id == kmlid).one()
+    userVal = get_user_with_id(userid)
+    fileVal = get_file_with_id(kmlid)
 
     for _, row in pandaDF.iterrows():
         try:
@@ -206,9 +208,11 @@ def export():
 
 #might need to add lte data in the future
 def compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid):
+    
+    fabric_file = get_file_with_id(fabricid)
+    coverage_file = get_file_with_id(kmlid)
+
     session = ScopedSession()
-    fabric_file = session.query(file).filter(file.id == fabricid).first()
-    coverage_file = session.query(file).filter(file.id == kmlid).first()
     
     if fabric_file is None or coverage_file is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")
@@ -236,11 +240,10 @@ def compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid):
     return res
 
 def compute_wired_locations(fabricid, kmlid, download, upload, tech, userid):
-    # Open session
-    session = ScopedSession()
+    
 
     # Fetch Fabric file from database
-    fabric_file_record = session.query(file).filter(file.id == fabricid).first()
+    fabric_file_record = get_file_with_id(fabricid)
     if not fabric_file_record:
         raise ValueError(f"No file found with name {fabric_file_record.name}")
     fabric_csv_data = fabric_file_record.data.decode()
@@ -250,10 +253,13 @@ def compute_wired_locations(fabricid, kmlid, download, upload, tech, userid):
     df = pandas.read_csv(fabric_data)
 
     # Fetch Fiber file from database
-    fiber_file_record = session.query(file).filter(file.id == kmlid).first()
+    fiber_file_record = get_file_with_id(kmlid)
     if not fiber_file_record:
         raise ValueError(f"No file found with name {fiber_file_record.name} and id {fiber_file_record.id}")
     fiber_kml_data = fiber_file_record.data
+
+    # Open session
+    session = ScopedSession()
 
     # Convert the KML data bytes to a file-like object
     fiber_data = BytesIO(fiber_kml_data)

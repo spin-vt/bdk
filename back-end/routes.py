@@ -15,7 +15,7 @@ from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
 from database.models import file, user, folder
-from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
+from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data
 
@@ -45,18 +45,13 @@ app.config['JWT_ACCESS_COOKIE_NAME'] = 'token'
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 
-@app.route("/served-data/<userVal>", methods=['GET'])
-def get_number_records(userVal):
-    session = Session()
-    userValue = session.query(user).filter(user.username == userVal).one()
-    folders = session.query(folder).filter(folder.user_id == userValue.id).all()
-    if folders:
-        folderVal = folders[-1]  # Get the last folder
-        session.close()
-        return jsonify(kml_ops.get_kml_data(userValue.id, folderVal.id)), 200
-    else:
-        session.close()
-        return jsonify({"Status": "Failed, no file found"}), 404
+@app.route("/served-data/<username>", methods=['GET'])
+def get_number_records(username):
+
+    userVal = user_ops.get_user_with_username(username)
+    folderVal = folder_ops.get_folder(userVal.id)
+    
+    return jsonify(kml_ops.get_kml_data(userVal.id, folderVal.id)), 200
 
 @app.route('/submit-data', methods=['POST', 'GET'])
 def submit_data():
@@ -73,37 +68,30 @@ def submit_data():
 
         file_data_list = request.form.getlist('fileData')
 
-        session = Session()
-        userVal = session.query(user).filter(user.username == username).one()
+        userVal = user_ops.get_user_with_username(username)
         # Retrieve the last folder of the user, if any, otherwise create a new one
-        folderVal = session.query(folder).filter(folder.user_id == userVal.id).order_by(folder.id.desc()).first()
+        folderVal = folder_ops.get_folder(userVal.id)
         if folderVal is None:
-            folderVal = folder(name="user-folder1", user_id=userVal.id)
-            session.add(folderVal)
-            session.commit()
+            folderVal = folder_ops.create_folder("user-1",userVal.id)
 
         file_names = []
 
         for f in files:
-            existing_file = session.query(file).filter(file.name == f.filename, file.folder_id == folderVal.id).first()
+            existing_file = file_ops.get_file_with_name(f.filename, folderVal.id)
             if existing_file is not None:
                 # If file already exists, append its name to file_names and skip to next file
                 file_names.append(existing_file.name)
                 continue
             
             data = f.read()
-            new_file = file(name=f.filename, data=data, folder_id=folderVal.id)
-            session.add(new_file)
-            session.commit()
-            file_names.append(new_file.name)
+            file_ops.create_file(f.filename, data, folderVal.id)
+            file_names.append(f.filename)
 
         task = process_data.apply_async(args=[file_names, file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
-        session.close()
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     
-    except:
-        session.close()
-        return jsonify({'Status': "Failed, server failed"}), 400
+    except Exception as e:
+        return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
 
 @app.route('/status/<task_id>')
 def taskstatus(task_id):
@@ -165,12 +153,13 @@ def register():
 def login():
     data = request.get_json()
     username = data.get('username')
-    password = data.get('password')
+    pword = data.get('password')
 
-    user = user_ops.get_user_from_db(username)
+    # Needs a try catch to return the correct message
+    user = user_ops.get_user_with_username(username)
 
-    if user is not None and check_password_hash(user[2], password):
-        user_id = user[0]
+    if user is not None and check_password_hash(user.password, pword):
+        user_id = user.id
         access_token = create_access_token(identity={'id': user_id, 'username': username})
         response = make_response(jsonify({'status': 'success', 'token': access_token}))
         response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
@@ -261,15 +250,16 @@ def toggle_markers():
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
-@app.route('/api/mbtiles', methods=['GET'])
+@app.route('/api/files', methods=['GET'])
 @jwt_required()
-def get_mbtiles():
+def get_files():
     try:
         identity = get_jwt_identity()
-        mbtiles = vt_ops.get_mbt_info(identity["id"])
-        if not mbtiles:
+        folderVal = folder_ops.get_folder(identity['id'])
+        filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id)
+        if not filesinfo:
             Response('No mbtiles found', status=404)
-        return jsonify(mbtiles)
+        return jsonify(filesinfo)
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
     

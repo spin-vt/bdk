@@ -28,8 +28,9 @@ class file(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     data = Column(LargeBinary)
-    computed = Column(Boolean, default=False)
     folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
+    timestamp = Column(DateTime)  # this will add a timestamp column
+    computed = Column(Boolean, default=False)
     folder = relationship('folder', back_populates='files')
     fabric_data = relationship('fabric_data', back_populates='file', cascade='all, delete')  # Use fabric_data instead of data_entries
     kml_data = relationship('kml_data', back_populates='file', cascade='all, delete')
