@@ -14,7 +14,7 @@ from flask_jwt_extended import (
 from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
-from database.models import File, user
+from database.models import file, user, folder
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data
@@ -49,8 +49,14 @@ jwt = JWTManager(app)
 def get_number_records(userVal):
     session = Session()
     userValue = session.query(user).filter(user.username == userVal).one()
-    session.close()
-    return jsonify(kml_ops.get_kml_data(userValue.id))
+    folders = session.query(folder).filter(folder.user_id == userValue.id).all()
+    if folders:
+        folderVal = folders[-1]  # Get the last folder
+        session.close()
+        return jsonify(kml_ops.get_kml_data(userValue.id, folderVal.id)), 200
+    else:
+        session.close()
+        return jsonify({"Status": "Failed, no file found"}), 404
 
 @app.route('/submit-data', methods=['POST', 'GET'])
 def submit_data():
@@ -65,27 +71,33 @@ def submit_data():
         if len(files) <= 0:
             return jsonify({'Status': "Failed, no file uploaded"}), 400
 
-        operation_id = str(uuid.uuid4())
         file_data_list = request.form.getlist('fileData')
 
         session = Session()
         userVal = session.query(user).filter(user.username == username).one()
+        # Retrieve the last folder of the user, if any, otherwise create a new one
+        folderVal = session.query(folder).filter(folder.user_id == userVal.id).order_by(folder.id.desc()).first()
+        if folderVal is None:
+            folderVal = folder(name="user-folder1", user_id=userVal.id)
+            session.add(folderVal)
+            session.commit()
+
         file_names = []
 
-        for file in files:
-            existing_file = session.query(File).filter(File.file_name == file.filename, File.user_id == userVal.id).first()
+        for f in files:
+            existing_file = session.query(file).filter(file.name == f.filename, file.folder_id == folderVal.id).first()
             if existing_file is not None:
                 # If file already exists, append its name to file_names and skip to next file
-                file_names.append(existing_file.file_name)
+                file_names.append(existing_file.name)
                 continue
-
-            data = file.read()
-            new_file = File(file_name=file.filename, data=data, user_id=userVal.id, op_id=operation_id)
+            
+            data = f.read()
+            new_file = file(name=f.filename, data=data, folder_id=folderVal.id)
             session.add(new_file)
             session.commit()
-            file_names.append(new_file.file_name)
+            file_names.append(new_file.name)
 
-        task = process_data.apply_async(args=[file_names, file_data_list, username, operation_id]) # store the AsyncResult instance
+        task = process_data.apply_async(args=[file_names, file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
         session.close()
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     

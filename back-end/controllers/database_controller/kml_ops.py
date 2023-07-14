@@ -1,4 +1,4 @@
-from database.models import kml_data, Data, File, user
+from database.models import kml_data, fabric_data, file, user
 from sqlalchemy.exc import IntegrityError
 from utils.settings import BATCH_SIZE, DATABASE_URL
 from multiprocessing import Lock
@@ -15,49 +15,29 @@ from io import StringIO, BytesIO
 
 db_lock = Lock()
 
-def get_kml_data(id): 
+def get_kml_data(userid, folderid): 
     session = ScopedSession() 
-    userVal = session.query(user).filter(user.id == id).one()
+    userVal = session.query(user).filter(user.id == userid).one()
 
     try:
-        # Query all locations in Data
+        # Query the File records related to the folder_id
+        fabric_file = session.query(file).filter(file.folder_id == folderid, file.name.endswith('.csv')).first()
+        kml_files = session.query(file).filter(file.folder_id == folderid, file.name.endswith('.kml')).all()
+
+        if not fabric_file or not kml_files:
+            raise FileNotFoundError("Either fabric or KML files not found")
+
+        # Query all locations in fabric_data
         all_locations = session.query(
-            Data.location_id,
-            Data.latitude, 
-            Data.address_primary,
-            Data.longitude
-        ).filter(Data.user_id == id).all()
+            fabric_data.location_id,
+            fabric_data.latitude, 
+            fabric_data.address_primary,
+            fabric_data.longitude
+        ).filter(fabric_data.file_id == fabric_file.id).all()  # Change to fabric_file.id
 
         # Initialize an empty dictionary to hold location_id as key and its data as value, including location_id itself
         all_data = {r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3]} for r in all_locations}
 
-        # Query all locations that are served
-        resultsServed = session.query(
-            kml_data.location_id, 
-            kml_data.served, 
-            kml_data.wireless,
-            kml_data.lte,
-            kml_data.username,
-            kml_data.coveredLocations,
-            kml_data.maxDownloadNetwork,
-            kml_data.maxDownloadSpeed
-        ).filter(
-            kml_data.user_id == id  # Ensuring user_id in kml_data is the same as passed id
-        ).all()
-
-        # Add served data to the respective location in all_data
-        for r in resultsServed:
-            all_data[r[0]].update({
-                'served': r[1],
-                'wireless': r[2],
-                'lte': r[3],
-                'username': r[4],
-                'coveredLocations': r[5],
-                'maxDownloadNetwork': r[6],
-                'maxDownloadSpeed': r[7]
-            })
-        
-        # For all other locations, fill with default values
         default_data = {
             'served': False,
             'wireless': False,
@@ -67,9 +47,45 @@ def get_kml_data(id):
             'maxDownloadNetwork': -1,
             'maxDownloadSpeed': -1
         }
-        for loc in all_data.values():
-            for key, value in default_data.items():
-                loc.setdefault(key, value)
+
+        for kml_file in kml_files:
+            # Query all locations that are served
+            resultsServed = session.query(
+                kml_data.location_id, 
+                kml_data.served, 
+                kml_data.wireless,
+                kml_data.lte,
+                kml_data.username,
+                kml_data.coveredLocations,
+                kml_data.maxDownloadNetwork,
+                kml_data.maxDownloadSpeed
+            ).filter(
+                kml_data.file_id == kml_file.id  # Change to kml_file.id
+            ).all()
+
+
+            # Add served data to the respective location in all_data, merge two file that served the same point,
+            # record the maxdownloadnetwork and maxuploadspeed
+            for r in resultsServed:
+                if r[0] in all_data:
+                    all_data[r[0]].update({
+                        'served': r[1],
+                        'wireless': r[2],
+                        'lte': r[3],
+                        'username': r[4],
+                        'coveredLocations': r[5],
+                        'maxDownloadNetwork': r[6],
+                        'maxDownloadSpeed': r[7]
+                    })
+                else:
+                    # The location was not in the fabric file, but it is in one of the KML files
+                    # You need to decide how to handle this situation.
+                    pass
+
+            # For all other locations, fill with default values
+            for loc in all_data.values():
+                for key, value in default_data.items():
+                    loc.setdefault(key, value)
 
         # Convert dictionary values to a list
         data = list(all_data.values())
@@ -79,17 +95,19 @@ def get_kml_data(id):
 
     return data
 
-def add_to_db(pandaDF, networkName, download, upload, tech, wireless, id, operation_id):
+def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
     batch = [] 
     session = Session()
-    userVal = session.query(user).filter(user.id == id).one()
+
+    userVal = session.query(user).filter(user.id == userid).one()
+    fileVal = session.query(file).filter(file.id == kmlid).one()
 
     for _, row in pandaDF.iterrows():
         try:
             if row.location_id == '': 
                 continue
 
-            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id), user_id=id).first()
+            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
 
             if download == "": 
                 download = 0
@@ -101,13 +119,12 @@ def add_to_db(pandaDF, networkName, download, upload, tech, wireless, id, operat
                     wireless = wireless,
                     lte = False,
                     username = userVal.username,
-                    coveredLocations = networkName,
-                    maxDownloadNetwork = networkName,
+                    coveredLocations = fileVal.name,
+                    maxDownloadNetwork = fileVal.name,
                     maxDownloadSpeed = int(download), 
                     maxUploadSpeed = int(upload), 
-                    techType = tech, 
-                    user_id = id,
-                    op_id = operation_id
+                    techType = tech,
+                    file_id = fileVal.id
                 )
                 batch.append(newData)
             else:  # If the location_id exists
@@ -115,15 +132,15 @@ def add_to_db(pandaDF, networkName, download, upload, tech, wireless, id, operat
                 existing_data.wireless = wireless
 
                 if existing_data.coveredLocations == "": 
-                    existing_data.coveredLocations = networkName
+                    existing_data.coveredLocations = fileVal.name
                 else:
                     covered_locations_list = existing_data.coveredLocations.split(', ')
-                    if networkName not in covered_locations_list:
-                        covered_locations_list.append(networkName)
+                    if fileVal.name not in covered_locations_list:
+                        covered_locations_list.append(fileVal.name)
                         existing_data.coveredLocations = ", ".join(covered_locations_list)
 
                 if int(download) > int(existing_data.maxDownloadSpeed): 
-                    existing_data.maxDownloadNetwork = networkName
+                    existing_data.maxDownloadNetwork = fileVal.name
                     existing_data.maxDownloadSpeed = int(download)
                 if int(upload) > int(existing_data.maxUploadSpeed): 
                     existing_data.maxUploadSpeed = int(upload)
@@ -188,10 +205,10 @@ def export():
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(Fabric_FN, Coverage_fn, download, upload, tech, id, operation_id):
+def compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid):
     session = ScopedSession()
-    fabric_file = session.query(File).filter_by(file_name=Fabric_FN, user_id=id).first()
-    coverage_file = session.query(File).filter_by(file_name=Coverage_fn, user_id=id).first()
+    fabric_file = session.query(file).filter_by(file.id == fabricid).first()
+    coverage_file = session.query(file).filter_by(file.id == kmlid).first()
     
     if fabric_file is None or coverage_file is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")
@@ -215,17 +232,17 @@ def compute_wireless_locations(Fabric_FN, Coverage_fn, download, upload, tech, i
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, Coverage_fn, download, upload, tech, True, id, operation_id)
+    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid)
     return res
 
-def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, operation_id):
+def compute_wired_locations(fabricid, kmlid, download, upload, tech, userid):
     # Open session
     session = ScopedSession()
 
     # Fetch Fabric file from database
-    fabric_file_record = session.query(File).filter(File.file_name == Fabric_FN, File.user_id == id).first()
+    fabric_file_record = session.query(file).filter(file.id == fabricid).first()
     if not fabric_file_record:
-        raise ValueError(f"No file found with name {Fabric_FN}")
+        raise ValueError(f"No file found with name {fabric_file_record.name}")
     fabric_csv_data = fabric_file_record.data.decode()
     
     # Convert the CSV data string to a DataFrame
@@ -233,9 +250,9 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, ope
     df = pandas.read_csv(fabric_data)
 
     # Fetch Fiber file from database
-    fiber_file_record = session.query(File).filter(File.file_name == Fiber_FN, File.user_id == id).first()
+    fiber_file_record = session.query(file).filter(file.id == kmlid).first()
     if not fiber_file_record:
-        raise ValueError(f"No file found with name {Fiber_FN} and id {id}")
+        raise ValueError(f"No file found with name {fiber_file_record.name} and id {fiber_file_record.id}")
     fiber_kml_data = fiber_file_record.data
 
     # Convert the KML data bytes to a file-like object
@@ -266,15 +283,15 @@ def compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, ope
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, Fiber_FN, download, upload, tech, False, id, operation_id)
+    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid)
     return res 
 
-def add_network_data(Fabric_FN, Fiber_FN,download, upload, tech, type, id, operation_id):
+def add_network_data(fabricid, kmlid ,download, upload, tech, type, userid):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, operation_id)
+        res = compute_wired_locations(fabricid, kmlid, download, upload, tech, userid)
     elif type == 1: 
-        res = compute_wireless_locations(Fabric_FN, Fiber_FN, download, upload, tech, id, operation_id)
+        res = compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid)
     return res 
 
 
