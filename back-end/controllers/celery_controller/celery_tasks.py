@@ -51,19 +51,23 @@ def process_data(self, file_names, file_data_list, userid, folderid):
 
             elif file_name.endswith('.kml'):
                 print(file_name)
-                if not fabric_ops.check_num_records_greater_zero(fabricid):
+                fabric_id = fabric_ops.check_num_records_greater_zero(folderid)
+                if not fabric_id:
                     raise ValueError('No records found in fabric operations')
                 
-                task_id = str(uuid.uuid4())  
+                task_id = str(uuid.uuid4())
 
                 if networkType == "Wired": 
                     networkType = 0
                 else: 
                     networkType = 1
 
-                task = kml_ops.add_network_data(fabricid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid)
+                task = kml_ops.add_network_data(fabric_id, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid)
                 tasks.append(task)
-                geojson_array.append(vt_ops.read_kml(existing_file.id))
+        
+        all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()
+        for kml_f in all_kmls:
+            geojson_array.append(vt_ops.read_kml(kml_f.id))
         
         print("finished kml processing, now creating tiles")
         if geojson_array != []: 

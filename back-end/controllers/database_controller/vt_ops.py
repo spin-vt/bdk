@@ -34,12 +34,8 @@ def read_kml(fileid):
     session = ScopedSession()
     file_record = session.query(file).filter(file.id == fileid).first()
 
-    print('here')
-
     if not file_record:
         raise ValueError(f"No file found with name {file_record.name}")
-    
-    print('here')
     
     kml_obj = kml.KML()
     doc = file_record.data
@@ -262,7 +258,7 @@ def toggle_tiles(markers, userid):
 
     try:
         # Get the last folder of the user
-        user_last_folder = session.query(folder).filter_by(user_id=userid).order_by(desc(folder.id)).first()
+        user_last_folder = session.query(folder).filter(user_id=userid).order_by(desc(folder.id)).first()
         if user_last_folder:
             # Count files with deletion identifier in the folder
             deletion_count = session.query(file).filter(file.folder_id == user_last_folder.id, file.name.endswith("/")).count()
