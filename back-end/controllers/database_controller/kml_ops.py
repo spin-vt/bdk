@@ -107,7 +107,7 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
             if row.location_id == '': 
                 continue
 
-            existing_data = session.query(kml_data).filter_by(location_id=int(row.location_id)).first()
+            existing_data = session.query(kml_data).filter(kml_data.location_id==int(row.location_id)).first()
 
             if download == "": 
                 download = 0
@@ -207,8 +207,8 @@ def export():
 #might need to add lte data in the future
 def compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid):
     session = ScopedSession()
-    fabric_file = session.query(file).filter_by(file.id == fabricid).first()
-    coverage_file = session.query(file).filter_by(file.id == kmlid).first()
+    fabric_file = session.query(file).filter(file.id == fabricid).first()
+    coverage_file = session.query(file).filter(file.id == kmlid).first()
     
     if fabric_file is None or coverage_file is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")

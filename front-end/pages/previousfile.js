@@ -282,6 +282,7 @@ const PreviousFile = () => {
                       <MapIcon />
                       <Typography sx={{ marginLeft: '10px' }}>
                         View this Map
+                      </Typography>
                     </IconButton>
                   </TableCell>
                 </TableRow>
