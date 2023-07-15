@@ -6,6 +6,9 @@ import { makeStyles, useTheme } from '@material-ui/core/styles';
 import Swal from 'sweetalert2';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Box } from '@mui/system';
+import { Switch, FormControlLabel } from "@material-ui/core";
+import { styled } from "@mui/material/styles";
+import LayerVisibilityContext from "./LayerVisibilityContext";
 
 const useStyles = makeStyles((theme) => ({
   headertext: {
@@ -28,6 +31,58 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
+const IOSSwitch = styled((props) => (
+  <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
+))(({ theme }) => ({
+  width: 42,
+  height: 26,
+  padding: 0,
+  "& .MuiSwitch-switchBase": {
+    padding: 0,
+    margin: 2,
+    transitionDuration: "300ms",
+    "&.Mui-checked": {
+      transform: "translateX(16px)",
+      color: "#fff",
+      "& + .MuiSwitch-track": {
+        backgroundColor: theme.palette.mode === "dark" ? "#2ECA45" : "#65C466",
+        opacity: 1,
+        border: 0,
+      },
+      "&.Mui-disabled + .MuiSwitch-track": {
+        opacity: 0.5,
+      },
+    },
+    "&.Mui-focusVisible .MuiSwitch-thumb": {
+      color: "#33cf4d",
+      border: "6px solid #fff",
+    },
+    "&.Mui-disabled .MuiSwitch-thumb": {
+      color:
+        theme.palette.mode === "light"
+          ? theme.palette.grey[100]
+          : theme.palette.grey[600],
+    },
+    "&.Mui-disabled + .MuiSwitch-track": {
+      opacity: theme.palette.mode === "light" ? 0.7 : 0.3,
+    },
+  },
+  "& .MuiSwitch-thumb": {
+    boxSizing: "border-box",
+    width: 22,
+    height: 22,
+  },
+  "& .MuiSwitch-track": {
+    borderRadius: 26 / 2,
+    backgroundColor: theme.palette.mode === "light" ? "#E9E9EA" : "#39393D",
+    opacity: 1,
+    transition: theme.transitions.create(["background-color"], {
+      duration: 500,
+    }),
+  },
+}));
+
+
 const MyFile = () => {
 
   const classes = useStyles();
@@ -38,8 +93,11 @@ const MyFile = () => {
   const router = useRouter();
   const [files, setFiles] = useState([]);
 
+  const { setLayers } = useContext(LayerVisibilityContext);
+
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [sortBy, setSortBy] = useState('newest');
+
 
 
   const fetchFiles = async () => {
@@ -64,15 +122,21 @@ const MyFile = () => {
 
     const data = await response.json();
     data.forEach(file => {
+      console.log(file);
       const formattedFile = {
         id: file.id,
         name: file.name,
-        uploadDate: new Date(file.timestamp).toLocaleString()
+        uploadDate: new Date(file.timestamp).toLocaleString(),
+        type: file.type,
       };
       if (file.name.endsWith('.csv')) {
         setFabricFiles(prevFiles => [...prevFiles, formattedFile]);
       } else if (file.name.endsWith('.kml')) {
         setNetworkDataFiles(prevFiles => [...prevFiles, formattedFile]);
+        setLayers(prevLayers => ({
+          ...prevLayers,
+          [file.name]: true, // Set the visibility of the layer to true
+        }));
       } else if (file.name.endsWith('/')) {
         setManualEditFiles(prevFiles => [...prevFiles, formattedFile]);
       }
@@ -122,33 +186,58 @@ const MyFile = () => {
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Fabric Files
         </Typography>
-        <FileTable files={fabricFiles} handleDelete={handleDelete} classes={classes} />
-        
+        <FileTable files={fabricFiles} handleDelete={handleDelete} classes={classes} showSwitch={false} />
+
         {/* Network Data Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Network Data Files
         </Typography>
-        <FileTable files={networkDataFiles} handleDelete={handleDelete} classes={classes} />
-        
+        <FileTable files={networkDataFiles} handleDelete={handleDelete} classes={classes} showSwitch={true} />
+
         {/* Manual Edit Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Manual Edits
         </Typography>
-        <FileTable files={manualEditFiles} handleDelete={handleDelete} classes={classes} />
+        <FileTable files={manualEditFiles} handleDelete={handleDelete} classes={classes} showSwitch={false} />
       </Container>
     </div>
   );
 };
 
 // New FileTable Component to avoid code duplication
-const FileTable = ({ files, handleDelete, classes }) => {
+const FileTable = ({ files, handleDelete, classes, showSwitch }) => {
+  const { setLayers } = useContext(LayerVisibilityContext);
+  const [checked, setChecked] = useState([]);
+
+  useEffect(() => {
+    setChecked(new Array(files.length).fill(true));
+  }, [files]);
+
+  const handleToggle = (i) => () => {
+    const newChecked = [...checked];
+    newChecked[i] = !newChecked[i];
+    setChecked(newChecked);
+
+    // Update the layers visibility state
+    setLayers(prevLayers => ({
+      ...prevLayers,
+      [files[i].name]: newChecked[i],
+    }));
+  };
+
+  if (checked.length !== files.length) {
+    return null; // or return a loading spinner
+  };
+
   return (
     <TableContainer component={Paper}>
       <Table className={classes.table} aria-label="file table">
         <TableHead>
           <TableRow>
             <TableCell>Filename</TableCell>
-            <TableCell align="right">Created Time</TableCell>
+            <TableCell >Created Time</TableCell>
+            <TableCell align="right">Type</TableCell>
+            {showSwitch && <TableCell align="right">Show on Map</TableCell>}
             <TableCell align="right">Action</TableCell>
           </TableRow>
         </TableHead>
@@ -158,7 +247,19 @@ const FileTable = ({ files, handleDelete, classes }) => {
               <TableCell component="th" scope="row">
                 {file.name}
               </TableCell>
-              <TableCell align="right">{file.uploadDate}</TableCell>
+              <TableCell>{file.uploadDate}</TableCell>
+              <TableCell align="right">
+                {file.type}
+              </TableCell>
+              {showSwitch && <TableCell align="right">
+                <IOSSwitch
+                  sx={{ m: 1 }}
+                  checked={checked[index]}
+                  onChange={handleToggle(index)}
+                  name="showOnMapSwitch"
+                  inputProps={{ 'aria-label': 'secondary checkbox' }}
+                />
+              </TableCell>}
               <TableCell align="right">
                 <IconButton className={classes.deleteButton} onClick={() => handleDelete(index)}>
                   <DeleteIcon />
@@ -174,5 +275,4 @@ const FileTable = ({ files, handleDelete, classes }) => {
     </TableContainer>
   );
 };
-
 export default MyFile;

@@ -20,7 +20,8 @@ import IconButton from "@material-ui/core/IconButton";
 import Menu from "@material-ui/core/Menu";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
-import MbtilesContext from './MbtilesContext';
+import LayerVisibilityContext from "./LayerVisibilityContext";
+import Swal from 'sweetalert2';
 
 const useStyles = makeStyles({
   modal: {
@@ -214,7 +215,8 @@ function Map({ markers }) {
   const [isModalVisible, setModalVisible] = useState(false);
   const selectedMarkersRef = useRef([]);
 
-  const {mbtid} = useContext(MbtilesContext);
+  const { layers, setLayers } = useContext(LayerVisibilityContext);
+  const allKmlLayerRef = useRef({});
 
   // Use mbtiles to determine which tiles to fetc
 
@@ -253,9 +255,7 @@ function Map({ markers }) {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = mbtid
-    ? `http://localhost:5000/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
-    : `http://localhost:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `http://localhost:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -284,36 +284,51 @@ function Map({ markers }) {
         lineColor = "#888";
         fillColor = "#42004F";
     }
-
-    map.current.addLayer({
-      id: "custom-line",
-      type: "line",
-      source: "custom",
-      layout: {
-        "line-cap": "round",
-        "line-join": "round",
-      },
-      paint: {
-        "line-color": lineColor,
-        "line-width": 2,
-      },
-      filter: ["==", ["get", "feature_type"], "LineString"], // Only apply this layer to linestrings
-      "source-layer": "data",
+    console.log(allKmlLayerRef.current);
+    Object.keys(allKmlLayerRef.current).forEach((layer) => {
+      console.log(layer);
+      if (allKmlLayerRef.current[layer] === "fiber") {
+        map.current.addLayer({
+          id: `fiber-route-${layer}`,
+          type: "line",
+          source: "custom",
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+          paint: {
+            "line-color": lineColor,
+            "line-width": 2,
+          },
+          filter: [
+            "all",
+            ["==", ["get", "feature_type"], "LineString"],
+            ["==", ["get", "network_coverages"], layer],
+          ], // Only apply this layer to linestrings
+          "source-layer": "data",
+        });
+      } 
+      else {
+        map.current.addLayer({
+          id: `coverage-polygon-${layer}`,
+          type: "fill",
+          source: "custom",
+          paint: {
+            "fill-color": fillColor,
+            "fill-opacity": 0.5,
+          },
+          filter: [
+            "all",
+            ["==", ["get", "feature_type"], "Polygon"],
+            ["==", ["get", "network_coverages"], layer],
+          ], // Only apply this layer to polygons
+          "source-layer": "data",
+        });
+      }
     });
 
     map.current.addLayer({
-      id: "custom-polygon",
-      type: "fill",
-      source: "custom",
-      paint: {
-        "fill-color": fillColor,
-        "fill-opacity": 0.5,
-      },
-      filter: ["==", ["get", "feature_type"], "Polygon"], // Only apply this layer to polygons
-      "source-layer": "data",
-    });
-    map.current.addLayer({
-      id: "custom-point",
+      id: "unserved-points",
       type: "circle",
       source: "custom",
       paint: {
@@ -328,23 +343,83 @@ function Map({ markers }) {
           15,
           3, // When zoom is more than 12, circle radius will be 3
         ],
-        "circle-color": [
-          "case",
-          ["==", ["feature-state", "served"], true], // change 'get' to 'feature-state'
-          "#46DF39",
-          "#FF0000",
-        ],
+        "circle-color": "#FF0000",
       },
-      filter: ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
+      filter: [
+        "all",
+        ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
+        ["==", ["get", "served"], false], // Only apply this layer to points that are not in any of the layers
+      ],
       "source-layer": "data",
     });
+    map.current.on("click", "unserved-points", function (e) {
+      let featureProperties = e.features[0].properties;
+
+      let content = "<h1>Marker Information</h1>";
+      for (let property in featureProperties) {
+        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+      }
+
+      new maplibregl.Popup({ closeOnClick: false })
+        .setLngLat(e.lngLat)
+        .setHTML(content)
+        .addTo(map.current);
+    });
+
+    Object.keys(allKmlLayerRef.current).forEach((layer) => {
+      console.log(layer);
+      map.current.addLayer({
+        id: `served-points-${layer}`,
+        type: "circle",
+        source: "custom",
+        paint: {
+          "circle-radius": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            5,
+            0.5, // When zoom is less than or equal to 12, circle radius will be 1
+            12,
+            2,
+            15,
+            3, // When zoom is more than 12, circle radius will be 3
+          ],
+          "circle-color": "#46DF39",
+        },
+        filter: [
+          "all",
+          ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
+          ["in", layer, ["get", "network_coverages"]],
+        ],
+        "source-layer": "data",
+      });
+      map.current.on("click", `served-points-${layer}`, function (e) {
+        let featureProperties = e.features[0].properties;
+
+        console.log('here');
+        let content = "<h1>Marker Information</h1>";
+        for (let property in featureProperties) {
+          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+        }
+
+        new maplibregl.Popup({ closeOnClick: false })
+          .setLngLat(e.lngLat)
+          .setHTML(content)
+          .addTo(map.current);
+      });
+    });
+
   };
 
   const removeVectorTiles = () => {
-    if (map.current.getLayer("custom-point")) {
-      map.current.removeLayer("custom-point");
+    if (map.current.getLayer("unserved-points")) {
+      map.current.removeLayer("unserved-points");
     }
-
+    Object.keys(allKmlLayerRef.current).forEach((layer) => {
+      if (map.current.getLayer(`served-points-${layer}`)) {
+        map.current.removeLayer(`served-points-${layer}`);
+      }
+    });
     if (map.current.getLayer("custom-line")) {
       map.current.removeLayer("custom-line");
     }
@@ -355,6 +430,57 @@ function Map({ markers }) {
 
     if (map.current.getSource("custom")) {
       map.current.removeSource("custom");
+    }
+  };
+  const fetchFiles = () => {
+    if (
+      allKmlLayerRef.current === undefined ||
+      allKmlLayerRef.current === null ||
+      Object.keys(allKmlLayerRef.current).length === 0
+    ) {
+      return fetch("http://localhost:5000/api/files", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // Include cookies in the request
+      })
+        .then((response) => {
+          if (response.status === 401) {
+            Swal.fire({
+              icon: "error",
+              title: "Oops...",
+              text: "Session expired, please log in again!",
+            });
+            // Redirect to login page
+            router.push("/login");
+            return;
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log(data);
+          const newLayers = data.reduce((layers, file) => {
+            if (file.name.endsWith(".kml")) {
+              return {
+                ...layers,
+                [file.name]: file.type, // Set the visibility of the layer to true
+              };
+            }
+            return layers;
+          }, {});
+
+          console.log(newLayers);
+          allKmlLayerRef.current = newLayers;
+
+        })
+        .catch((error) => {
+          console.log(error);
+          setIsLoadingForUntimedEffect(false);
+        });
+    } else {
+      setLayers(allKmlLayerRef.current);
+      return Promise.resolve();
     }
   };
 
@@ -380,8 +506,7 @@ function Map({ markers }) {
         function handleSourcedata(e) {
           if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
             map.current.off("sourcedata", handleSourcedata);
-
-            fetchMarkers().then(() => {
+            fetchFiles().then(() => {
               addLayers();
             });
           }
@@ -395,18 +520,11 @@ function Map({ markers }) {
         );
       });
 
-    // console.log(allMarkersRef.current);
-
-    // if (!map.current) return; // Wait for map to initialize
-    // map.current.on("load", function () {
-
     map.current.on("draw.create", (event) => {
       const polygon = event.features[0];
 
       // Convert drawn polygon to turf polygon
       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
-
-      // console.log(allMarkersRef.current);
 
       // Iterate over markers and select if they are inside the polygon
       const selected = allMarkersRef.current.filter((marker) => {
@@ -414,28 +532,10 @@ function Map({ markers }) {
         return turf.booleanPointInPolygon(point, turfPolygon);
       });
 
-      // console.log(selected);
       selectedMarkersRef.current.push(selected);
-
-      // allMarkersRef.current.filter(marker => !selectedMarkers.includes(marker));
-
       setModalVisible(true); // Show the modal
     });
 
-    map.current.on("click", "custom-point", function (e) {
-      let featureProperties = e.features[0].properties;
-
-      let content = "<h1>Marker Information</h1>";
-      for (let property in featureProperties) {
-        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
-      }
-
-      new maplibregl.Popup({ closeOnClick: false })
-        .setLngLat(e.lngLat)
-        .setHTML(content)
-        .addTo(map.current);
-    });
-    // });
   };
 
   const toggleMarkers = (markers) => {
@@ -497,7 +597,6 @@ function Map({ markers }) {
         marker.served = false;
 
         // Set the feature state for each updated marker
-
         if (map.current && map.current.getSource("custom")) {
           // Check if the marker's feature state has been previously set
           const currentFeatureState = map.current.getFeatureState({
@@ -505,7 +604,6 @@ function Map({ markers }) {
             sourceLayer: "data",
             id: marker.id,
           });
-
           if (currentFeatureState.hasOwnProperty("served")) {
             // Set the 'served' feature state to false
             map.current.setFeatureState(
@@ -651,15 +749,6 @@ function Map({ markers }) {
     }
   };
 
-  function getRandomColor() {
-    const letters = "0123456789ABCDEF";
-    let color = "#";
-    for (let i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
-  };
-
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
     console.log(initialStyle);
@@ -667,7 +756,6 @@ function Map({ markers }) {
     let currentZoom = 4;
     let currentCenter = [-98.35, 39.5];
 
-    console.log(mbtid);
 
     if (map.current) {
       currentZoom = map.current.getZoom();
@@ -719,7 +807,7 @@ function Map({ markers }) {
       addVectorTiles();
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap, mbtid]);
+  }, [selectedBaseMap]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);

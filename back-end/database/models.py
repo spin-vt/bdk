@@ -30,6 +30,7 @@ class file(Base):
     data = Column(LargeBinary)
     folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
     timestamp = Column(DateTime)  # this will add a timestamp column
+    type = Column(String)
     computed = Column(Boolean, default=False)
     folder = relationship('folder', back_populates='files')
     fabric_data = relationship('fabric_data', back_populates='file', cascade='all, delete')  # Use fabric_data instead of data_entries

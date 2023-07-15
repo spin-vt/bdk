@@ -71,8 +71,12 @@ def submit_data():
         userVal = user_ops.get_user_with_username(username)
         # Retrieve the last folder of the user, if any, otherwise create a new one
         folderVal = folder_ops.get_folder(userVal.id)
+        session = Session()
         if folderVal is None:
-            folderVal = folder_ops.create_folder("user-1",userVal.id)
+            folderVal = folder_ops.create_folder("user-1",userVal.id, session)
+            session.commit()
+            print(folderVal.id)
+        session.close()
 
         file_names = []
 
@@ -84,7 +88,10 @@ def submit_data():
                 continue
             
             data = f.read()
-            file_ops.create_file(f.filename, data, folderVal.id)
+            if (f.filename.endswith('.csv')):
+                file_ops.create_file(f.filename, data, folderVal.id, 'fabric')
+            elif (f.filename.endswith('.kml')):
+                file_ops.create_file(f.filename, data, folderVal.id)
             file_names.append(f.filename)
 
         task = process_data.apply_async(args=[file_names, file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
@@ -256,10 +263,13 @@ def get_files():
     try:
         identity = get_jwt_identity()
         folderVal = folder_ops.get_folder(identity['id'])
-        filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id)
-        if not filesinfo:
-            Response('No mbtiles found', status=404)
-        return jsonify(filesinfo)
+        if folderVal:
+            filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id)
+            if not filesinfo:
+                return jsonify({'error': 'No files found'}), 404
+            return jsonify(filesinfo), 200
+        else:
+            return jsonify({'error': 'No files found'}), 404
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
     

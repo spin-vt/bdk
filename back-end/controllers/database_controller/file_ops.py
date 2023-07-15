@@ -5,6 +5,7 @@ from threading import Lock
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.exc import NoResultFound
 
 db_lock = Lock()
 
@@ -15,8 +16,10 @@ def get_files_in_folder(folderid):
         files_in_folder = session.query(file).filter(file.folder_id == folderid).all()
         return files_in_folder
 
-    except SQLAlchemyError as e:
-        return "An error occurred while retrieving the files: " + str(e)
+    except NoResultFound:
+        return None
+    except Exception as e:
+        return str(e)
     finally:
         session.close()
 
@@ -28,8 +31,11 @@ def get_files_with_postfix(folderid, postfix):
         files_with_ending = session.query(file).filter(file.folder_id == folderid, file.name.endswith(postfix)).all()
         return files_with_ending
 
-    except SQLAlchemyError as e:
-        return "An error occurred while retrieving the files: " + str(e)
+
+    except NoResultFound:
+        return None
+    except Exception as e:
+        return str(e)
     finally:
         session.close()
 
@@ -58,20 +64,22 @@ def get_file_with_name(filename, folderid):
         existing_file = session.query(file).filter(file.name == filename, file.folder_id == folderid).first()
         return existing_file
 
-    except SQLAlchemyError as e:
-        return "An error occurred while retrieving the file: " + str(e)
+    except NoResultFound:
+        return None
+    except Exception as e:
+        return str(e)
     finally:
         session.close()
 
 
-def create_file(filename, content, folderid, session=None):
+def create_file(filename, content, folderid, filetype=None, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        new_file = file(name=filename, data=content, folder_id=folderid, timestamp=datetime.now())
+        new_file = file(name=filename, data=content, folder_id=folderid, timestamp=datetime.now(), type=filetype)
         session.add(new_file)
         if owns_session:
             session.commit()
@@ -79,6 +87,30 @@ def create_file(filename, content, folderid, session=None):
     except SQLAlchemyError as e:
         if owns_session:
             session.rollback()
+
+def update_file_type(file_id, filetype, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
+    if filetype is None:
+        return {"error": "File type not provided"}
+
+    try:
+        file_to_update = session.query(file).filter(file.id == file_id).first()
+        if file_to_update is None:
+            return {"error": "File not found"}
+
+        file_to_update.type = filetype
+        if owns_session:
+            session.commit()
+
+        return {"success": "File type updated successfully"}
+    except SQLAlchemyError as e:
+        if owns_session:
+            session.rollback()
+        return {"error": str(e)}
 
 def get_filesinfo_in_folder(folderid):
     files_in_folder = get_files_in_folder(folderid)
@@ -93,6 +125,7 @@ def get_filesinfo_in_folder(folderid):
             'name': file.name,
             'timestamp': file.timestamp,
             'folder_id': file.folder_id,
+            'type': file.type,
             'computed': file.computed,
             # You can add any other attributes you want to return here.
         }

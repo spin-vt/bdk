@@ -17,7 +17,7 @@ from database.models import vector_tiles, file, folder, kml_data, fabric_data
 from controllers.celery_controller.celery_config import celery
 from controllers.celery_controller.celery_tasks import run_tippecanoe, run_tippecanoe_tiles_join
 from sqlalchemy import desc
-from .file_ops import get_file_with_id, get_files_with_postfix, create_file
+from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type
 from .folder_ops import get_folder
 
 db_lock = Lock()
@@ -38,8 +38,6 @@ def read_kml(fileid):
     if not file_record:
         raise ValueError(f"No file found with name {file_record.name}")
     
-    session = ScopedSession()
-    
     kml_obj = kml.KML()
     doc = file_record.data
     kml_obj.from_string(doc)
@@ -51,11 +49,16 @@ def read_kml(fileid):
         geojson_feature = {
             "type": "Feature",
             "geometry": placemark.geometry.__geo_interface__,  # This gets the GeoJSON geometry
-            "properties": {"feature_type": placemark.geometry.geom_type} # add the geometry type
+            "properties": {"feature_type": placemark.geometry.geom_type,
+                           'network_coverages': file_record.name,} # add the geometry type
         }
         geojson_features.append(geojson_feature)
 
-    session.close()
+    if placemark.geometry.geom_type == "LineString":
+        update_file_type(fileid, 'fiber')
+    elif placemark.geometry.geom_type == "Polygon":
+        update_file_type(fileid, 'polygon')
+
     return geojson_features
 
 
@@ -266,7 +269,7 @@ def toggle_tiles(markers, userid):
         if user_last_folder:
             # Count files with deletion identifier in the folder
             deletion_count = len(get_files_with_postfix(user_last_folder.id, "/"))
-            new_file = create_file(f"mark_unserved{deletion_count+1}/", None, user_last_folder.id, session)
+            new_file = create_file(f"mark_unserved{deletion_count+1}/", None, user_last_folder.id, 'edit', session)
             session.add(new_file)
             session.commit()
         else:

@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import { Drawer } from '@material-ui/core';
 import MyFile from '../components/MyFile';
 import { useState } from 'react';
+import LayerVisibilityProvider from '../components/LayerVisibilityProvider';
+import SelectedLocationProvider from '../components/SelectLocationProvider';
 
 const DynamicMap = dynamic(() => import('../components/ToolPage'), { ssr: false });
 
@@ -21,11 +23,15 @@ const HomePage = () => {
 
   return (
     <div>
+      <LayerVisibilityProvider>
+        <SelectedLocationProvider>
        <Navbar handleMyFileOpen={handleDrawerOpen} />
       <DynamicMap />
       <Drawer anchor='right' open={myFileOpen} onClose={handleDrawerClose}>
         <MyFile />
       </Drawer>
+      </SelectedLocationProvider>
+      </LayerVisibilityProvider>
     </div>
   );
 };

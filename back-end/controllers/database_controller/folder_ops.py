@@ -18,7 +18,7 @@ def get_folder(userid, folderid=None):
         return folderVal
 
     except NoResultFound:
-        return "No results found for the given user ID or folder ID"
+        return None
     except MultipleResultsFound:
         return "Multiple results found for the given user ID or folder ID"
     except Exception as e:

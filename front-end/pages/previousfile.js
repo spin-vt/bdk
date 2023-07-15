@@ -9,7 +9,6 @@ import Swal from 'sweetalert2';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ClearIcon from '@mui/icons-material/Clear';
 import MapIcon from '@mui/icons-material/Map';
-import MbtilesContext from '../components/MbtilesContext';
 import Modal from '@mui/material/Modal';
 import { Box } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
@@ -59,9 +58,6 @@ const PreviousFile = () => {
 
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [sortBy, setSortBy] = useState('newest');
-
-  // Inside your component
-  const { setMbtid } = useContext(MbtilesContext);
 
   const [viewonlymapid, setViewonlymapid] = useState(null);
 
