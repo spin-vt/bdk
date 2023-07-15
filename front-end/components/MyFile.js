@@ -8,7 +8,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { Box } from '@mui/system';
 import { Switch, FormControlLabel } from "@material-ui/core";
 import { styled } from "@mui/material/styles";
-import LayerVisibilityContext from "./LayerVisibilityContext";
+import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 
 const useStyles = makeStyles((theme) => ({
   headertext: {

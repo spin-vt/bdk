@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import SelectedLocationContext from "./SelectedLocationContext";
+import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import { Toolbar, Switch, FormControlLabel, Button } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import KeyboardDoubleArrowUpIcon from "@mui/icons-material/KeyboardDoubleArrowUp";
@@ -20,7 +20,7 @@ import IconButton from "@material-ui/core/IconButton";
 import Menu from "@material-ui/core/Menu";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
-import LayerVisibilityContext from "./LayerVisibilityContext";
+import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import Swal from 'sweetalert2';
 
 const useStyles = makeStyles({
@@ -215,7 +215,7 @@ function Map({ markers }) {
   const [isModalVisible, setModalVisible] = useState(false);
   const selectedMarkersRef = useRef([]);
 
-  const { layers, setLayers } = useContext(LayerVisibilityContext);
+  const { layers } = useContext(LayerVisibilityContext);
   const allKmlLayerRef = useRef({});
 
   // Use mbtiles to determine which tiles to fetc
@@ -284,10 +284,9 @@ function Map({ markers }) {
         lineColor = "#888";
         fillColor = "#42004F";
     }
-    console.log(allKmlLayerRef.current);
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
       console.log(layer);
-      if (allKmlLayerRef.current[layer] === "wired") {
+      if (allKmlLayerRef.current[layer][0] === "wired") {
         map.current.addLayer({
           id: `wired-${layer}`,
           type: "line",
@@ -348,7 +347,6 @@ function Map({ markers }) {
       filter: [
         "all",
         ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
-        ["==", ["get", "served"], false], // Only apply this layer to points that are not in any of the layers
       ],
       "source-layer": "data",
     });
@@ -419,7 +417,7 @@ function Map({ markers }) {
       if (map.current.getLayer(`served-points-${layer}`)) {
         map.current.removeLayer(`served-points-${layer}`);
       }
-      if (allKmlLayerRef.current[layer] === "wired") {
+      if (allKmlLayerRef.current[layer][0] === "wired") {
         if (map.current.getLayer(`wired-${layer}`)) {
           map.current.removeLayer(`wired-${layer}`)
         }
@@ -468,7 +466,7 @@ function Map({ markers }) {
             if (file.name.endsWith(".kml")) {
               return {
                 ...layers,
-                [file.name]: file.type, // Set the visibility of the layer to true
+                [file.name]: [file.type, true], // Set the visibility of the layer to true
               };
             }
             return layers;
@@ -483,7 +481,6 @@ function Map({ markers }) {
           setIsLoadingForUntimedEffect(false);
         });
     } else {
-      setLayers(allKmlLayerRef.current);
       return Promise.resolve();
     }
   };
@@ -541,6 +538,136 @@ function Map({ markers }) {
     });
 
   };
+
+  const addSingleLayer = (layername, featuretype) => {
+    let lineColor;
+    let fillColor;
+
+    switch (selectedBaseMap) {
+      case "STREETS":
+        lineColor = "#888";
+        fillColor = "#42004F";
+        break;
+      case "SATELLITE":
+        lineColor = "#FF00F7"; // Replace with appropriate color
+        fillColor = "#565EC1"; // Replace with appropriate color
+        break;
+      case "DARK":
+        lineColor = "#FF00F7"; // Replace with appropriate color
+        fillColor = "#565EC1"; // Replace with appropriate color
+        break;
+      default:
+        lineColor = "#888";
+        fillColor = "#42004F";
+    }
+    if (featuretype === "wired") {
+      map.current.addLayer({
+        id: `wired-${layername}`,
+        type: "line",
+        source: "custom",
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": lineColor,
+          "line-width": 2,
+        },
+        filter: [
+          "all",
+          ["==", ["get", "feature_type"], "LineString"],
+          ["==", ["get", "network_coverages"], layername],
+        ], // Only apply this layer to linestrings
+        "source-layer": "data",
+      });
+    }
+    else {
+      map.current.addLayer({
+        id: `wireless-${layername}`,
+        type: "fill",
+        source: "custom",
+        paint: {
+          "fill-color": fillColor,
+          "fill-opacity": 0.5,
+        },
+        filter: [
+          "all",
+          ["==", ["get", "feature_type"], "Polygon"],
+          ["==", ["get", "network_coverages"], layername],
+        ], // Only apply this layer to polygons
+        "source-layer": "data",
+      });
+    }
+
+    map.current.addLayer({
+      id: `served-points-${layername}`,
+      type: "circle",
+      source: "custom",
+      paint: {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5,
+          0.5, // When zoom is less than or equal to 12, circle radius will be 1
+          12,
+          2,
+          15,
+          3, // When zoom is more than 12, circle radius will be 3
+        ],
+        "circle-color": "#46DF39",
+      },
+      filter: [
+        "all",
+        ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
+        ["in", layername, ["get", "network_coverages"]],
+      ],
+      "source-layer": "data",
+    });
+    map.current.on("click", `served-points-${layername}`, function (e) {
+      let featureProperties = e.features[0].properties;
+      let content = "<h1>Marker Information</h1>";
+      for (let property in featureProperties) {
+        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+      }
+
+      new maplibregl.Popup({ closeOnClick: false })
+        .setLngLat(e.lngLat)
+        .setHTML(content)
+        .addTo(map.current);
+    });
+  };
+
+  const removeSingleLayer = (layername, featuretype) => {
+    if (map.current.getLayer(`served-points-${layername}`)) {
+      map.current.removeLayer(`served-points-${layername}`);
+    }
+    if (featuretype === "wired") {
+      if (map.current.getLayer(`wired-${layername}`)) {
+        map.current.removeLayer(`wired-${layername}`)
+      }
+    }
+    else {
+      if (map.current.getLayer(`wireless-${layername}`)) {
+        map.current.removeLayer(`wireless-${layername}`)
+      }
+    }
+  };
+
+  useEffect(() => {
+    Object.keys(allKmlLayerRef.current).forEach((key) => {
+      if (layers[key] && !allKmlLayerRef.current[key][1]) {
+        // Layer should be visible but isn't, so add it
+        addSingleLayer(key, allKmlLayerRef.current[key][0]);
+        allKmlLayerRef.current[key][1] = true;
+      } else if (!layers[key] && allKmlLayerRef.current[key][1]) {
+        // Layer shouldn't be visible but is, so remove it
+        removeSingleLayer(key, allKmlLayerRef.current[key][0]);
+        allKmlLayerRef.current[key][1] = false;
+      }
+    });
+  }, [layers]);
+
 
   const toggleMarkers = (markers) => {
     return fetch("http://localhost:5000/toggle-markers", {

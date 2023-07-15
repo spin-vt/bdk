@@ -4,8 +4,8 @@ import dynamic from 'next/dynamic';
 import { Drawer } from '@material-ui/core';
 import MyFile from '../components/MyFile';
 import { useState } from 'react';
-import LayerVisibilityProvider from '../components/LayerVisibilityProvider';
-import SelectedLocationProvider from '../components/SelectLocationProvider';
+import LayerVisibilityProvider from '../contexts/LayerVisibilityProvider';
+import SelectedLocationProvider from '../contexts/SelectLocationProvider';
 
 const DynamicMap = dynamic(() => import('../components/ToolPage'), { ssr: false });
 

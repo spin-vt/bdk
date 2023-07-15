@@ -4,7 +4,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Menu, IconButton, MenuItem } from '@material-ui/core';
 import LayersIcon from "@mui/icons-material/Layers";
-import SelectedLocationContext from "./SelectedLocationContext";
+import SelectedLocationContext from '../contexts/SelectedLocationContext'
 
 const useStyles = makeStyles({
     baseMap: {

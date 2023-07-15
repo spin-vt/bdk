@@ -2,7 +2,7 @@ import React, { useState, useContext } from "react";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
-import SelectedLocationContext from "./SelectedLocationContext";
+import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import debounce from "lodash.debounce";
 import Switch from '@mui/material/Switch';
 import FormGroup from '@mui/material/FormGroup';
