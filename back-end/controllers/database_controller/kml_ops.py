@@ -70,15 +70,18 @@ def get_kml_data(userid, folderid):
             # record the maxdownloadnetwork and maxuploadspeed
             for r in resultsServed:
                 if r[0] in all_data:
-                    all_data[r[0]].update({
+                    existing_data = all_data[r[0]]
+                    new_data = {
                         'served': r[1],
-                        'wireless': r[2],
-                        'lte': r[3],
+                        'wireless': r[2] or existing_data.get('wireless', False),
+                        'lte': r[3] or existing_data.get('lte', False),
                         'username': r[4],
-                        'coveredLocations': r[5],
-                        'maxDownloadNetwork': r[6],
-                        'maxDownloadSpeed': r[7]
-                    })
+                        'coveredLocations': ', '.join(filter(None, [r[5], existing_data.get('coveredLocations', '')])),
+                        'maxDownloadNetwork': r[6] if r[7] > existing_data.get('maxDownloadSpeed', -1) else existing_data.get('maxDownloadNetwork', ''),
+                        'maxDownloadSpeed': max(r[7], existing_data.get('maxDownloadSpeed', -1))
+                    }
+                    # Merge the existing and new data
+                    all_data[r[0]].update(new_data)
                 else:
                     # The location was not in the fabric file, but it is in one of the KML files
                     # You need to decide how to handle this situation.
@@ -108,44 +111,24 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
         try:
             if row.location_id == '': 
                 continue
-
-            existing_data = session.query(kml_data).filter(kml_data.location_id==int(row.location_id)).first()
-
+            
             if download == "": 
                 download = 0
                 
-            if existing_data is None:  # If the location_id doesn't exist in db
-                newData = kml_data(
-                    location_id = int(row.location_id),
-                    served = True,
-                    wireless = wireless,
-                    lte = False,
-                    username = userVal.username,
-                    coveredLocations = fileVal.name,
-                    maxDownloadNetwork = fileVal.name,
-                    maxDownloadSpeed = int(download), 
-                    maxUploadSpeed = int(upload), 
-                    techType = tech,
-                    file_id = fileVal.id
-                )
-                batch.append(newData)
-            else:  # If the location_id exists
-                existing_data.served = True
-                existing_data.wireless = wireless
-
-                if existing_data.coveredLocations == "": 
-                    existing_data.coveredLocations = fileVal.name
-                else:
-                    covered_locations_list = existing_data.coveredLocations.split(', ')
-                    if fileVal.name not in covered_locations_list:
-                        covered_locations_list.append(fileVal.name)
-                        existing_data.coveredLocations = ", ".join(covered_locations_list)
-
-                if int(download) > int(existing_data.maxDownloadSpeed): 
-                    existing_data.maxDownloadNetwork = fileVal.name
-                    existing_data.maxDownloadSpeed = int(download)
-                if int(upload) > int(existing_data.maxUploadSpeed): 
-                    existing_data.maxUploadSpeed = int(upload)
+            newData = kml_data(
+                location_id = int(row.location_id),
+                served = True,
+                wireless = wireless,
+                lte = False,
+                username = userVal.username,
+                coveredLocations = fileVal.name,
+                maxDownloadNetwork = fileVal.name,
+                maxDownloadSpeed = int(download), 
+                maxUploadSpeed = int(upload), 
+                techType = tech,
+                file_id = fileVal.id
+            )
+            batch.append(newData)
 
             if len(batch) >= BATCH_SIZE:
                 with db_lock:
@@ -170,7 +153,7 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
     session.commit()
     session.close()
 
-    return True 
+    return True
 
 def export(): 
     PROVIDER_ID = 000 

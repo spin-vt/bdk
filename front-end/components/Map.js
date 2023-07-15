@@ -198,13 +198,7 @@ function Map({ markers }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
 
-  const [showServed, setShowServed] = useState(true);
-  const [showUnserved, setShowUnserved] = useState(true);
-  const [showRoutes, setShowRoutes] = useState(true);
-  const [showPolygons, setShowPolygons] = useState(true);
 
-  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
-  const [showExpandButton, setShowExpandButton] = useState(true);
   const [isLoadingForTimedEffect, setIsLoadingForTimedEffect] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   const loadingTimeInMs = 0.8 * 60 * 1000;
@@ -696,24 +690,6 @@ function Map({ markers }) {
       });
   };
 
-  const handleServedChange = (event) => {
-    setShowServed(event.target.checked);
-    console.log(showServed);
-  };
-
-  const handleUnservedChange = (event) => {
-    setShowUnserved(event.target.checked);
-    console.log(showUnserved);
-  };
-
-  const handleToggleRoute = (event) => {
-    setShowRoutes(event.target.checked);
-  };
-
-  const handleTogglePolygon = (event) => {
-    setShowPolygons(event.target.checked);
-  };
-
   const toggleModalVisibility = () => {
     setModalVisible(!isModalVisible);
   };
@@ -943,55 +919,6 @@ function Map({ markers }) {
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
 
-  useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) {
-      return;
-    }
-
-    console.log(showServed);
-    console.log(showUnserved);
-
-    if (showRoutes) {
-      map.current.setLayoutProperty("custom-line", "visibility", "visible");
-    } else {
-      map.current.setLayoutProperty("custom-line", "visibility", "none");
-    }
-
-    if (showPolygons) {
-      map.current.setLayoutProperty("custom-polygon", "visibility", "visible");
-    } else {
-      map.current.setLayoutProperty("custom-polygon", "visibility", "none");
-    }
-
-    // Currently if points were change to unserved with drawing tools, when toggled showServed off it will
-    // still show up on the map. This is because mapbox does not support "filter" option with feature-state.
-    // Currently there are no work around except updating the database as re-rendering also relies on the "filter"
-    // option
-    if (showServed && !showUnserved) {
-      map.current.setLayoutProperty("custom-point", "visibility", "visible");
-      map.current.setFilter("custom-point", [
-        "all",
-        ["==", ["get", "served"], true],
-        ["==", ["get", "feature_type"], "Point"],
-      ]);
-    } else if (!showServed && showUnserved) {
-      map.current.setLayoutProperty("custom-point", "visibility", "visible");
-      map.current.setFilter("custom-point", [
-        "all",
-        ["==", ["get", "served"], false],
-        ["==", ["get", "feature_type"], "Point"],
-      ]);
-    } else if (showServed && showUnserved) {
-      map.current.setLayoutProperty("custom-point", "visibility", "visible");
-      map.current.setFilter("custom-point", [
-        "==",
-        ["get", "feature_type"],
-        "Point",
-      ]);
-    } else {
-      map.current.setLayoutProperty("custom-point", "visibility", "none");
-    }
-  }, [showServed, showUnserved, showRoutes, showPolygons]);
 
   useEffect(() => {
     if (location && map.current) {
@@ -1070,79 +997,6 @@ function Map({ markers }) {
               onClick={doneWithChanges}
             >
               Save your changes
-            </button>
-          </div>
-        )}
-        {showExpandButton && (
-          <button
-            className={classes.expandToolbarButton}
-            onClick={() => {
-              setIsToolbarExpanded(true);
-              setShowExpandButton(false);
-            }}
-          >
-            Show Toolbar
-          </button>
-        )}
-        {isToolbarExpanded && (
-          <div className={classes.wrapper}>
-            <Toolbar className={classes.toolbar}>
-              <FormControlLabel
-                control={
-                  <IOSSwitch
-                    sx={{ m: 1 }}
-                    checked={showServed}
-                    onChange={handleServedChange}
-                  />
-                }
-                label="Show Served Points"
-                id="served-toggle"
-              />
-              <FormControlLabel
-                control={
-                  <IOSSwitch
-                    sx={{ m: 1 }}
-                    checked={showUnserved}
-                    onChange={handleUnservedChange}
-                  />
-                }
-                label="Show Unserved Points"
-                id="unserved-toggle"
-              />
-
-              <FormControlLabel
-                control={
-                  <IOSSwitch
-                    sx={{ m: 1 }}
-                    checked={showRoutes}
-                    onChange={handleToggleRoute}
-                  />
-                }
-                label="Show Fiber Routes"
-                id="route-toggle"
-              />
-              <FormControlLabel
-                control={
-                  <IOSSwitch
-                    sx={{ m: 1 }}
-                    checked={showPolygons}
-                    onChange={handleTogglePolygon}
-                  />
-                }
-                label="Show Coverage Polygons"
-                id="polygon-toggle"
-              />
-            </Toolbar>
-
-            <button
-              className={classes.collapseToolbarContainer}
-              onClick={() => {
-                setIsToolbarExpanded(false);
-                setShowExpandButton(true);
-              }}
-            >
-              <KeyboardDoubleArrowUpIcon />
-              Collapse
             </button>
           </div>
         )}
