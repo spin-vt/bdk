@@ -7,55 +7,63 @@ import psycopg2
 from werkzeug.security import generate_password_hash
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
-def get_user_with_id(userid):
-    session = Session()
+def get_user_with_id(userid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
     try:
         userVal = session.query(user).filter(user.id == userid).one()
         return userVal
-    
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given user ID or folder ID"
+        return "Multiple results found for the given user ID"
     except Exception as e:
         return str(e)
     finally:
-        session.close()
-    
+        if owns_session:
+            session.close()
 
-def get_user_with_username(user_name):
-    session = Session()
+def get_user_with_username(user_name, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
     try:
         userVal = session.query(user).filter(user.username == user_name).one()
         return userVal
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given user ID or folder ID"
+        return "Multiple results found for the given username"
     except Exception as e:
         return str(e)
     finally:
-        session.close()
+        if owns_session:
+            session.close()
 
 def create_user_in_db(username, password):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
+    session = Session()
+    try:
+        existing_user = get_user_with_username(username, session)
+        if existing_user:
+            return {"error": "Username already exists"}
 
-    cursor.execute("SELECT username FROM \"user\" WHERE username = %s", (username,))
-    existing_user = cursor.fetchone()
+        hashed_password = generate_password_hash(password, method='sha256')
+        new_user = user(username=username, password=hashed_password)
+        session.add(new_user)
+    
+        session.commit()
 
-    if existing_user:
-        cursor.close()
-        conn.close()
-        return None
+        return {"success": new_user.id}
 
-    hashed_password = generate_password_hash(password, method='sha256')
+    except Exception as e:
+       
+        session.rollback()
+        return {"error": str(e)}
 
-    cursor.execute("INSERT INTO \"user\" (username, password) VALUES (%s, %s) RETURNING id", (username, hashed_password))
-    new_user_id = cursor.fetchone()[0]
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-    return new_user_id
+    finally:
+        session.close()

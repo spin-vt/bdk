@@ -55,6 +55,7 @@ def get_number_records(username):
 
 @app.route('/submit-data', methods=['POST', 'GET'])
 def submit_data():
+    session = Session()
     try:
         username = request.form.get('username')
         
@@ -68,20 +69,16 @@ def submit_data():
 
         file_data_list = request.form.getlist('fileData')
 
-        userVal = user_ops.get_user_with_username(username)
+        userVal = user_ops.get_user_with_username(username, session=session)
         # Retrieve the last folder of the user, if any, otherwise create a new one
-        folderVal = folder_ops.get_folder(userVal.id)
-        session = Session()
+        folderVal = folder_ops.get_folder(userVal.id, session=session)
         if folderVal is None:
-            folderVal = folder_ops.create_folder("user-1",userVal.id, session)
+            folderVal = folder_ops.create_folder("user-1", userVal.id, session=session)
             session.commit()
-            print(folderVal.id)
-        session.close()
-
         file_names = []
 
         for f in files:
-            existing_file = file_ops.get_file_with_name(f.filename, folderVal.id)
+            existing_file = file_ops.get_file_with_name(f.filename, folderVal.id, session=session)
             if existing_file is not None:
                 # If file already exists, append its name to file_names and skip to next file
                 file_names.append(existing_file.name)
@@ -89,16 +86,21 @@ def submit_data():
             
             data = f.read()
             if (f.filename.endswith('.csv')):
-                file_ops.create_file(f.filename, data, folderVal.id, 'fabric')
+                file_ops.create_file(f.filename, data, folderVal.id, 'fabric', session=session)
             elif (f.filename.endswith('.kml')):
-                file_ops.create_file(f.filename, data, folderVal.id)
+                file_ops.create_file(f.filename, data, folderVal.id, None, session=session)
             file_names.append(f.filename)
+            session.commit()
 
         task = process_data.apply_async(args=[file_names, file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     
     except Exception as e:
+        session.rollback()  # Rollback the session in case of error
         return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+
+    finally:
+        session.close()  # Always close the session at the end
 
 @app.route('/status/<task_id>')
 def taskstatus(task_id):
@@ -144,12 +146,13 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
-    new_user_id = user_ops.create_user_in_db(username, password)
+    response = user_ops.create_user_in_db(username, password)
 
-    if not new_user_id:
-        return jsonify({'status': 'error', 'message': 'Username already exists.'})
+    if "error" in response:
+        return jsonify({'status': 'error', 'message': response["error"]})
 
-    access_token = create_access_token(identity={'id': new_user_id, 'username': username})
+    access_token = create_access_token(identity={'id': response["success"], 'username': username})
+    print(response)
 
     response = make_response(jsonify({'status': 'success', 'token': access_token}))
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
@@ -262,9 +265,10 @@ def toggle_markers():
 def get_files():
     try:
         identity = get_jwt_identity()
-        folderVal = folder_ops.get_folder(identity['id'])
+        session = Session()
+        folderVal = folder_ops.get_folder(identity['id'], None, session=session)
         if folderVal:
-            filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id)
+            filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id, session=session)
             if not filesinfo:
                 return jsonify({'error': 'No files found'}), 404
             return jsonify(filesinfo), 200
@@ -272,6 +276,8 @@ def get_files():
             return jsonify({'error': 'No files found'}), 404
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
     
 @app.route('/api/delmbtiles/<int:mbtiles_id>', methods=['DELETE'])
 @jwt_required()

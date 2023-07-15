@@ -55,9 +55,9 @@ def read_kml(fileid):
         geojson_features.append(geojson_feature)
 
     if placemark.geometry.geom_type == "LineString":
-        update_file_type(fileid, 'fiber')
+        update_file_type(fileid, 'wire')
     elif placemark.geometry.geom_type == "Polygon":
-        update_file_type(fileid, 'polygon')
+        update_file_type(fileid, 'wireless')
 
     return geojson_features
 

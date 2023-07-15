@@ -9,67 +9,59 @@ from sqlalchemy.orm.exc import NoResultFound
 
 db_lock = Lock()
 
-def get_files_in_folder(folderid):
-    session = Session()
+def get_files_in_folder(folderid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
 
     try:
         files_in_folder = session.query(file).filter(file.folder_id == folderid).all()
         return files_in_folder
-
-    except NoResultFound:
-        return None
-    except Exception as e:
-        return str(e)
     finally:
-        session.close()
+        if owns_session:
+            session.close()
 
+# Similar changes for the other functions
 
-def get_files_with_postfix(folderid, postfix):
-    session = Session()
+def get_files_with_postfix(folderid, postfix, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
 
     try:
         files_with_ending = session.query(file).filter(file.folder_id == folderid, file.name.endswith(postfix)).all()
         return files_with_ending
-
-
-    except NoResultFound:
-        return None
-    except Exception as e:
-        return str(e)
     finally:
-        session.close()
+        if owns_session:
+            session.close()
 
-
-def get_file_with_id(fileid):
-    session = Session()
+def get_file_with_id(fileid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
 
     try:
         file_with_id = session.query(file).filter(file.id == fileid).one()
         return file_with_id
-
-    except NoResultFound:
-        return "No result found for the given file ID"
-    except MultipleResultsFound:
-        return "Multiple results found for the given file ID"
-    except Exception as e:
-        return str(e)
     finally:
-        session.close()
+        if owns_session:
+            session.close()
 
-
-def get_file_with_name(filename, folderid):
-    session = Session()
+def get_file_with_name(filename, folderid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
 
     try:
         existing_file = session.query(file).filter(file.name == filename, file.folder_id == folderid).first()
         return existing_file
-
-    except NoResultFound:
-        return None
-    except Exception as e:
-        return str(e)
     finally:
-        session.close()
+        if owns_session:
+            session.close()
 
 
 def create_file(filename, content, folderid, filetype=None, session=None):
@@ -112,23 +104,30 @@ def update_file_type(file_id, filetype, session=None):
             session.rollback()
         return {"error": str(e)}
 
-def get_filesinfo_in_folder(folderid):
-    files_in_folder = get_files_in_folder(folderid)
+def get_filesinfo_in_folder(folderid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
 
-    if not files_in_folder:
-        return None
+    try:
+        files_in_folder = get_files_in_folder(folderid, session)
+        if not files_in_folder:
+            return None
 
-    files_info = []
-    for file in files_in_folder:
-        file_dict = {
-            'id': file.id,
-            'name': file.name,
-            'timestamp': file.timestamp,
-            'folder_id': file.folder_id,
-            'type': file.type,
-            'computed': file.computed,
-            # You can add any other attributes you want to return here.
-        }
-        files_info.append(file_dict)
-    
-    return files_info
+        files_info = []
+        for file in files_in_folder:
+            file_dict = {
+                'id': file.id,
+                'name': file.name,
+                'timestamp': file.timestamp,
+                'folder_id': file.folder_id,
+                'type': file.type,
+                'computed': file.computed,
+            }
+            files_info.append(file_dict)
+
+        return files_info
+    finally:
+        if owns_session:
+            session.close()

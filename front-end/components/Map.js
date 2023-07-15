@@ -287,7 +287,7 @@ function Map({ markers }) {
     console.log(allKmlLayerRef.current);
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
       console.log(layer);
-      if (allKmlLayerRef.current[layer] === "fiber") {
+      if (allKmlLayerRef.current[layer] === "wire") {
         map.current.addLayer({
           id: `fiber-route-${layer}`,
           type: "line",
@@ -307,7 +307,7 @@ function Map({ markers }) {
           ], // Only apply this layer to linestrings
           "source-layer": "data",
         });
-      } 
+      }
       else {
         map.current.addLayer({
           id: `coverage-polygon-${layer}`,
@@ -456,10 +456,11 @@ function Map({ markers }) {
             router.push("/login");
             return;
           }
-          return response.json();
+          else if (response.status === 200) {
+            return response.json();
+          }
         })
         .then((data) => {
-          console.log(data);
           const newLayers = data.reduce((layers, file) => {
             if (file.name.endsWith(".kml")) {
               return {
@@ -470,8 +471,8 @@ function Map({ markers }) {
             return layers;
           }, {});
 
-          console.log(newLayers);
           allKmlLayerRef.current = newLayers;
+
 
         })
         .catch((error) => {
