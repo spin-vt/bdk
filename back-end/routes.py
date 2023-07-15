@@ -152,7 +152,6 @@ def register():
         return jsonify({'status': 'error', 'message': response["error"]})
 
     access_token = create_access_token(identity={'id': response["success"], 'username': username})
-    print(response)
 
     response = make_response(jsonify({'status': 'success', 'token': access_token}))
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)

@@ -287,9 +287,9 @@ function Map({ markers }) {
     console.log(allKmlLayerRef.current);
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
       console.log(layer);
-      if (allKmlLayerRef.current[layer] === "wire") {
+      if (allKmlLayerRef.current[layer] === "wired") {
         map.current.addLayer({
-          id: `fiber-route-${layer}`,
+          id: `wired-${layer}`,
           type: "line",
           source: "custom",
           layout: {
@@ -310,7 +310,7 @@ function Map({ markers }) {
       }
       else {
         map.current.addLayer({
-          id: `coverage-polygon-${layer}`,
+          id: `wireless-${layer}`,
           type: "fill",
           source: "custom",
           paint: {
@@ -419,14 +419,17 @@ function Map({ markers }) {
       if (map.current.getLayer(`served-points-${layer}`)) {
         map.current.removeLayer(`served-points-${layer}`);
       }
+      if (allKmlLayerRef.current[layer] === "wired") {
+        if (map.current.getLayer(`wired-${layer}`)) {
+          map.current.removeLayer(`wired-${layer}`)
+        }
+      }
+      else {
+        if (map.current.getLayer(`wireless-${layer}`)) {
+          map.current.removeLayer(`wireless-${layer}`)
+        }
+      }
     });
-    if (map.current.getLayer("custom-line")) {
-      map.current.removeLayer("custom-line");
-    }
-
-    if (map.current.getLayer("custom-polygon")) {
-      map.current.removeLayer("custom-polygon");
-    }
 
     if (map.current.getSource("custom")) {
       map.current.removeSource("custom");
