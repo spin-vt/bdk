@@ -283,12 +283,13 @@ def toggle_tiles(markers, userid):
                     kml_data_entry.coveredLocations = new_file.name
                     session.add(kml_data_entry)
                     session.flush()
-                    all_kmls = get_files_with_postfix(user_last_folder.id, '.kml', session)
-                    for kml_f in all_kmls:
-                        geojson_data.append(read_kml(kml_f.id, session))
 
         else:
             raise Exception('No last folder for the user')
+        
+        all_kmls = get_files_with_postfix(user_last_folder.id, '.kml', session)
+        for kml_f in all_kmls:
+            geojson_data.append(read_kml(kml_f.id, session))
         
         delete_mbtiles(user_last_folder.id, session)
         create_tiles(geojson_data, userid, user_last_folder.id, session)

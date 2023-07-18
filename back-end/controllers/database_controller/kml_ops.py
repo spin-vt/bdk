@@ -22,12 +22,12 @@ def get_kml_data(userid, folderid, session=None):
     if session is None:
         session = Session()
         owns_session = True
-    userVal = get_user_with_id(userid)
+    userVal = get_user_with_id(userid, session)
 
     try:
         # Query the File records related to the folder_id
-        fabric_file = get_files_with_postfix(folderid, ".csv")[0]
-        kml_files = get_files_with_postfix(folderid, ".kml")
+        fabric_file = get_files_with_postfix(folderid, ".csv", session)[0]
+        kml_files = get_files_with_postfix(folderid, ".kml", session)
 
         if not fabric_file or not kml_files:
             raise FileNotFoundError("Either fabric or KML files not found")

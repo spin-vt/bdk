@@ -292,9 +292,9 @@ export default function Navbar({handleMyFileOpen}) {
           </IconButton>
           
           {!isEditingMap && (
-          <IconButton href='/previousfile'>
+          <IconButton onClick={handleDownloadClick}>
             <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
-            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title} onClick={handleDownloadClick}>
+            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
               Export 
             </Typography>
           </IconButton>

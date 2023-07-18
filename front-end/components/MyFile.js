@@ -182,6 +182,7 @@ const MyFile = () => {
       setTimeout(() => {
         setIsDataReady(false);
       }, 5000);
+      router.reload();
     } catch (error) {
       setIsLoading(false);
       console.error('An error occurred:', error);
@@ -205,26 +206,25 @@ const MyFile = () => {
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Fabric Files
         </Typography>
-        <FileTable files={fabricFiles} handleDelete={handleDelete} setFiles={setFabricFiles} classes={classes} showSwitch={false} />
+        <FileTable files={fabricFiles} handleDelete={handleDelete} setFiles={setFabricFiles} classes={classes} showSwitch={false} showDelete={false} />
 
         {/* Network Data Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Network Data Files
         </Typography>
-        <FileTable files={networkDataFiles} handleDelete={handleDelete} setFiles={setNetworkDataFiles} classes={classes} showSwitch={true} />
+        <FileTable files={networkDataFiles} handleDelete={handleDelete} setFiles={setNetworkDataFiles} classes={classes} showSwitch={true} showDelete={true}/>
 
         {/* Manual Edit Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Manual Edits
         </Typography>
-        <FileTable files={manualEditFiles} handleDelete={handleDelete} setFiles={setManualEditFiles} classes={classes} showSwitch={false} />
+        <FileTable files={manualEditFiles} handleDelete={handleDelete} setFiles={setManualEditFiles} classes={classes} showSwitch={false} showDelete={false}/>
       </Container>
     </div>
   );
 };
 
-// New FileTable Component to avoid code duplication
-const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch }) => {
+const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch, showDelete }) => {
   const { setLayers } = useContext(LayerVisibilityContext);
   const [checked, setChecked] = useState([]);
 
@@ -248,6 +248,7 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch }) => {
     return null; // or return a loading spinner
   };
 
+
   return (
     <TableContainer component={Paper}>
       <Table className={classes.table} aria-label="file table">
@@ -257,7 +258,7 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch }) => {
             <TableCell >Created Time</TableCell>
             <TableCell align="right">Type</TableCell>
             {showSwitch && <TableCell align="right">Show on Map</TableCell>}
-            <TableCell align="right">Action</TableCell>
+            {showDelete && <TableCell align="right">Action</TableCell>}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -279,14 +280,14 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch }) => {
                   inputProps={{ 'aria-label': 'secondary checkbox' }}
                 />
               </TableCell>}
-              <TableCell align="right">
+              {showDelete && <TableCell align="right">
                 <IconButton className={classes.deleteButton} onClick={() => handleDelete(file.id, setFiles)}>
                   <DeleteIcon />
                   <Typography sx={{ marginLeft: '10px' }}>
                     Delete File
                   </Typography>
                 </IconButton>
-              </TableCell>
+              </TableCell>}
             </TableRow>
           ))}
         </TableBody>
@@ -294,4 +295,5 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch }) => {
     </TableContainer>
   );
 };
+
 export default MyFile;
