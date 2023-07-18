@@ -20,7 +20,7 @@ from controllers.celery_controller.celery_tasks import run_tippecanoe, run_tippe
 from sqlalchemy import desc
 from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
 from .folder_ops import get_folder
-from .mbtiles_ops import get_latest_mbtiles
+from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles
 
 db_lock = Lock()
 
@@ -290,6 +290,7 @@ def toggle_tiles(markers, userid):
         else:
             raise Exception('No last folder for the user')
         
+        delete_mbtiles(user_last_folder.id, session)
         create_tiles(geojson_data, userid, user_last_folder.id, session)
         message = 'Markers toggled successfully'
         status_code = 200
@@ -306,27 +307,3 @@ def toggle_tiles(markers, userid):
         session.close()
 
     return (message, status_code)
-
-def get_mbt_info(user_id):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, filename, timestamp FROM mbt WHERE user_id = %s", (user_id,))
-    rows = cursor.fetchall()
-
-    if rows is None:
-        return None
-    mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
-    cursor.close()
-    conn.close()
-    return mbtiles
-
-def delete_mbtiles(mbtiles_id, user_id):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM mbt WHERE id = %s AND user_id = %s", (mbtiles_id, user_id))
-    conn.commit()
-
-    cursor.close()
-    conn.close()

@@ -15,7 +15,7 @@ from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
 from database.models import file, user, folder
-from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops
+from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data
 
@@ -280,7 +280,7 @@ def get_files():
     
 @app.route('/api/delfiles/<int:fileid>', methods=['DELETE'])
 @jwt_required()
-def delete_mbtiles(fileid):
+def delete_files(fileid):
     fileid = int(fileid)
     try:
         identity = get_jwt_identity()
@@ -292,8 +292,9 @@ def delete_mbtiles(fileid):
             geojson_array = []
             all_kmls = file_ops.get_files_with_postfix(folderVal.id, '.kml', session)
             for kml_f in all_kmls:
-                geojson_array.append(vt_ops.read_kml(kml_f.id))
-            vt_ops.create_tiles(geojson_array, identity['id'], folderVal.id)
+                geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+            mbtiles_ops.delete_mbtiles(folderVal.id, session)
+            vt_ops.create_tiles(geojson_array, identity['id'], folderVal.id, session)
             return jsonify({'message': 'mbtiles successfully deleted'}), 200
         except Exception as e:
             session.rollback()  # Rollback the session in case of error

@@ -1,6 +1,6 @@
 import logging, subprocess, os, json, uuid, cProfile
 from controllers.celery_controller.celery_config import celery
-from controllers.database_controller import fabric_ops, kml_ops
+from controllers.database_controller import fabric_ops, kml_ops, mbtiles_ops
 from database.models import file, user, folder
 from database.sessions import Session
 
@@ -68,10 +68,11 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         for kml_f in all_kmls:
             geojson_array.append(vt_ops.read_kml(kml_f.id, session))
         
+        mbtiles_ops.delete_mbtiles(folderid, session)
         print("finished kml processing, now creating tiles")
         if geojson_array != []: 
             print("going to create tiles now")
-            vt_ops.create_tiles(geojson_array, userid, folderid)
+            vt_ops.create_tiles(geojson_array, userid, folderid, session)
         
         # try:
         #     for name in names:

@@ -1,11 +1,12 @@
 import psycopg2
 from database.sessions import ScopedSession, Session
-from database.models import file
+from database.models import file, kml_data
 from threading import Lock
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
+import re
 
 db_lock = Lock()
 
@@ -171,13 +172,28 @@ def delete_file(fileid, session=None):
     try:
         file_to_del = get_file_with_id(fileid, session)
         if file_to_del:
+            if re.match(".+\.edit\d*/$", file_to_del.name):
+                kml_entries = session.query(kml_data).filter(kml_data.file_id == fileid).all()
+                for kml_entry in kml_entries:
+                    # retrieve the original file id by getting the name before the .edit part and querying it
+                    orig_file_name = file_to_del.name.split('.edit')[0] + '.kml'
+                    orig_file = get_file_with_name(orig_file_name, file_to_del.folder_id, session)
+                    
+                    # revert the changes
+                    if orig_file:
+                        kml_entry.file_id = orig_file.id
+                        kml_entry.served = True
+                        kml_entry.coveredLocations = orig_file.name
+                        session.flush()
             session.delete(file_to_del)
             if owns_session:
                 session.commit()
+
     except SQLAlchemyError as e:
         if owns_session:
             session.rollback()
         print(f"Error occurred during deletion: {str(e)}")
+        raise
     finally:
         if owns_session:
             session.close()

@@ -172,16 +172,16 @@ const MyFile = () => {
         return;
       }
   
-      if (response.ok) {
-        setFiles(prevFiles => prevFiles.filter((file) => file.id !== id));
-        setIsDataReady(true);
-        setIsLoading(false);
-        setTimeout(() => {
-          setIsDataReady(false);
-        }, 5000);
-      } else {
-        throw new Error('Response was not OK');
+      if (!response.ok) { // If the response status is not ok (not 200)
+        throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
       }
+      
+      setFiles(prevFiles => prevFiles.filter((file) => file.id !== id));
+      setIsDataReady(true);
+      setIsLoading(false);
+      setTimeout(() => {
+        setIsDataReady(false);
+      }, 5000);
     } catch (error) {
       setIsLoading(false);
       console.error('An error occurred:', error);
