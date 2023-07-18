@@ -15,10 +15,12 @@ from datetime import datetime
 from database.sessions import ScopedSession, Session
 from database.models import vector_tiles, file, folder, kml_data, fabric_data
 from controllers.celery_controller.celery_config import celery
+from sqlalchemy.exc import SQLAlchemyError
 from controllers.celery_controller.celery_tasks import run_tippecanoe, run_tippecanoe_tiles_join
 from sqlalchemy import desc
-from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type
+from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
 from .folder_ops import get_folder
+from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles
 
 db_lock = Lock()
 
@@ -30,10 +32,10 @@ def recursive_placemarks(folder):
             yield from recursive_placemarks(feature)
 
 
-def read_kml(fileid):
+def read_kml(fileid, session):
 # Now you can extract all placemarks from the root KML object
     # geojson_array= [
-    file_record = get_file_with_id(fileid)
+    file_record = get_file_with_id(fileid, session)
 
     if not file_record:
         raise ValueError(f"No file found with name {file_record.name}")
@@ -116,42 +118,31 @@ def add_values_to_VT(mbtiles_file_path, folderid):
             os.remove(mbtiles_file_path)
     return 1
 
-def tiles_join(geojson_data, folderid):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
+def tiles_join(geojson_data, folderid, session):
+    try:
+        mbtile_file = get_latest_mbtiles(folderid, session)
+        # Save the .mbtiles file temporarily on the disk
+        with open(mbtile_file.filename, 'wb') as f:
+            f.write(mbtile_file.tile_data)
+        # Save the geojson_data to a .geojson file
+        with open('data.geojson', 'w') as f:
+            json.dump(geojson_data, f)
+        # Use tippecanoe to create a new .mbtiles file from the geojson_data
+        command1 = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
 
-    # Extract the .mbtiles file from the database
-    cursor.execute("SELECT id, tile_data FROM mbtiles WHERE folder_id = %s ORDER BY id DESC LIMIT 1", (folderid,))
-    mbtiles = cursor.fetchone()
-    mbtiles_id = mbtiles[0]
-    mbtiles_data = mbtiles[1]
+        # Use tile-join to merge the new .mbtiles file with the existing one
+        command2 = f"tile-join -o merged.mbtiles {mbtile_file.filename} new.mbtiles"
 
-    # Save the .mbtiles file temporarily on the disk
-    with open('existing.mbtiles', 'wb') as f:
-        f.write(mbtiles_data)
+        run_tippecanoe_tiles_join.apply(args=(command1, command2, 1, ["./merged.mbtiles", mbtile_file.filename, "./new.mbtiles"]), throw=True)
+        
+    except SQLAlchemyError as e:
+        print(f"Error occurred during query: {str(e)}")
+        return None
 
-    # Save the geojson_data to a .geojson file
-    with open('data.geojson', 'w') as f:
-        json.dump(geojson_data, f)
     
-    # Use tippecanoe to create a new .mbtiles file from the geojson_data
-    command1 = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
 
-    # Use tile-join to merge the new .mbtiles file with the existing one
-    command2 = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
-
-    # Remove the mbtiles data from the database
-    cursor.execute("DELETE FROM mbtiles WHERE id = %s", (mbtiles_id,))
-    conn.commit()
-    
-    cursor.close()
-    conn.close()
-
-    # chain tasks
-    run_tippecanoe_tiles_join(command1, command2, 1, ["./merged.mbtiles", "./existing.mbtiles", "./new.mbtiles"])()
-
-def create_tiles(geojson_array, userid, folderid):
-    network_data = get_kml_data(userid, folderid)
+def create_tiles(geojson_array, userid, folderid, session=None):
+    network_data = get_kml_data(userid, folderid, session)
     point_geojson = {
          "type": "FeatureCollection",
          "features": [
@@ -265,57 +256,47 @@ def toggle_tiles(markers, userid):
     session = Session()
     try:
         # Get the last folder of the user
-        user_last_folder = get_folder(userid)
+        user_last_folder = get_folder(userid, None, session)
+        geojson_data = []
         if user_last_folder:
-            # Count files with deletion identifier in the folder
-            deletion_count = len(get_files_with_postfix(user_last_folder.id, "/"))
-            new_file = create_file(f"mark_unserved{deletion_count+1}/", None, user_last_folder.id, 'edit', session)
-            session.add(new_file)
-            session.commit()
+            
+            kml_set = set()
+            for marker in markers:
+                # Retrieve all kml_data entries where location_id equals to marker['id']
+                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
+                for kml_data_entry in kml_data_entries:
+                    kml_file = get_file_with_id(kml_data_entry.file_id, session)
+                    kml_file_name_without_ext = kml_file.name.replace(".kml", "")
+                    # Count files with .edit prefix in the folder
+                    edit_count = len(get_files_with_prefix(user_last_folder.id, f"{kml_file_name_without_ext}.edit", session))
+                    if kml_data_entry.file_id not in kml_set:
+                        new_file = create_file(f"{kml_file_name_without_ext}.edit{edit_count+1}/", None, user_last_folder.id, 'edit', session)
+                        session.add(new_file)
+                        session.commit()
+                        kml_set.add(kml_file.id)
+                    else:
+                        new_file = get_file_with_name(f"{kml_file_name_without_ext}.edit{edit_count}/", user_last_folder.id, session)
+                    
+                    # Update each entry
+                    kml_data_entry.file_id = new_file.id
+                    kml_data_entry.served = marker['served']
+                    kml_data_entry.coveredLocations = new_file.name
+                    session.add(kml_data_entry)
+                    session.flush()
+
         else:
             raise Exception('No last folder for the user')
-
-        geojson_data = []
-        for marker in markers:
-            # Retrieve all kml_data entries where location_id equals to marker['id']
-
-            kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
-            for kml_data_entry in kml_data_entries:
-                # Update each entry
-                kml_data_entry.file_id = new_file.id
-                kml_data_entry.served = marker['served']
-                session.flush()
-                # Retrieve fabric_data for this kml_data
-                fabric_data_entry = session.query(fabric_data).join(file).filter(fabric_data.location_id == kml_data_entry.location_id, file.folder_id == user_last_folder.id).first()
-
-                point_geojson = {
-                    "type": "Feature",
-                    "properties": {
-                        "location_id": kml_data_entry.location_id,
-                        "served": kml_data_entry.served,
-                        "address": fabric_data_entry.address_primary,
-                        "wireless": kml_data_entry.wireless,
-                        'lte': kml_data_entry.lte,
-                        'username': kml_data_entry.username,
-                        'network_coverages': kml_data_entry.coveredLocations,
-                        'maxDownloadNetwork': kml_data_entry.maxDownloadNetwork,
-                        'maxDownloadSpeed': kml_data_entry.maxDownloadSpeed,
-                        "feature_type": "Point"
-                    },
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [fabric_data_entry.longitude, fabric_data_entry.latitude]
-                    }
-                }
-
-                geojson_data.append(point_geojson)
-
-        session.commit()
-
-        # Assuming tiles_join is defined somewhere else in your code
-        tiles_join(geojson_data, user_last_folder.id)
+        
+        all_kmls = get_files_with_postfix(user_last_folder.id, '.kml', session)
+        for kml_f in all_kmls:
+            geojson_data.append(read_kml(kml_f.id, session))
+        
+        delete_mbtiles(user_last_folder.id, session)
+        create_tiles(geojson_data, userid, user_last_folder.id, session)
         message = 'Markers toggled successfully'
         status_code = 200
+        
+        
 
     except Exception as e:
         session.rollback()  # rollback transaction on error
@@ -323,30 +304,7 @@ def toggle_tiles(markers, userid):
         status_code = 500
 
     finally:
+        session.commit()
         session.close()
 
     return (message, status_code)
-
-def get_mbt_info(user_id):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, filename, timestamp FROM mbt WHERE user_id = %s", (user_id,))
-    rows = cursor.fetchall()
-
-    if rows is None:
-        return None
-    mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
-    cursor.close()
-    conn.close()
-    return mbtiles
-
-def delete_mbtiles(mbtiles_id, user_id):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM mbt WHERE id = %s AND user_id = %s", (mbtiles_id, user_id))
-    conn.commit()
-
-    cursor.close()
-    conn.close()

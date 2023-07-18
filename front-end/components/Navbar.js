@@ -26,6 +26,8 @@ import UploadIcon from "@mui/icons-material/Upload";
 import DownloadIcon from "@mui/icons-material/Download";
 import Searchbar from "./Searchbar";
 import FolderIcon from "@mui/icons-material/Folder";
+import EditIcon from '@mui/icons-material/Edit';
+import EditMapContext from "../contexts/EditMapContext";
 // import handleDownloadClick from "./Upload"
 
 const useStyles = makeStyles((theme) => ({
@@ -128,6 +130,12 @@ const useStyles = makeStyles((theme) => ({
 export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
   const router = useRouter();
   const classes = useStyles();
+
+  const { isEditingMap, setEditingMap} = React.useContext(EditMapContext);
+
+  const handleEditToolClick = () => {
+    setEditingMap(!isEditingMap); // <-- toggle isEditing state
+  }
 
   function useLocalStorage(key, initialValue) {
     const [storedValue, setStoredValue] = React.useState(() => {
@@ -346,6 +354,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
 
           <Searchbar className={classes.menuItem} />
 
+          {!isEditingMap && (
           <IconButton onClick={handleMyFileOpen}>
             <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
             <Typography
@@ -356,29 +365,22 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
               Your Files
             </Typography>
           </IconButton>
-
-              <IconButton onClick={handleUploadOpen}>
-                <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
-                <Typography
-                  component="div"
-                  sx={{ flexGrow: 1 }}
-                  className={classes.title}
-                >
-                  Upload
-                </Typography>
-              </IconButton>
-
-          <IconButton href="/previousfile">
-            <DownloadIcon sx={{ color: "white", marginRight: "5px" }} />
-            <Typography
-              component="div"
-              sx={{ flexGrow: 1 }}
-              className={classes.title}
-              onClick={handleDownloadClick}
-            >
-              Export
+          )}
+          <IconButton onClick={handleEditToolClick}>
+            <EditIcon sx={{ color: "white", marginRight: "5px" }} />
+            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
+              {isEditingMap ? 'Exit Editing Tool' : 'Editing Tool'} 
             </Typography>
           </IconButton>
+          
+          {!isEditingMap && (
+          <IconButton onClick={handleDownloadClick}>
+            <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
+            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
+              Export 
+            </Typography>
+          </IconButton>
+          )}
 
           <Box display="flex" alignItems="center">
             {username ? (

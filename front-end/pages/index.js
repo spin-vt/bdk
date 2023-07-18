@@ -4,16 +4,21 @@ import dynamic from 'next/dynamic';
 import { Drawer } from '@material-ui/core';
 import MyFile from '../components/MyFile';
 import Upload from '../components/Upload';
-import { useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import LayerVisibilityProvider from '../contexts/LayerVisibilityProvider';
 import SelectedLocationProvider from '../contexts/SelectLocationProvider';
+import EditMapProvider from '../contexts/EditMapProvider';
+import EditMapContext from '../contexts/EditMapContext';
 
 const DynamicMap = dynamic(() => import('../components/ToolPage'), { ssr: false });
+const Editmap = dynamic(() => import('../components/Editmap'), { ssr: false });
+
 
 const HomePage = () => {
 
   const [myFileOpen, setMyFileOpen] = useState(false);
   const [uploadOpen, setOpen] = useState(false);
+  const { isEditingMap } = useContext(EditMapContext);
 
   const handleDrawerOpen = () => {
     setMyFileOpen(true);
@@ -35,15 +40,15 @@ const HomePage = () => {
     <div>
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
-       <Navbar handleMyFileOpen={handleDrawerOpen} handleUploadOpen={handleDrawerOpen2}/>
-      <DynamicMap />
-      <Drawer anchor='right' open={myFileOpen} onClose={handleDrawerClose}>
-        <MyFile />
-      </Drawer>
+            <Navbar handleMyFileOpen={handleDrawerOpen} handleUploadOpen={handleDrawerOpen2}/>
+            {isEditingMap ? <Editmap/> : <DynamicMap />}
+            <Drawer anchor='right' open={myFileOpen} onClose={handleDrawerClose}>
+              <MyFile />
+            </Drawer>
       <Drawer anchor='right' open={uploadOpen} onClose={handleDrawerClose2}>
         <Upload />
       </Drawer>
-      </SelectedLocationProvider>
+        </SelectedLocationProvider>
       </LayerVisibilityProvider>
     </div>
   );

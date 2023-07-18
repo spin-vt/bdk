@@ -5,8 +5,6 @@ import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import { Toolbar, Switch, FormControlLabel, Button } from "@material-ui/core";
 import { makeStyles } from "@material-ui/core/styles";
 import KeyboardDoubleArrowUpIcon from "@mui/icons-material/KeyboardDoubleArrowUp";
-import MapboxDraw from "@mapbox/mapbox-gl-draw";
-import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import * as turf from "@turf/turf";
 import LoadingEffect from "./LoadingEffect";
 import { styled } from "@mui/material/styles";
@@ -24,32 +22,6 @@ import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import Swal from 'sweetalert2';
 
 const useStyles = makeStyles({
-  modal: {
-    position: "absolute",
-    top: "5%", // adjust as needed
-    left: "50%",
-    zIndex: "1000",
-    transform: "translate(-50%, -50%)",
-    backgroundColor: "#fff",
-    boxShadow: "0px 5px 15px rgba(0, 0, 0, 0.3)",
-    padding: "16px 32px",
-    borderRadius: "40px", // for rounded corners
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    maxHeight: "8vh",
-    minWidth: "60vw",
-  },
-  drawtoolbutton: {
-    margin: "8px",
-    borderRadius: "20px",
-    color: "#fff", // Change button text color
-    border: "none",
-    cursor: "pointer",
-    padding: "10px 20px", // Change as needed
-    transition: "background-color 0.3s ease", // For smooth color transition
-  },
   buttonUnserve: {
     backgroundColor: "#0ADB1F",
     "&:hover": {
@@ -203,11 +175,6 @@ function Map({ markers }) {
   const [isDataReady, setIsDataReady] = useState(false);
   const loadingTimeInMs = 0.8 * 60 * 1000;
   const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] = useState(false);
-
-  const allMarkersRef = useRef([]); // create a ref for allMarkers
-
-  const [isModalVisible, setModalVisible] = useState(false);
-  const selectedMarkersRef = useRef([]);
 
   const { layers } = useContext(LayerVisibilityContext);
   const allKmlLayerRef = useRef({});
@@ -515,22 +482,6 @@ function Map({ markers }) {
         );
       });
 
-    map.current.on("draw.create", (event) => {
-      const polygon = event.features[0];
-
-      // Convert drawn polygon to turf polygon
-      const turfPolygon = turf.polygon(polygon.geometry.coordinates);
-
-      // Iterate over markers and select if they are inside the polygon
-      const selected = allMarkersRef.current.filter((marker) => {
-        const point = turf.point([marker.longitude, marker.latitude]);
-        return turf.booleanPointInPolygon(point, turfPolygon);
-      });
-
-      selectedMarkersRef.current.push(selected);
-      setModalVisible(true); // Show the modal
-    });
-
   };
 
   const addSingleLayer = (layername, featuretype) => {
@@ -663,198 +614,6 @@ function Map({ markers }) {
   }, [layers]);
 
 
-  const toggleMarkers = (markers) => {
-    return fetch("http://localhost:5000/toggle-markers", {
-      method: "POST",
-      credentials: "include", // Include cookies in the request
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(markers),
-    })
-      .then((response) => {
-        if (response.status === 401) {
-          // Redirect the user to the login page or other unauthorized handling page
-          router.push("/login");
-        } else {
-          return response.json();
-        }
-      })
-      .then((data) => {
-        if (data) { // to make sure data is not undefined when status is 401
-          console.log(data.message);
-        }
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
-
-  const toggleModalVisibility = () => {
-    setModalVisible(!isModalVisible);
-  };
-
-  const changeToUnserve = () => {
-    const lastList =
-      selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
-    console.log(lastList);
-    if (lastList !== undefined && lastList !== null) {
-      lastList.forEach((marker) => {
-        // Update the state of the selected markers
-        marker.served = false;
-
-        // Set the feature state for each updated marker
-        if (map.current && map.current.getSource("custom")) {
-          // Check if the marker's feature state has been previously set
-          const currentFeatureState = map.current.getFeatureState({
-            source: "custom",
-            sourceLayer: "data",
-            id: marker.id,
-          });
-          if (currentFeatureState.hasOwnProperty("served")) {
-            // Set the 'served' feature state to false
-            map.current.setFeatureState(
-              {
-                source: "custom",
-                sourceLayer: "data",
-                id: marker.id,
-              },
-              {
-                served: false,
-              }
-            );
-          }
-        }
-      });
-    }
-  };
-
-  const undoChanges = () => {
-    const lastList =
-      selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
-    console.log(lastList);
-    if (lastList !== undefined && lastList !== null) {
-      lastList.forEach((marker) => {
-        marker.served = true;
-
-        // If the map and the 'custom' source have been loaded
-        if (map.current && map.current.getSource("custom")) {
-          // Check if the marker's feature state has been previously set
-          const currentFeatureState = map.current.getFeatureState({
-            source: "custom",
-            sourceLayer: "data",
-            id: marker.id,
-          });
-
-          if (currentFeatureState.hasOwnProperty("served")) {
-            // Set the 'served' feature state to false
-            map.current.setFeatureState(
-              {
-                source: "custom",
-                sourceLayer: "data",
-                id: marker.id,
-              },
-              {
-                served: true,
-              }
-            );
-          }
-        }
-      });
-      selectedMarkersRef.current.pop();
-      if (
-        selectedMarkersRef.current === undefined ||
-        selectedMarkersRef.current === null ||
-        selectedMarkersRef.current.length === 0
-      ) {
-        toggleModalVisibility();
-      }
-    }
-  };
-
-  const doneWithChanges = () => {
-    setIsLoadingForTimedEffect(true);
-    const selectedMarkerIds = [];
-    selectedMarkersRef.current.forEach((list) => {
-      list.forEach((marker) => {
-        selectedMarkerIds.push({ id: marker.id, served: marker.served });
-      });
-    });
-    console.log(selectedMarkerIds);
-    // Send request to server to change the selected markers to served
-    toggleMarkers(selectedMarkerIds).finally(() => {
-
-      removeVectorTiles();
-      addVectorTiles();
-
-      setIsDataReady(true);
-      setIsLoadingForTimedEffect(false);
-
-      setTimeout(() => {
-        setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
-      }, 5000);
-    });
-
-    selectedMarkersRef.current = [];
-    toggleModalVisibility();
-  };
-
-  const setFeatureStateForMarkers = (markers) => {
-    markers.forEach((marker) => {
-      if (marker.served) {
-        // This assumes that marker.id matches the feature id in your vector tile source
-        map.current.setFeatureState(
-          {
-            source: "custom",
-            sourceLayer: "data",
-            id: marker.id,
-          },
-          {
-            served: marker.served, // Use the served property from the marker data
-          }
-        );
-      }
-    });
-  };
-
-  const fetchMarkers = () => {
-    if (
-      allMarkersRef.current === undefined ||
-      allMarkersRef.current === null ||
-      allMarkersRef.current.length === 0
-    ) {
-      setIsLoadingForUntimedEffect(true);
-      const user = localStorage.getItem("username");
-
-      return fetch(`http://localhost:5000/served-data/${user}`, {
-        method: "GET",
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          const newMarkers = data.map((item) => ({
-            name: item.address,
-            id: item.location_id,
-            latitude: item.latitude,
-            longitude: item.longitude,
-            served: item.served,
-          }));
-
-          console.log(newMarkers);
-
-          setFeatureStateForMarkers(newMarkers);
-
-          allMarkersRef.current = newMarkers; // Here's the state update
-          setIsLoadingForUntimedEffect(false);
-        })
-        .catch((error) => {
-          console.log(error);
-          setIsLoadingForUntimedEffect(false);
-        });
-    } else {
-      setFeatureStateForMarkers(allMarkersRef.current);
-      return Promise.resolve(); // Returns a resolved Promise
-    }
-  };
 
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
@@ -876,38 +635,11 @@ function Map({ markers }) {
       zoom: currentZoom,
     });
 
-    map.current.getCanvas().className = "mapboxgl-canvas maplibregl-canvas";
-    map.current.getContainer().classList.add("mapboxgl-map");
-    const canvasContainer = map.current.getCanvasContainer();
-    canvasContainer.classList.add("mapboxgl-canvas-container");
-    if (canvasContainer.classList.contains("maplibregl-interactive")) {
-      canvasContainer.classList.add("mapboxgl-interactive");
-    }
-
-    const draw = new MapboxDraw({
-      displayControlsDefault: false,
-      controls: {
-        polygon: true,
-        trash: true,
-      },
-    });
-
-    const originalOnAdd = draw.onAdd.bind(draw);
-    draw.onAdd = (map) => {
-      const controlContainer = originalOnAdd(map);
-      controlContainer.classList.add(
-        "maplibregl-ctrl",
-        "maplibregl-ctrl-group"
-      );
-      return controlContainer;
-    };
-
     //Remove the existing vector tile layer and source if they exist
 
     map.current.addControl(new maplibregl.NavigationControl(), "top-left");
     map.current.addControl(new maplibregl.GeolocateControl(), "top-left");
     map.current.addControl(new maplibregl.ScaleControl(), "bottom-left");
-    map.current.addControl(draw, "top-left");
     // When the base map changes, remove the existing vector tiles and add the new ones
     const handleBaseMapChange = () => {
       removeVectorTiles();
@@ -978,28 +710,6 @@ function Map({ markers }) {
       <div>
         {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
-        {isModalVisible && (
-          <div className={classes.modal}>
-            <button
-              className={`${classes.drawtoolbutton} ${classes.buttonUnserve}`}
-              onClick={changeToUnserve}
-            >
-              Change locations status to unserved
-            </button>
-            <button
-              className={`${classes.drawtoolbutton} ${classes.buttonUndo}`}
-              onClick={undoChanges}
-            >
-              Undo change
-            </button>
-            <button
-              className={`${classes.drawtoolbutton} ${classes.buttonDone}`}
-              onClick={doneWithChanges}
-            >
-              Save your changes
-            </button>
-          </div>
-        )}
       </div>
 
       <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />

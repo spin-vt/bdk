@@ -1,8 +1,11 @@
 import '../styles/globals.css'
+import EditMapProvider from '../contexts/EditMapProvider'
 
 function MyApp({ Component, pageProps }) {
   return (
-        <Component {...pageProps} />
+    <EditMapProvider>
+      <Component {...pageProps} />
+    </EditMapProvider>
   )
 }
 

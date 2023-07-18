@@ -1,6 +1,6 @@
 import logging, subprocess, os, json, uuid, cProfile
 from controllers.celery_controller.celery_config import celery
-from controllers.database_controller import fabric_ops, kml_ops
+from controllers.database_controller import fabric_ops, kml_ops, mbtiles_ops
 from database.models import file, user, folder
 from database.sessions import Session
 
@@ -66,12 +66,13 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()
         for kml_f in all_kmls:
-            geojson_array.append(vt_ops.read_kml(kml_f.id))
+            geojson_array.append(vt_ops.read_kml(kml_f.id, session))
         
+        mbtiles_ops.delete_mbtiles(folderid, session)
         print("finished kml processing, now creating tiles")
         if geojson_array != []: 
             print("going to create tiles now")
-            vt_ops.create_tiles(geojson_array, userid, folderid)
+            vt_ops.create_tiles(geojson_array, userid, folderid, session)
         
         # try:
         #     for name in names:
@@ -109,7 +110,7 @@ def run_tippecanoe(self, command, folderid, mbtilepath):
     return result.returncode 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def run_tippecanoe_tiles_join(self, command1, command2, user_id, mbtilepaths):
+def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
     from controllers.database_controller import vt_ops
     
     # run first command
@@ -133,7 +134,7 @@ def run_tippecanoe_tiles_join(self, command1, command2, user_id, mbtilepaths):
         print("Tile-join stderr:", result2.stderr.decode())
 
     # handle the result
-    vt_ops.add_values_to_VT(mbtilepaths[0], user_id)
+    vt_ops.add_values_to_VT(mbtilepaths[0], folderid)
     for i in range(1, len(mbtilepaths)):
         os.remove(mbtilepaths[i])
         
