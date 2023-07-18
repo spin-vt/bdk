@@ -17,8 +17,11 @@ from .file_ops import get_files_with_postfix, get_file_with_id
 
 db_lock = Lock()
 
-def get_kml_data(userid, folderid): 
-    session = ScopedSession() 
+def get_kml_data(userid, folderid, session=None): 
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
     userVal = get_user_with_id(userid)
 
     try:
@@ -96,7 +99,8 @@ def get_kml_data(userid, folderid):
         data = list(all_data.values())
 
     finally:
-        session.close()
+        if owns_session:
+            session.close()
 
     return data
 

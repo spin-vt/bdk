@@ -25,6 +25,8 @@ import LoginIcon from '@mui/icons-material/Login';
 import UploadIcon from '@mui/icons-material/Upload';
 import Searchbar from './Searchbar';
 import FolderIcon from '@mui/icons-material/Folder';
+import EditIcon from '@mui/icons-material/Edit';
+import EditMapContext from "../contexts/EditMapContext";
 // import handleDownloadClick from "./Upload"
 
 
@@ -74,6 +76,12 @@ const useStyles = makeStyles((theme) => ({
 export default function Navbar({handleMyFileOpen}) {
   const router = useRouter();
   const classes = useStyles();
+
+  const { isEditingMap, setEditingMap} = React.useContext(EditMapContext);
+
+  const handleEditToolClick = () => {
+    setEditingMap(!isEditingMap); // <-- toggle isEditing state
+  }
 
   function useLocalStorage(key, initialValue) {
     const [storedValue, setStoredValue] = React.useState(() => {
@@ -268,19 +276,29 @@ export default function Navbar({handleMyFileOpen}) {
           </Typography>
           <Searchbar className={classes.menuItem} />
 
+          {!isEditingMap && (
           <IconButton onClick={handleMyFileOpen}>
             <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
             <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
               Your Files
             </Typography>
           </IconButton>
-
+          )}
+          <IconButton onClick={handleEditToolClick}>
+            <EditIcon sx={{ color: "white", marginRight: "5px" }} />
+            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
+              {isEditingMap ? 'Exit Editing Tool' : 'Editing Tool'} 
+            </Typography>
+          </IconButton>
+          
+          {!isEditingMap && (
           <IconButton href='/previousfile'>
             <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
             <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title} onClick={handleDownloadClick}>
               Export 
             </Typography>
           </IconButton>
+          )}
 
           <Box display="flex" alignItems="center">
             {username ? (

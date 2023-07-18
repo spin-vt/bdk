@@ -278,13 +278,28 @@ def get_files():
     finally:
         session.close()
     
-@app.route('/api/delmbtiles/<int:mbtiles_id>', methods=['DELETE'])
+@app.route('/api/delfiles/<int:fileid>', methods=['DELETE'])
 @jwt_required()
-def delete_mbtiles(mbtiles_id):
+def delete_mbtiles(fileid):
+    fileid = int(fileid)
     try:
         identity = get_jwt_identity()
-        vt_ops.delete_mbtiles(mbtiles_id, identity["id"])
-        return jsonify({'message': 'mbtiles successfully deleted'}), 200
+        session = Session()
+        try:
+            file_ops.delete_file(fileid, session)
+            session.commit()
+            folderVal = folder_ops.get_folder(identity['id'], None, session)
+            geojson_array = []
+            all_kmls = file_ops.get_files_with_postfix(folderVal.id, '.kml', session)
+            for kml_f in all_kmls:
+                geojson_array.append(vt_ops.read_kml(kml_f.id))
+            vt_ops.create_tiles(geojson_array, identity['id'], folderVal.id)
+            return jsonify({'message': 'mbtiles successfully deleted'}), 200
+        except Exception as e:
+            session.rollback()  # Rollback the session in case of error
+            return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+        finally:
+            session.close()
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 

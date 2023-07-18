@@ -9,6 +9,7 @@ import { Box } from '@mui/system';
 import { Switch, FormControlLabel } from "@material-ui/core";
 import { styled } from "@mui/material/styles";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
+import LoadingEffect from "./LoadingEffect";
 
 const useStyles = makeStyles((theme) => ({
   headertext: {
@@ -90,13 +91,14 @@ const MyFile = () => {
   const [fabricFiles, setFabricFiles] = useState([]);
   const [networkDataFiles, setNetworkDataFiles] = useState([]);
   const [manualEditFiles, setManualEditFiles] = useState([]);
-  const router = useRouter();
-  const [files, setFiles] = useState([]);
 
   const { setLayers } = useContext(LayerVisibilityContext);
 
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [sortBy, setSortBy] = useState('newest');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDataReady, setIsDataReady] = useState(false);
+  const loadingTimeInMs = 2 * 60 * 1000;
+
+  const router = useRouter();
 
 
 
@@ -147,37 +149,54 @@ const MyFile = () => {
     fetchFiles();
   }, []);
 
-  const handleDelete = async (index) => {
-    const file = files[index];
-    const response = await fetch(`http://localhost:5000/api/files/${file.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Include cookies in the request
-    });
-
-    if (response.ok) {
-      setFiles(prevFiles => prevFiles.filter((file, i) => i !== index));
-    } else {
-      console.log(error);
+  const handleDelete = async (id, setFiles) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/delfiles/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies in the request
+      });
+  
+      if (response.status === 401) {
+        setIsLoading(false);
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: 'Session expired, please log in again!'
+        });
+        // Redirect to login page
+        router.push('/login');
+        return;
+      }
+  
+      if (response.ok) {
+        setFiles(prevFiles => prevFiles.filter((file) => file.id !== id));
+        setIsDataReady(true);
+        setIsLoading(false);
+        setTimeout(() => {
+          setIsDataReady(false);
+        }, 5000);
+      } else {
+        throw new Error('Response was not OK');
+      }
+    } catch (error) {
+      setIsLoading(false);
+      console.error('An error occurred:', error);
     }
   };
 
-  useEffect(() => {
-    setFiles(prevFiles => [...prevFiles].sort((a, b) => {
-      if (sortBy === 'newest') {
-        return new Date(b.uploadDate) - new Date(a.uploadDate);
-      } else if (sortBy === 'oldest') {
-        return new Date(a.uploadDate) - new Date(b.uploadDate);
-      } else {
-        return 0;
-      }
-    }));
-  }, [sortBy]);
 
   return (
     <div>
+      {(isLoading || isDataReady) && (
+        <LoadingEffect
+          isLoading={isLoading}
+          loadingTimeInMs={loadingTimeInMs}
+        />
+      )}
       <Container component="main" maxWidth="md" className={classes.container}>
         <Typography component="h1" variant="h5" className={classes.headertext}>
           Your Uploaded Files
@@ -186,26 +205,26 @@ const MyFile = () => {
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Fabric Files
         </Typography>
-        <FileTable files={fabricFiles} handleDelete={handleDelete} classes={classes} showSwitch={false} />
+        <FileTable files={fabricFiles} handleDelete={handleDelete} setFiles={setFabricFiles} classes={classes} showSwitch={false} />
 
         {/* Network Data Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Network Data Files
         </Typography>
-        <FileTable files={networkDataFiles} handleDelete={handleDelete} classes={classes} showSwitch={true} />
+        <FileTable files={networkDataFiles} handleDelete={handleDelete} setFiles={setNetworkDataFiles} classes={classes} showSwitch={true} />
 
         {/* Manual Edit Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Manual Edits
         </Typography>
-        <FileTable files={manualEditFiles} handleDelete={handleDelete} classes={classes} showSwitch={false} />
+        <FileTable files={manualEditFiles} handleDelete={handleDelete} setFiles={setManualEditFiles} classes={classes} showSwitch={false} />
       </Container>
     </div>
   );
 };
 
 // New FileTable Component to avoid code duplication
-const FileTable = ({ files, handleDelete, classes, showSwitch }) => {
+const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch }) => {
   const { setLayers } = useContext(LayerVisibilityContext);
   const [checked, setChecked] = useState([]);
 
@@ -261,7 +280,7 @@ const FileTable = ({ files, handleDelete, classes, showSwitch }) => {
                 />
               </TableCell>}
               <TableCell align="right">
-                <IconButton className={classes.deleteButton} onClick={() => handleDelete(index)}>
+                <IconButton className={classes.deleteButton} onClick={() => handleDelete(file.id, setFiles)}>
                   <DeleteIcon />
                   <Typography sx={{ marginLeft: '10px' }}>
                     Delete File
