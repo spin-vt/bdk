@@ -13,7 +13,8 @@ import LoadingEffect from "./LoadingEffect";
 
 const useStyles = makeStyles((theme) => ({
   headertext: {
-    marginBottom: '20px',
+    marginBottom: '20px', 
+    marginTop: '20px'
   },
   table: {
     minWidth: 650,

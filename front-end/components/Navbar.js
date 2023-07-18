@@ -347,12 +347,24 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
           </IconButton>
 
           <Link href="/" component="div" className={classes.title}>
-            <Typography variant="h6" sx={{ marginRight: "10vw" }}>
-              BDK
+            <Typography variant="h6" sx={{ marginRight: "4vw" }}>
+              BDK Project
             </Typography>
           </Link>
 
           <Searchbar className={classes.menuItem} />
+
+          <IconButton onClick={handleEditToolClick}>
+            <EditIcon sx={{ color: "white", marginRight: "5px" }} />
+            <Typography
+              component="div"
+              sx={{ flexGrow: 1 }}
+              className={classes.title}
+            >
+              {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
+            </Typography>
+          </IconButton>
+
 
           {!isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
@@ -375,17 +387,6 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
               className={classes.title}
             >
               Upload
-            </Typography>
-          </IconButton>
-
-          <IconButton onClick={handleEditToolClick}>
-            <EditIcon sx={{ color: "white", marginRight: "5px" }} />
-            <Typography
-              component="div"
-              sx={{ flexGrow: 1 }}
-              className={classes.title}
-            >
-              {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
             </Typography>
           </IconButton>
 

@@ -14,12 +14,25 @@ import { DataGrid } from "@mui/x-data-grid";
 import Select from "@mui/material/Select";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
-import { makeStyles } from "@mui/styles";
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
 import Swal from "sweetalert2";
+import { makeStyles, TextField, Typography } from "@material-ui/core";
 
-const useStyles = makeStyles({
+// Define your styles
+const useStyles = makeStyles((theme) => ({
+  buttonGroup: {
+    color: "#FFF",
+    backgroundColor: "#3f51b5",
+    padding: "10px 20px",
+    borderRadius: "5px",
+    margin: "10px 0",
+  },
+  paper: {
+    backgroundColor: "#f3f3f3",
+    padding: "10px",
+    borderRadius: "5px",
+  },
   formControl: {
     margin: "4px",
     minWidth: "150px",
@@ -38,14 +51,21 @@ const useStyles = makeStyles({
     padding: "0 0 0 10px",
     minWidth: "150px",
   },
-});
+  gridItem: {
+    padding: "10px",
+  },
+  headertext: {
+    marginTop: "20px",
+    marginBottom: "20px",
+  },
+}));
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
   Wired: "Wired",
   Wireless: "Wireless",
 };
-// let storage = JSON.parse(localStorage.getItem("storage")) || [];
+let storage = [];
 let storage2 = [];
 
 const tech_types = {
@@ -204,7 +224,7 @@ export default function Upload({ fetchMarkers }) {
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
     localStorage.setItem("selectedFiles", JSON.stringify(updatedFiles));
-    localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
+    // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
   };
 
   const handleClick = () => {
@@ -234,7 +254,7 @@ export default function Upload({ fetchMarkers }) {
     for (let i = 0; i < storage.length; i++) {
       if (storage[i][1] === id) {
         storage.splice(i, 1);
-        localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
+        // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
         break;
       }
     }
@@ -257,46 +277,39 @@ export default function Upload({ fetchMarkers }) {
   };
 
   const columns = [
-    { field: "id", headerName: "ID", width: 90 },
+    { field: "id", headerName: "ID" },
     {
       field: "name",
       headerName: "File Name",
-      width: 100,
       editable: true,
     },
     {
       field: "option",
       headerName: "Option",
-      width: 100,
     },
     {
       field: "downloadSpeed",
       headerName: "Download Speed",
-      width: 150,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "uploadSpeed",
       headerName: "Upload Speed",
-      width: 150,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "techType",
       headerName: "Tech Type",
-      width: 100,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "networkType",
       headerName: "Network Type",
-      width: 125,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "actions",
       headerName: "Actions",
-      width: 100,
       renderCell: (params) => (
         <Button
           onClick={() => handleDelete(params.row.id)}
@@ -323,138 +336,164 @@ export default function Upload({ fetchMarkers }) {
           loadingTimeInMs={loadingTimeInMs}
         />
       )}
-      <ButtonGroup
-        variant="contained"
-        ref={buttonGroupRef}
-        aria-label="split button"
-      >
-        <Button onClick={handleClick}>{options[selectedIndex]}</Button>
-        <Button
-          size="small"
-          aria-controls={open ? "split-button-menu" : undefined}
-          aria-expanded={open ? "true" : undefined}
-          aria-label="select merge strategy"
-          aria-haspopup="menu"
-          onClick={handleToggle}
-        >
-          <ArrowDropDownIcon />
-        </Button>
-      </ButtonGroup>
-      <Popper
+      <Box
         sx={{
-          zIndex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end", // This line
+          marginLeft: "20px",
         }}
-        open={open}
-        anchorEl={buttonGroupRef.current}
-        role={undefined}
-        transition
-        disablePortal
       >
-        {({ TransitionProps, placement }) => (
-          <Grow
-            {...TransitionProps}
-            style={{
-              transformOrigin:
-                placement === "bottom" ? "center top" : "center bottom",
-            }}
+        <Typography component="h1" variant="h5" className={classes.headertext}>
+          Upload Network Files Below:
+        </Typography>
+
+        <ButtonGroup
+          variant="contained"
+          ref={buttonGroupRef}
+          style={{ width: "fit-content" }} // Add this line
+        >
+          <Button onClick={handleClick}>{options[selectedIndex]}</Button>
+          <Button
+            size="small"
+            aria-controls={open ? "split-button-menu" : undefined}
+            aria-expanded={open ? "true" : undefined}
+            aria-label="select merge strategy"
+            aria-haspopup="menu"
+            onClick={handleToggle}
           >
-            <Paper style={{ width: buttonGroupWidth }}>
-              <ClickAwayListener onClickAway={handleClose}>
-                <MenuList id="split-button-menu" autoFocusItem>
-                  {options.map((option, index) => (
-                    <MenuItem
-                      key={option}
-                      selected={index === selectedIndex}
-                      onClick={(event) => handleMenuItemClick(event, index)}
-                    >
-                      {option}
-                    </MenuItem>
-                  ))}
-                </MenuList>
-              </ClickAwayListener>
-            </Paper>
-          </Grow>
+            <ArrowDropDownIcon />
+          </Button>
+        </ButtonGroup>
+        <Popper
+          sx={{
+            zIndex: 1,
+          }}
+          open={open}
+          anchorEl={buttonGroupRef.current}
+          role={undefined}
+          transition
+          disablePortal
+        >
+          {({ TransitionProps, placement }) => (
+            <Grow
+              {...TransitionProps}
+              style={{
+                transformOrigin:
+                  placement === "bottom" ? "center top" : "center bottom",
+              }}
+            >
+              <Paper style={{ width: buttonGroupWidth }}>
+                <ClickAwayListener onClickAway={handleClose}>
+                  <MenuList id="split-button-menu" autoFocusItem>
+                    {options.map((option, index) => (
+                      <MenuItem
+                        key={option}
+                        selected={index === selectedIndex}
+                        onClick={(event) => handleMenuItemClick(event, index)}
+                      >
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </MenuList>
+                </ClickAwayListener>
+              </Paper>
+            </Grow>
+          )}
+        </Popper>
+        {selectedIndex === 1 && (
+          <Box sx={{ marginTop: "1rem" }}>
+            <Grid container spacing={1}>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="downloadSpeed">Download Speed (MBps): </label>
+                <input
+                  type="text"
+                  id="downloadSpeed"
+                  value={downloadSpeed}
+                  onChange={(e) => setDownloadSpeed(e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="uploadSpeed">Upload Speed (MBps): </label>
+                <input
+                  type="text"
+                  id="uploadSpeed"
+                  value={uploadSpeed}
+                  onChange={(e) => setUploadSpeed(e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="techType">Technology Type: </label>
+                <FormControl variant="outlined" className={classes.formControl}>
+                  <Select
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={techType}
+                    onChange={(e) => setTechType(e.target.value)}
+                    className={classes.select}
+                  >
+                    {Object.entries(tech_types).map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        <div
+                          style={{
+                            maxWidth: techType === value ? "100px" : "none",
+                            textOverflow:
+                              techType === value ? "ellipsis" : "initial",
+                            overflow: techType === value ? "hidden" : "initial",
+                            whiteSpace:
+                              techType === value ? "nowrap" : "initial",
+                          }}
+                        >
+                          {key}
+                        </div>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="wiredWireless">Network Type: </label>
+                <FormControl variant="outlined" className={classes.formControl}>
+                  <Select
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={networkType}
+                    onChange={(e) => setNetworkType(e.target.value)}
+                    className={classes.select}
+                  >
+                    {Object.entries(wiredWirelessOptions).map(
+                      ([key, value]) => (
+                        <MenuItem key={value} value={value}>
+                          {key}
+                        </MenuItem>
+                      )
+                    )}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
         )}
-      </Popper>
-      {selectedIndex === 1 && (
-        <Box sx={{ marginTop: "1rem" }}>
-          <Grid container spacing={1}>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="downloadSpeed">Download Speed (MBps): </label>
-              <input
-                type="text"
-                id="downloadSpeed"
-                value={downloadSpeed}
-                onChange={(e) => setDownloadSpeed(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="uploadSpeed">Upload Speed (MBps): </label>
-              <input
-                type="text"
-                id="uploadSpeed"
-                value={uploadSpeed}
-                onChange={(e) => setUploadSpeed(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="techType">Technology Type: </label>
-              <FormControl variant="outlined" className={classes.formControl}>
-                <Select
-                  labelId="demo-simple-select-outlined-label"
-                  id="demo-simple-select-outlined"
-                  value={techType}
-                  onChange={(e) => setTechType(e.target.value)}
-                  className={classes.select}
-                >
-                  {Object.entries(tech_types).map(([key, value]) => (
-                    <MenuItem key={value} value={value}>
-                      {key}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="wiredWireless">Network Type: </label>
-              <FormControl variant="outlined" className={classes.formControl}>
-                <Select
-                  labelId="demo-simple-select-outlined-label"
-                  id="demo-simple-select-outlined"
-                  value={networkType}
-                  onChange={(e) => setNetworkType(e.target.value)}
-                  className={classes.select}
-                >
-                  {Object.entries(wiredWirelessOptions).map(([key, value]) => (
-                    <MenuItem key={value} value={value}>
-                      {key}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </Box>
-      )}
-      {/* Hidden file input to allow file selection */}
-      <input
-        type="file"
-        style={{ display: "none" }}
-        onChange={handleFileChange}
-        ref={anchorRef}
-      />
-      {/* Display the uploaded files in a DataGrid */}
-      <Box sx={{ height: 400 }} style={{ marginTop: "3vh" }}>
-        <DataGrid
-          rows={selectedFiles}
-          columns={columns}
-          pageSize={5}
-          checkboxSelection
+        {/* Hidden file input to allow file selection */}
+        <input
+          type="file"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+          ref={anchorRef}
         />
-      </Box>
-      <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-        <ExportButton onClick={handleExportClick} />
-        <MapKey />
+        {/* Display the uploaded files in a DataGrid */}
+        <Box sx={{ height: 400 }} style={{ marginTop: "3vh" }}>
+          <DataGrid
+            rows={selectedFiles}
+            columns={columns}
+            pageSize={5}
+            checkboxSelection
+          />
+        </Box>
+        <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
+          <ExportButton onClick={handleExportClick} />
+          <MapKey />
+        </Box>
       </Box>
     </React.Fragment>
   );
