@@ -379,16 +379,18 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             </IconButton>
           )}
 
-          <IconButton onClick={handleUploadOpen}>
-            <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
-            <Typography
-              component="div"
-              sx={{ flexGrow: 1 }}
-              className={classes.title}
-            >
-              Upload
-            </Typography>
-          </IconButton>
+          {!isEditingMap && (
+            <IconButton onClick={handleUploadOpen}>
+              <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
+              <Typography
+                component="div"
+                sx={{ flexGrow: 1 }}
+                className={classes.title}
+              >
+                Upload
+              </Typography>
+            </IconButton>
+          )}
 
           {!isEditingMap && (
             <IconButton onClick={handleDownloadClick}>

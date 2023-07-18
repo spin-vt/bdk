@@ -219,7 +219,7 @@ const MyFile = () => {
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Manual Edits
         </Typography>
-        <FileTable files={manualEditFiles} handleDelete={handleDelete} setFiles={setManualEditFiles} classes={classes} showSwitch={false} showDelete={false}/>
+        <FileTable files={manualEditFiles} handleDelete={handleDelete} setFiles={setManualEditFiles} classes={classes} showSwitch={false} showDelete={true}/>
       </Container>
     </div>
   );

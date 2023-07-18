@@ -126,7 +126,7 @@ const useStyles = makeStyles({
   baseMap: {
     width: "33px",
     height: "33px",
-    top: "33vh",
+    top: "36%",
     position: "absolute",
     left: "10px",
     zIndex: 1000,
