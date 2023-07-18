@@ -166,7 +166,7 @@ def export():
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT location_id, "maxDownloadSpeed", "maxUploadSpeed", "techType" FROM "KML" WHERE served = true')
+    cursor.execute('SELECT location_id, "maxDownloadSpeed", "maxUploadSpeed", "techType" FROM kml_data WHERE served = true')
     result = cursor.fetchall()
 
     cursor.close()

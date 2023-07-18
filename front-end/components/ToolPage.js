@@ -109,31 +109,7 @@ function Tool() {
   };
 
   return (
-    <div className={styles.toolContainer}>
-      <div className={styles.content}>
-        <div className={styles.mapContainer}>
           <Map markers={markers} />
-          <div className={styles.iconContainer} onClick={toggleUpload}>
-            <Tooltip title="Click here to upload!" placement="left" open={!expandTable}>
-              <FontAwesomeIcon icon={expandTable ? faArrowRight : faArrowLeft} className={styles.expandIcon} />
-            </Tooltip>
-          </div>
-        </div>
-        {expandTable && (
-          <div className={`${classes.sidebar}`}>
-            <IconButton onClick={toggleUpload} style={{ position: 'absolute', right: '10px', top: '10px' }}>
-              <CloseIcon />
-            </IconButton>
-            <div className={styles.sidebarContent}>
-              <Typography variant="h4" className={classes.uploadHeading}>
-                Upload Component
-              </Typography>
-              <Upload fetchMarkers={[]} />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

@@ -45,7 +45,7 @@ const wiredWirelessOptions = {
   Wired: "Wired",
   Wireless: "Wireless",
 };
-let storage = JSON.parse(localStorage.getItem("storage")) || [];
+// let storage = JSON.parse(localStorage.getItem("storage")) || [];
 let storage2 = [];
 
 const tech_types = {
