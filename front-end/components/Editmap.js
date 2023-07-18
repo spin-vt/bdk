@@ -587,7 +587,7 @@ function Editmap() {
     if (canvasContainer.classList.contains("maplibregl-interactive")) {
       canvasContainer.classList.add("mapboxgl-interactive");
     }
-
+    
     const draw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {
@@ -601,15 +601,14 @@ function Editmap() {
       const controlContainer = originalOnAdd(map);
       controlContainer.classList.add(
         "maplibregl-ctrl",
-        "maplibregl-ctrl-group"
+        "maplibregl-ctrl-group", 
       );
       return controlContainer;
     };
 
     //Remove the existing vector tile layer and source if they exist
-
     map.current.addControl(new maplibregl.NavigationControl(), "top-left");
-    map.current.addControl(new maplibregl.GeolocateControl(), "top-left");
+    // map.current.addControl(new maplibregl.GeolocateControl(), "top-left");
     map.current.addControl(new maplibregl.ScaleControl(), "bottom-left");
     map.current.addControl(draw, "top-left");
     // When the base map changes, remove the existing vector tiles and add the new ones
