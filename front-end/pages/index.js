@@ -10,7 +10,7 @@ import SelectedLocationProvider from '../contexts/SelectLocationProvider';
 import EditMapProvider from '../contexts/EditMapProvider';
 import EditMapContext from '../contexts/EditMapContext';
 
-const DynamicMap = dynamic(() => import('../components/ToolPage'), { ssr: false });
+const DynamicMap = dynamic(() => import('../components/Map'), { ssr: false });
 const Editmap = dynamic(() => import('../components/Editmap'), { ssr: false });
 
 

@@ -44,9 +44,14 @@ def read_kml(fileid, session):
     doc = file_record.data
     kml_obj.from_string(doc)
 
+    network_type = None
+    polygon_encountered = False
+
     root_feature = list(kml_obj.features())[0]
     geojson_features = []
     for placemark in recursive_placemarks(root_feature):
+        if placemark.geometry.geom_type == 'Point':
+            continue
         # Use the placemark object here
         geojson_feature = {
             "type": "Feature",
@@ -55,11 +60,13 @@ def read_kml(fileid, session):
                            'network_coverages': file_record.name,} # add the geometry type
         }
         geojson_features.append(geojson_feature)
+        if placemark.geometry.geom_type == "Polygon":
+            network_type = "wireless"
+            polygon_encountered = True
+        elif placemark.geometry.geom_type == "LineString" and not polygon_encountered:
+            network_type = "wired"
 
-    if placemark.geometry.geom_type == "LineString":
-        update_file_type(fileid, 'wired')
-    elif placemark.geometry.geom_type == "Polygon":
-        update_file_type(fileid, 'wireless')
+    update_file_type(fileid, network_type)
 
     return geojson_features
 

@@ -322,19 +322,21 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
+      <div style={{ position: 'fixed', zIndex: 10000 }}>
       {(isLoading || isDataReady) && (
         <LoadingEffect
           isLoading={isLoading}
           loadingTimeInMs={loadingTimeInMs}
         />
       )}
+      </div>
       <Box
         sx={{
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-end", // This line
           marginLeft: "20px",
-          zindex: 1000,
+          zIndex: 1000,
           position: "relative",
         }}
       >
