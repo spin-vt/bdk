@@ -1,8 +1,9 @@
 import logging, subprocess, os, json, uuid, cProfile
 from controllers.celery_controller.celery_config import celery
-from controllers.database_controller import fabric_ops, kml_ops, mbtiles_ops
+from controllers.database_controller import fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
 from database.models import file, user, folder
 from database.sessions import Session
+from flask import jsonify
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_data(self, file_names, file_data_list, userid, folderid): 
@@ -162,4 +163,21 @@ def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
         
     return result2.returncode
 
-
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def deleteFiles(self, fileid, identity, session):
+    try: 
+        file_ops.delete_file(fileid, session)
+        session.commit()
+        folderVal = folder_ops.get_folder(identity['id'], None, session)
+        geojson_array = []
+        all_kmls = file_ops.get_files_with_postfix(folderVal.id, '.kml', session)
+        for kml_f in all_kmls:
+            geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+        mbtiles_ops.delete_mbtiles(folderVal.id, session)
+        session.commit()
+        vt_ops.create_tiles(geojson_array, identity['id'], folderVal.id, session)
+    except Exception as e:
+        session.rollback()  # Rollback the session in case of error
+        print("server failed")
+    finally:
+        session.close()
