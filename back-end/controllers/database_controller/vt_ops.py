@@ -16,7 +16,6 @@ from database.sessions import ScopedSession, Session
 from database.models import vector_tiles, file, folder, kml_data, fabric_data
 from controllers.celery_controller.celery_config import celery
 from sqlalchemy.exc import SQLAlchemyError
-from controllers.celery_controller.celery_tasks import run_tippecanoe, run_tippecanoe_tiles_join
 from sqlalchemy import desc
 from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
 from .folder_ops import get_folder
@@ -126,6 +125,7 @@ def add_values_to_VT(mbtiles_file_path, folderid):
     return 1
 
 def tiles_join(geojson_data, folderid, session):
+    from controllers.celery_controller.celery_tasks import run_tippecanoe_tiles_join
     try:
         mbtile_file = get_latest_mbtiles(folderid, session)
         # Save the .mbtiles file temporarily on the disk
@@ -135,7 +135,7 @@ def tiles_join(geojson_data, folderid, session):
         with open('data.geojson', 'w') as f:
             json.dump(geojson_data, f)
         # Use tippecanoe to create a new .mbtiles file from the geojson_data
-        command1 = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
+        command1 = "tippecanoe -o new.mbtiles -P -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
 
         # Use tile-join to merge the new .mbtiles file with the existing one
         command2 = f"tile-join -o merged.mbtiles {mbtile_file.filename} new.mbtiles"
@@ -149,6 +149,7 @@ def tiles_join(geojson_data, folderid, session):
     
 
 def create_tiles(geojson_array, userid, folderid, session=None):
+    from controllers.celery_controller.celery_tasks import run_tippecanoe
     network_data = get_kml_data(userid, folderid, session)
     point_geojson = {
          "type": "FeatureCollection",
@@ -179,12 +180,13 @@ def create_tiles(geojson_array, userid, folderid, session=None):
     # print(geojson_array)
     point_geojson["features"].extend(geojson for geojson in geojson_array)
 
-    with open('data.geojson', 'w') as f:
-         json.dump(point_geojson, f)
+    jsonFile = "data" + str(userid) + ".geojson"
+    with open("data.geojson", 'w') as f:
+     json.dump(point_geojson, f, indent=4)
     
-    localFile = "output" + str(userid) + ".mbtiles"
-    command = "tippecanoe -o " + localFile + " --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    run_tippecanoe(command, folderid, localFile) 
+    outputFile = "output" + str(userid) + ".mbtiles"
+    command = "tippecanoe -o " + outputFile + " --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
+    run_tippecanoe(command, folderid, outputFile) 
 
 def retrieve_tiles(zoom, x, y, username, mbtileid=None):
     conn = psycopg2.connect(DATABASE_URL)
