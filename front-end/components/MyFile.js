@@ -1,11 +1,30 @@
 import React, { useEffect, useState, useContext } from "react";
-import { useRouter } from 'next/router';
-import { TextField, Typography, Container, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Grid } from '@material-ui/core';
-import { Select, MenuItem, FormControl, InputLabel, Checkbox } from '@material-ui/core';
-import { makeStyles, useTheme } from '@material-ui/core/styles';
-import Swal from 'sweetalert2';
-import DeleteIcon from '@mui/icons-material/Delete';
-import { Box } from '@mui/system';
+import { useRouter } from "next/router";
+import {
+  TextField,
+  Typography,
+  Container,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Grid,
+} from "@material-ui/core";
+import {
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Checkbox,
+} from "@material-ui/core";
+import { makeStyles, useTheme } from "@material-ui/core/styles";
+import Swal from "sweetalert2";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { Box } from "@mui/system";
 import { Switch, FormControlLabel } from "@material-ui/core";
 import { styled } from "@mui/material/styles";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
@@ -13,22 +32,22 @@ import LoadingEffect from "./LoadingEffect";
 
 const useStyles = makeStyles((theme) => ({
   headertext: {
-    marginBottom: '20px', 
-    marginTop: '20px'
+    marginBottom: "20px",
+    marginTop: "20px",
   },
   table: {
     minWidth: 650,
   },
   container: {
-    position: 'relative',
-    minWidth: '80%',
-    height: '90vh',
-    marginTop: '20px'
+    position: "relative",
+    minWidth: "80%",
+    height: "90vh",
+    marginTop: "20px",
   },
   deleteButton: {
-    color: '#f44336', // Red color
-    '&:hover': {
-      color: '#d32f2f', // Darker red on hover
+    color: "#f44336", // Red color
+    "&:hover": {
+      color: "#d32f2f", // Darker red on hover
     },
   },
 }));
@@ -84,9 +103,7 @@ const IOSSwitch = styled((props) => (
   },
 }));
 
-
 const MyFile = () => {
-
   const classes = useStyles();
   const theme = useTheme();
   const [fabricFiles, setFabricFiles] = useState([]);
@@ -101,49 +118,56 @@ const MyFile = () => {
 
   const router = useRouter();
 
-
-
   const fetchFiles = async () => {
     const response = await fetch("http://localhost:5000/api/files", {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      credentials: 'include', // Include cookies in the request
+      credentials: "include", // Include cookies in the request
     });
 
     if (response.status === 401) {
       Swal.fire({
-        icon: 'error',
-        title: 'Oops...',
-        text: 'Session expired, please log in again!'
+        icon: "error",
+        title: "Oops...",
+        text: "Session expired, please log in again!",
       });
       // Redirect to login page
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
     const data = await response.json();
-    data.forEach(file => {
-      console.log(file);
-      const formattedFile = {
-        id: file.id,
-        name: file.name,
-        uploadDate: new Date(file.timestamp).toLocaleString(),
-        type: file.type,
-      };
-      if (file.name.endsWith('.csv')) {
-        setFabricFiles(prevFiles => [...prevFiles, formattedFile]);
-      } else if (file.name.endsWith('.kml')) {
-        setNetworkDataFiles(prevFiles => [...prevFiles, formattedFile]);
-        setLayers(prevLayers => ({
-          ...prevLayers,
-          [file.name]: true, // Set the visibility of the layer to true
-        }));
-      } else if (file.name.endsWith('/')) {
-        setManualEditFiles(prevFiles => [...prevFiles, formattedFile]);
-      }
-    });
+    if (!Array.isArray(data)) {
+      console.error("Error: Expected data to be an array, but received:", data);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.log("Error: Empty response received from server");
+    } else {
+      data.forEach((file) => {
+        console.log(file);
+        const formattedFile = {
+          id: file.id,
+          name: file.name,
+          uploadDate: new Date(file.timestamp).toLocaleString(),
+          type: file.type,
+        };
+        if (file.name.endsWith(".csv")) {
+          setFabricFiles((prevFiles) => [...prevFiles, formattedFile]);
+        } else if (file.name.endsWith(".kml")) {
+          setNetworkDataFiles((prevFiles) => [...prevFiles, formattedFile]);
+          setLayers((prevLayers) => ({
+            ...prevLayers,
+            [file.name]: true, // Set the visibility of the layer to true
+          }));
+        } else if (file.name.endsWith("/")) {
+          setManualEditFiles((prevFiles) => [...prevFiles, formattedFile]);
+        }
+      });
+    }
   };
 
   useEffect(() => {
@@ -154,30 +178,33 @@ const MyFile = () => {
     setIsLoading(true);
     try {
       const response = await fetch(`http://localhost:5000/api/delfiles/${id}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        credentials: 'include', // Include cookies in the request
+        credentials: "include", // Include cookies in the request
       });
-  
+
       if (response.status === 401) {
         setIsLoading(false);
         Swal.fire({
-          icon: 'error',
-          title: 'Oops...',
-          text: 'Session expired, please log in again!'
+          icon: "error",
+          title: "Oops...",
+          text: "Session expired, please log in again!",
         });
         // Redirect to login page
-        router.push('/login');
+        router.push("/login");
         return;
       }
-  
-      if (!response.ok) { // If the response status is not ok (not 200)
-        throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
+
+      if (!response.ok) {
+        // If the response status is not ok (not 200)
+        throw new Error(
+          `HTTP error! status: ${response.status}, ${response.statusText}`
+        );
       }
-      
-      setFiles(prevFiles => prevFiles.filter((file) => file.id !== id));
+
+      setFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
       setIsDataReady(true);
       setIsLoading(false);
       setTimeout(() => {
@@ -186,10 +213,9 @@ const MyFile = () => {
       router.reload();
     } catch (error) {
       setIsLoading(false);
-      console.error('An error occurred:', error);
+      console.error("An error occurred:", error);
     }
   };
-
 
   return (
     <div>
@@ -207,25 +233,53 @@ const MyFile = () => {
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Fabric Files
         </Typography>
-        <FileTable files={fabricFiles} handleDelete={handleDelete} setFiles={setFabricFiles} classes={classes} showSwitch={false} showDelete={false} />
+        <FileTable
+          files={fabricFiles}
+          handleDelete={handleDelete}
+          setFiles={setFabricFiles}
+          classes={classes}
+          showSwitch={false}
+          showDelete={false}
+        />
 
         {/* Network Data Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Network Data Files
         </Typography>
-        <FileTable files={networkDataFiles} handleDelete={handleDelete} setFiles={setNetworkDataFiles} classes={classes} showSwitch={true} showDelete={true}/>
+        <FileTable
+          files={networkDataFiles}
+          handleDelete={handleDelete}
+          setFiles={setNetworkDataFiles}
+          classes={classes}
+          showSwitch={true}
+          showDelete={true}
+        />
 
         {/* Manual Edit Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Manual Edits
         </Typography>
-        <FileTable files={manualEditFiles} handleDelete={handleDelete} setFiles={setManualEditFiles} classes={classes} showSwitch={false} showDelete={true}/>
+        <FileTable
+          files={manualEditFiles}
+          handleDelete={handleDelete}
+          setFiles={setManualEditFiles}
+          classes={classes}
+          showSwitch={false}
+          showDelete={true}
+        />
       </Container>
     </div>
   );
 };
 
-const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch, showDelete }) => {
+const FileTable = ({
+  files,
+  handleDelete,
+  setFiles,
+  classes,
+  showSwitch,
+  showDelete,
+}) => {
   const { setLayers } = useContext(LayerVisibilityContext);
   const [checked, setChecked] = useState([]);
 
@@ -239,7 +293,7 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch, showDel
     setChecked(newChecked);
 
     // Update the layers visibility state
-    setLayers(prevLayers => ({
+    setLayers((prevLayers) => ({
       ...prevLayers,
       [files[i].name]: newChecked[i],
     }));
@@ -247,8 +301,7 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch, showDel
 
   if (checked.length !== files.length) {
     return null; // or return a loading spinner
-  };
-
+  }
 
   return (
     <TableContainer component={Paper}>
@@ -256,7 +309,7 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch, showDel
         <TableHead>
           <TableRow>
             <TableCell>Filename</TableCell>
-            <TableCell >Created Time</TableCell>
+            <TableCell>Created Time</TableCell>
             <TableCell align="right">Type</TableCell>
             {showSwitch && <TableCell align="right">Show on Map</TableCell>}
             {showDelete && <TableCell align="right">Action</TableCell>}
@@ -269,26 +322,31 @@ const FileTable = ({ files, handleDelete, setFiles, classes, showSwitch, showDel
                 {file.name}
               </TableCell>
               <TableCell>{file.uploadDate}</TableCell>
-              <TableCell align="right">
-                {file.type}
-              </TableCell>
-              {showSwitch && <TableCell align="right">
-                <IOSSwitch
-                  sx={{ m: 1 }}
-                  checked={checked[index]}
-                  onChange={handleToggle(index)}
-                  name="showOnMapSwitch"
-                  inputProps={{ 'aria-label': 'secondary checkbox' }}
-                />
-              </TableCell>}
-              {showDelete && <TableCell align="right">
-                <IconButton className={classes.deleteButton} onClick={() => handleDelete(file.id, setFiles)}>
-                  <DeleteIcon />
-                  <Typography sx={{ marginLeft: '10px' }}>
-                    Delete File
-                  </Typography>
-                </IconButton>
-              </TableCell>}
+              <TableCell align="right">{file.type}</TableCell>
+              {showSwitch && (
+                <TableCell align="right">
+                  <IOSSwitch
+                    sx={{ m: 1 }}
+                    checked={checked[index]}
+                    onChange={handleToggle(index)}
+                    name="showOnMapSwitch"
+                    inputProps={{ "aria-label": "secondary checkbox" }}
+                  />
+                </TableCell>
+              )}
+              {showDelete && (
+                <TableCell align="right">
+                  <IconButton
+                    className={classes.deleteButton}
+                    onClick={() => handleDelete(file.id, setFiles)}
+                  >
+                    <DeleteIcon />
+                    <Typography sx={{ marginLeft: "10px" }}>
+                      Delete File
+                    </Typography>
+                  </IconButton>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
