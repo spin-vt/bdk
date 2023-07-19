@@ -294,6 +294,7 @@ def delete_files(fileid):
             for kml_f in all_kmls:
                 geojson_array.append(vt_ops.read_kml(kml_f.id, session))
             mbtiles_ops.delete_mbtiles(folderVal.id, session)
+            session.commit()
             vt_ops.create_tiles(geojson_array, identity['id'], folderVal.id, session)
             return jsonify({'message': 'mbtiles successfully deleted'}), 200
         except Exception as e:

@@ -334,6 +334,8 @@ export default function Upload({ fetchMarkers }) {
           flexDirection: "column",
           justifyContent: "flex-end", // This line
           marginLeft: "20px",
+          zindex: 1000,
+          position: "relative",
         }}
       >
         <Typography component="h1" variant="h5" className={classes.headertext}>
