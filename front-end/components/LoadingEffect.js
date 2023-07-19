@@ -52,14 +52,19 @@ export default function LoadingEffect({ isLoading, loadingTimeInMs }) {
     }, [isLoading]);
 
     return (
-        <div className={classes.backdrop} open={isLoading || isLoaded}>
-                <CircularProgress variant="determinate" value={progress} />
+        <div className="LoadingEffect">
+            <Backdrop className={classes.backdrop} open={isLoading || isLoaded}>
+
+
+                <CircularProgress color="inherit" variant="determinate" value={progress} />
                 <div className={classes.remindertext}>
                     {isLoaded ? (
                         <Typography>Your data is ready!</Typography>
                     ) : (
                         <Typography>Crunching your data, please wait {Math.floor(progress)}%</Typography>)}
                 </div>
+
+            </Backdrop>
         </div>
     );
 }

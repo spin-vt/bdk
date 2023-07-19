@@ -113,7 +113,7 @@ export default function Upload({ fetchMarkers }) {
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [selectedFiles, setSelectedFiles] = React.useState( []
+  const [selectedFiles, setSelectedFiles] = React.useState([]
   );
   const [downloadSpeed, setDownloadSpeed] = React.useState("");
   const [networkType, setNetworkType] = React.useState("");
