@@ -173,7 +173,7 @@ function Map({ markers }) {
 
   const [isLoadingForTimedEffect, setIsLoadingForTimedEffect] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
-  const loadingTimeInMs = 0.8 * 60 * 1000;
+  const loadingTimeInMs = 3.5 * 60 * 1000;
   const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] = useState(false);
 
   const { layers } = useContext(LayerVisibilityContext);

@@ -40,8 +40,6 @@ def delete_mbtiles(folderid, session=None):
         if owns_session:
             session.commit()
 
-    except NoResultFound:
-        print("No result found")
     except SQLAlchemyError as e:
         print(f"Error occurred during query: {str(e)}")
     finally:

@@ -185,6 +185,10 @@ def delete_file(fileid, session=None):
                         kml_entry.served = True
                         kml_entry.coveredLocations = orig_file.name
                         session.flush()
+            elif file_to_del.name.endswith('.kml'):
+                kml_edits = get_files_with_postfix(file_to_del.folder_id, '/', session)
+                for kml_edit in kml_edits:
+                    session.delete(kml_edit)
             session.delete(file_to_del)
             if owns_session:
                 session.commit()
