@@ -39,6 +39,7 @@ const useStyles = makeStyles((theme) => ({
     minWidth: 650,
   },
   container: {
+    zIndex: 1000,
     position: "relative",
     minWidth: "80%",
     height: "90vh",
@@ -219,12 +220,14 @@ const MyFile = () => {
 
   return (
     <div>
-      {(isLoading || isDataReady) && (
-        <LoadingEffect
-          isLoading={isLoading}
-          loadingTimeInMs={loadingTimeInMs}
-        />
-      )}
+      <div style={{ position: 'fixed', zIndex: 10000 }}>
+        {(isLoading || isDataReady) && (
+          <LoadingEffect
+            isLoading={isLoading}
+            loadingTimeInMs={loadingTimeInMs}
+          />
+        )}
+      </div>
       <Container component="main" maxWidth="md" className={classes.container}>
         <Typography component="h1" variant="h5" className={classes.headertext}>
           Your Uploaded Files

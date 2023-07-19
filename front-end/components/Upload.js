@@ -113,7 +113,7 @@ export default function Upload({ fetchMarkers }) {
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [selectedFiles, setSelectedFiles] = React.useState( []
+  const [selectedFiles, setSelectedFiles] = React.useState([]
   );
   const [downloadSpeed, setDownloadSpeed] = React.useState("");
   const [networkType, setNetworkType] = React.useState("");
@@ -334,6 +334,8 @@ export default function Upload({ fetchMarkers }) {
           flexDirection: "column",
           justifyContent: "flex-end", // This line
           marginLeft: "20px",
+          zindex: 1000,
+          position: "relative",
         }}
       >
         <Typography component="h1" variant="h5" className={classes.headertext}>
