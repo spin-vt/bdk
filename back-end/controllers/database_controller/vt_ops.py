@@ -180,9 +180,8 @@ def create_tiles(geojson_array, userid, folderid, session=None):
     # print(geojson_array)
     point_geojson["features"].extend(geojson for geojson in geojson_array)
 
-    jsonFile = "data" + str(userid) + ".geojson"
     with open("data.geojson", 'w') as f:
-     json.dump(point_geojson, f, indent=4)
+     json.dump(point_geojson, f)
     
     outputFile = "output" + str(userid) + ".mbtiles"
     command = "tippecanoe -o " + outputFile + " --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
