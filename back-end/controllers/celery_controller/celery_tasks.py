@@ -13,14 +13,21 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         # profiler = cProfile.Profile()
         # profiler.enable()
 
-        fabricid = 0
-        # names = []
         geojson_array = []
         tasks = []  
-
         session = Session()
 
+        csv_file_data = []
+        kml_file_data = []
+
+        # Separate file data into csv and kml
         for file_name, file_data_str in zip(file_names, file_data_list):
+            if file_name.endswith('.csv'):
+                csv_file_data.append((file_name, file_data_str))
+            elif file_name.endswith('.kml'):
+                kml_file_data.append((file_name, file_data_str))
+
+        for file_name, file_data_str in csv_file_data:
             # Check if file name already exists in the database for this user
             existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
             print(existing_file)
@@ -40,28 +47,43 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             techType = file_data.get('techType', '')
             networkType = file_data.get('networkType', '')
             
-            if file_name.endswith('.csv'):
-                fabricid = existing_file.id
+            
+            fabricid = existing_file.id
 
-                task_id = str(uuid.uuid4())
-                task = fabric_ops.write_to_db(fabricid)
-                tasks.append(task)
+            task_id = str(uuid.uuid4())
+            task = fabric_ops.write_to_db(fabricid)
+            tasks.append(task)
 
-            elif file_name.endswith('.kml'):
-                print(file_name)
-                fabric_id = fabric_ops.check_num_records_greater_zero(folderid)
-                if not fabric_id:
-                    raise ValueError('No records found in fabric operations')
-                
-                task_id = str(uuid.uuid4())
+        for file_name, file_data_str in kml_file_data:
 
-                if networkType == "Wired": 
-                    networkType = 0
-                else: 
-                    networkType = 1
+            existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
+            print(existing_file)
+            # If file name exists, skip to the next iteration
+            if existing_file and existing_file.computed:
+                print("skip")
+                continue
+            
+            # names.append(file_name)
+            existing_file.computed = True 
+            session.commit() #commit the change 
 
-                task = kml_ops.add_network_data(fabric_id, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid)
-                tasks.append(task)
+            file_data = json.loads(file_data_str)
+
+            downloadSpeed = file_data.get('downloadSpeed', '')
+            uploadSpeed = file_data.get('uploadSpeed', '')
+            techType = file_data.get('techType', '')
+            networkType = file_data.get('networkType', '')
+
+            
+            task_id = str(uuid.uuid4())
+
+            if networkType == "Wired": 
+                networkType = 0
+            else: 
+                networkType = 1
+
+            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid)
+            tasks.append(task)
         
         # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()

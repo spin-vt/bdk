@@ -14,19 +14,19 @@ def check_num_records_greater_zero(folderid):
     session = Session()
 
     # Might need to query multiple fabrics down the road
-    files_in_folder = session.query(file).filter(file.folder_id == folderid, file.name.endswith('.csv')).one()
+    files_in_folder = session.query(file).filter(file.folder_id == folderid, file.name.endswith('.csv')).all()
 
     # If there is no file in the folder, return False.
     if not files_in_folder:
         return None
 
     # Check each file in the folder to see if there are associated fabric_data entries.
-    
-    if session.query(fabric_data).filter(fabric_data.file_id == files_in_folder.id).count() > 0:
-        return files_in_folder.id
+    for file in files_in_folder:
+        if session.query(fabric_data).filter(fabric_data.file_id == file.id).count() > 0:
+            return True
 
     # If no file in the folder has associated fabric_data entries, return False.
-    return None
+    return False
 
 def write_to_db(fileid): 
     session = ScopedSession()

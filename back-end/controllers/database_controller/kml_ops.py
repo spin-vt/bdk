@@ -13,7 +13,7 @@ import fiona
 from utils.settings import DATABASE_URL
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
-from .file_ops import get_files_with_postfix, get_file_with_id
+from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix
 
 db_lock = Lock()
 
@@ -26,22 +26,24 @@ def get_kml_data(userid, folderid, session=None):
 
     try:
         # Query the File records related to the folder_id
-        fabric_file = get_files_with_postfix(folderid, ".csv", session)[0]
+        fabric_files = get_files_with_postfix(folderid, ".csv", session)
         kml_files = get_files_with_postfix(folderid, ".kml", session)
 
-        if not fabric_file or not kml_files:
+        if not fabric_files or not kml_files:
             raise FileNotFoundError("Either fabric or KML files not found")
 
-        # Query all locations in fabric_data, needs handling of multiple fabrics!
-        all_locations = session.query(
-            fabric_data.location_id,
-            fabric_data.latitude, 
-            fabric_data.address_primary,
-            fabric_data.longitude
-        ).filter(fabric_data.file_id == fabric_file.id).all()  # Change to fabric_file.id
+        # Query all locations in fabric_data
+        all_data = {}
+        for fabric_file in fabric_files:
+            all_locations = session.query(
+                fabric_data.location_id,
+                fabric_data.latitude, 
+                fabric_data.address_primary,
+                fabric_data.longitude
+            ).filter(fabric_data.file_id == fabric_file.id).all()  # Change to fabric_file.id
 
-        # Initialize an empty dictionary to hold location_id as key and its data as value, including location_id itself
-        all_data = {r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3]} for r in all_locations}
+            # Initialize a dictionary to hold location_id as key and its data as value, including location_id itself
+            all_data.update({r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3]} for r in all_locations})
 
         default_data = {
             'served': False,
@@ -67,7 +69,6 @@ def get_kml_data(userid, folderid, session=None):
             ).filter(
                 kml_data.file_id == kml_file.id  # Change to kml_file.id
             ).all()
-
 
             # Add served data to the respective location in all_data, merge two file that served the same point,
             # record the maxdownloadnetwork and maxuploadspeed
@@ -194,18 +195,21 @@ def export():
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid):
+def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):
     
-    fabric_file = get_file_with_id(fabricid)
+    fabric_files = get_files_with_postfix(folderid, '.csv')
     coverage_file = get_file_with_id(kmlid)
 
     session = ScopedSession()
     
-    if fabric_file is None or coverage_file is None:
+    if fabric_files is None or coverage_file is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")
     
-    fabric_data = StringIO(fabric_file.data.decode())
-    df = pandas.read_csv(fabric_data) 
+    fabric_arr = []
+    for fabric_file in fabric_files:
+        tempdf = pandas.read_csv(StringIO(fabric_file.data.decode()))
+        fabric_arr.append(tempdf)
+    df = pandas.concat(fabric_arr)
 
     fabric = geopandas.GeoDataFrame(
         df.drop(['latitude', 'longitude'], axis=1),
@@ -226,18 +230,19 @@ def compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid):
     res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid)
     return res
 
-def compute_wired_locations(fabricid, kmlid, download, upload, tech, userid):
+def compute_wired_locations(folderid, kmlid, download, upload, tech, userid):
     
 
     # Fetch Fabric file from database
-    fabric_file_record = get_file_with_id(fabricid)
-    if not fabric_file_record:
-        raise ValueError(f"No file found with name {fabric_file_record.name}")
-    fabric_csv_data = fabric_file_record.data.decode()
+    fabric_files = get_files_with_postfix(folderid, '.csv')
+    if not fabric_files:
+        raise ValueError(f"No fabric file found")
     
-    # Convert the CSV data string to a DataFrame
-    fabric_data = StringIO(fabric_csv_data)
-    df = pandas.read_csv(fabric_data)
+    fabric_arr = []
+    for fabric_file in fabric_files:
+        tempdf = pandas.read_csv(StringIO(fabric_file.data.decode()))
+        fabric_arr.append(tempdf)
+    df = pandas.concat(fabric_arr)
 
     # Fetch Fiber file from database
     fiber_file_record = get_file_with_id(kmlid)
@@ -279,12 +284,12 @@ def compute_wired_locations(fabricid, kmlid, download, upload, tech, userid):
     res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid)
     return res 
 
-def add_network_data(fabricid, kmlid ,download, upload, tech, type, userid):
+def add_network_data(folderid, kmlid ,download, upload, tech, type, userid):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(fabricid, kmlid, download, upload, tech, userid)
+        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid)
     elif type == 1: 
-        res = compute_wireless_locations(fabricid, kmlid, download, upload, tech, userid)
+        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid)
     return res 
 
 
