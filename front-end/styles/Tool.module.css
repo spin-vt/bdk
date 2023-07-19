@@ -18,7 +18,7 @@
   padding: 10px;
   border-radius: 50%;
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
-  z-index: 999;
+  /* z-index: 999; */
 }
 
 .expandIcon {

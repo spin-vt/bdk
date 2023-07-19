@@ -174,9 +174,10 @@ def create_tiles(geojson_array, userid, folderid, session=None):
 
     with open('data.geojson', 'w') as f:
          json.dump(point_geojson, f)
-         
-    command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    run_tippecanoe(command, folderid, "output.mbtiles") 
+    
+    localFile = "output" + str(userid) + ".mbtiles"
+    command = "tippecanoe -o " + localFile + " --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
+    run_tippecanoe(command, folderid, localFile) 
 
 def retrieve_tiles(zoom, x, y, username, mbtileid=None):
     conn = psycopg2.connect(DATABASE_URL)

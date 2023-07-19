@@ -113,8 +113,7 @@ export default function Upload({ fetchMarkers }) {
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [selectedFiles, setSelectedFiles] = React.useState(
-    JSON.parse(localStorage.getItem("selectedFiles")) || []
+  const [selectedFiles, setSelectedFiles] = React.useState( []
   );
   const [downloadSpeed, setDownloadSpeed] = React.useState("");
   const [networkType, setNetworkType] = React.useState("");
@@ -223,7 +222,6 @@ export default function Upload({ fetchMarkers }) {
 
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
-    localStorage.setItem("selectedFiles", JSON.stringify(updatedFiles));
     // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
   };
 
@@ -262,12 +260,6 @@ export default function Upload({ fetchMarkers }) {
     // Update selectedFiles state
     setSelectedFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
     setExportSuccess(false); // Set the export success state to true
-
-    // Update local storage
-    const updatedFiles =
-      JSON.parse(localStorage.getItem("selectedFiles")) || [];
-    const filteredFiles = updatedFiles.filter((file) => file.id !== id);
-    localStorage.setItem("selectedFiles", JSON.stringify(filteredFiles));
 
     // Reset the file input element
     const fileInput = anchorRef.current;
