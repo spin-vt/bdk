@@ -44,12 +44,12 @@ const Login = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ username, password }),
+        credentials: 'include', // Add this line
       });
 
       if (response.ok) {
         const data = await response.json(); // Extract JSON from the response
         if (data.status === 'success') {
-          localStorage.setItem('token', data.token); // Store the token in local storage
           router.push('/');
         }
         else {

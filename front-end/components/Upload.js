@@ -14,12 +14,25 @@ import { DataGrid } from "@mui/x-data-grid";
 import Select from "@mui/material/Select";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
-import { makeStyles } from "@mui/styles";
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
+import { makeStyles, TextField, Typography } from "@material-ui/core";
 
-const useStyles = makeStyles({
+// Define your styles
+const useStyles = makeStyles((theme) => ({
+  buttonGroup: {
+    color: "#FFF",
+    backgroundColor: "#3f51b5",
+    padding: "10px 20px",
+    borderRadius: "5px",
+    margin: "10px 0",
+  },
+  paper: {
+    backgroundColor: "#f3f3f3",
+    padding: "10px",
+    borderRadius: "5px",
+  },
   formControl: {
     margin: "4px",
     minWidth: "150px",
@@ -38,14 +51,21 @@ const useStyles = makeStyles({
     padding: "0 0 0 10px",
     minWidth: "150px",
   },
-});
+  gridItem: {
+    padding: "10px",
+  },
+  headertext: {
+    marginTop: "20px",
+    marginBottom: "20px",
+  },
+}));
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
   Wired: "Wired",
   Wireless: "Wireless",
 };
-let storage = JSON.parse(localStorage.getItem("storage")) || [];
+let storage = [];
 let storage2 = [];
 
 const tech_types = {
@@ -93,8 +113,7 @@ export default function Upload({ fetchMarkers }) {
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [selectedFiles, setSelectedFiles] = React.useState(
-    JSON.parse(localStorage.getItem("selectedFiles")) || []
+  const [selectedFiles, setSelectedFiles] = React.useState([]
   );
   const [downloadSpeed, setDownloadSpeed] = React.useState("");
   const [networkType, setNetworkType] = React.useState("");
@@ -109,18 +128,6 @@ export default function Upload({ fetchMarkers }) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isDataReady, setIsDataReady] = React.useState(false);
   const loadingTimeInMs = 6.5 * 60 * 1000;
-
-  const handleDownloadClick = (event) => {
-    event.preventDefault();
-
-    const params = new URLSearchParams({
-      downloadSpeed: downloadSpeed,
-      uploadSpeed: uploadSpeed,
-      techType: techType,
-    });
-
-    window.location.href = `http://localhost:5000/export?${params.toString()}`;
-  };
 
   const handleExportClick = (event) => {
     event.preventDefault();
@@ -141,54 +148,39 @@ export default function Upload({ fetchMarkers }) {
 
     fetch("http://localhost:5000/submit-data", {
       method: "POST",
-      body: formData
+      body: formData,
     })
       .then((response) => {
-        // Submit-data end point needs to handle case for not login and return 401 or 422
-        if (response.status === 401 || response.status === 422) {
-          setIsLoading(false); // Set loading to false after API call
-          Swal.fire('Stop right there 👮✋', "Please be logged in to make a submission :)", 'error')
-            .then((result) => {
-              // Navigate to login after Swal modal has been dismissed
-              window.location.href = "http://localhost:3000/login";
-            });
-          throw new Error('Unauthorized/Unprocessable entity'); // Skip to the catch block
-        }
         if (!response.ok) {
-          throw new Error("Network response was not ok"); // Some other status code, skip to the catch block
+          throw new Error(`HTTP status code: ${response.status}`);
         }
-        return response.json();
+        return response.json(); // Added return statement to provide data for the next then
       })
       .then((data) => {
         if (data) {
-          // Start polling task status
-          // This needs correct response status 401, 422 in the backend for correct handling of user login logic
           const intervalId = setInterval(() => {
             console.log(data.task_id);
             fetch(`http://localhost:5000/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
                 if (status.state !== "PENDING") {
-                  // change this to your actual 'complete' status
-                  // Clear the interval
                   clearInterval(intervalId);
-
-                  // Task is complete, handle post-task actions
-                  setExportSuccess(true); // Set the export success state to true
+                  setExportSuccess(true);
                   setIsDataReady(true);
-                  setIsLoading(false); // Set loading to false after task is complete
+                  setIsLoading(false);
                   setTimeout(() => {
-                    setIsDataReady(false); // This will be executed 5 seconds after setIsLoading(false)
+                    setIsDataReady(false);
                     window.location.href = "http://localhost:3000/";
                   }, 5000);
                 }
               });
-          }, 5000); // Poll every 5 seconds
+          }, 5000);
         }
       })
       .catch((error) => {
         console.error("Error:", error);
-        setIsLoading(false); // Set loading to false after API call
+        setIsLoading(false);
+        Swal.fire("A problem has occured", error.toString(), "error"); // Used error.toString() to ensure that the error message is a string
       });
   };
 
@@ -230,8 +222,7 @@ export default function Upload({ fetchMarkers }) {
 
     const updatedFiles = [...selectedFiles, ...newFiles];
     setSelectedFiles(updatedFiles);
-    localStorage.setItem("selectedFiles", JSON.stringify(updatedFiles));
-    localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
+    // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
   };
 
   const handleClick = () => {
@@ -261,7 +252,7 @@ export default function Upload({ fetchMarkers }) {
     for (let i = 0; i < storage.length; i++) {
       if (storage[i][1] === id) {
         storage.splice(i, 1);
-        localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
+        // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
         break;
       }
     }
@@ -269,12 +260,6 @@ export default function Upload({ fetchMarkers }) {
     // Update selectedFiles state
     setSelectedFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
     setExportSuccess(false); // Set the export success state to true
-
-    // Update local storage
-    const updatedFiles =
-      JSON.parse(localStorage.getItem("selectedFiles")) || [];
-    const filteredFiles = updatedFiles.filter((file) => file.id !== id);
-    localStorage.setItem("selectedFiles", JSON.stringify(filteredFiles));
 
     // Reset the file input element
     const fileInput = anchorRef.current;
@@ -284,46 +269,39 @@ export default function Upload({ fetchMarkers }) {
   };
 
   const columns = [
-    { field: "id", headerName: "ID", width: 90 },
+    { field: "id", headerName: "ID" },
     {
       field: "name",
       headerName: "File Name",
-      width: 100,
       editable: true,
     },
     {
       field: "option",
       headerName: "Option",
-      width: 100,
     },
     {
       field: "downloadSpeed",
       headerName: "Download Speed",
-      width: 150,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "uploadSpeed",
       headerName: "Upload Speed",
-      width: 150,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "techType",
       headerName: "Tech Type",
-      width: 100,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "networkType",
       headerName: "Network Type",
-      width: 125,
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
       field: "actions",
       headerName: "Actions",
-      width: 100,
       renderCell: (params) => (
         <Button
           onClick={() => handleDelete(params.row.id)}
@@ -344,144 +322,174 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      {(isLoading || isDataReady) && <LoadingEffect isLoading={isLoading} loadingTimeInMs={loadingTimeInMs} />}
-      <ButtonGroup
-        variant="contained"
-        ref={buttonGroupRef}
-        aria-label="split button"
-      >
-        <Button onClick={handleClick}>{options[selectedIndex]}</Button>
-        <Button
-          size="small"
-          aria-controls={open ? "split-button-menu" : undefined}
-          aria-expanded={open ? "true" : undefined}
-          aria-label="select merge strategy"
-          aria-haspopup="menu"
-          onClick={handleToggle}
-        >
-          <ArrowDropDownIcon />
-        </Button>
-      </ButtonGroup>
-      <Popper
-        sx={{
-          zIndex: 1,
-        }}
-        open={open}
-        anchorEl={buttonGroupRef.current}
-        role={undefined}
-        transition
-        disablePortal
-      >
-        {({ TransitionProps, placement }) => (
-          <Grow
-            {...TransitionProps}
-            style={{
-              transformOrigin:
-                placement === "bottom" ? "center top" : "center bottom",
-            }}
-          >
-            <Paper style={{ width: buttonGroupWidth }}>
-              <ClickAwayListener onClickAway={handleClose}>
-                <MenuList id="split-button-menu" autoFocusItem>
-                  {options.map((option, index) => (
-                    <MenuItem
-                      key={option}
-                      selected={index === selectedIndex}
-                      onClick={(event) => handleMenuItemClick(event, index)}
-                    >
-                      {option}
-                    </MenuItem>
-                  ))}
-                </MenuList>
-              </ClickAwayListener>
-            </Paper>
-          </Grow>
-        )}
-      </Popper>
-      {selectedIndex === 1 && (
-        <Box sx={{ marginTop: "1rem" }}>
-          <Grid container spacing={1}>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="downloadSpeed">Download Speed (MBps): </label>
-              <input
-                type="text"
-                id="downloadSpeed"
-                value={downloadSpeed}
-                onChange={(e) => setDownloadSpeed(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="uploadSpeed">Upload Speed (MBps): </label>
-              <input
-                type="text"
-                id="uploadSpeed"
-                value={uploadSpeed}
-                onChange={(e) => setUploadSpeed(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="techType">Technology Type: </label>
-              <FormControl variant="outlined" className={classes.formControl}>
-                <Select
-                  labelId="demo-simple-select-outlined-label"
-                  id="demo-simple-select-outlined"
-                  value={techType}
-                  onChange={(e) => setTechType(e.target.value)}
-                  className={classes.select}
-                >
-                  {Object.entries(tech_types).map(([key, value]) => (
-                    <MenuItem key={value} value={value}>
-                      {key}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <label htmlFor="wiredWireless">Network Type: </label>
-              <FormControl variant="outlined" className={classes.formControl}>
-                <Select
-                  labelId="demo-simple-select-outlined-label"
-                  id="demo-simple-select-outlined"
-                  value={networkType}
-                  onChange={(e) => setNetworkType(e.target.value)}
-                  className={classes.select}
-                >
-                  {Object.entries(wiredWirelessOptions).map(([key, value]) => (
-                    <MenuItem key={value} value={value}>
-                      {key}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </Box>
-      )}
-      {/* Hidden file input to allow file selection */}
-      <input
-        type="file"
-        style={{ display: "none" }}
-        onChange={handleFileChange}
-        ref={anchorRef}
-      />
-      {/* Display the uploaded files in a DataGrid */}
-      <Box sx={{ height: 400 }} style={{ marginTop: "3vh" }}>
-        <DataGrid
-          rows={selectedFiles}
-          columns={columns}
-          pageSize={5}
-          checkboxSelection
+      <div style={{ position: 'fixed', zIndex: 10000 }}>
+      {(isLoading || isDataReady) && (
+        <LoadingEffect
+          isLoading={isLoading}
+          loadingTimeInMs={loadingTimeInMs}
         />
-      </Box>
-      <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-        <ExportButton onClick={handleExportClick} />
-        {exportSuccess && (
-          <Button variant="contained" onClick={handleDownloadClick}>
-            Download Report
+      )}
+      </div>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end", // This line
+          marginLeft: "20px",
+          zIndex: 1000,
+          position: "relative",
+        }}
+      >
+        <Typography component="h1" variant="h5" className={classes.headertext}>
+          Upload Network Files Below:
+        </Typography>
+
+        <ButtonGroup
+          variant="contained"
+          ref={buttonGroupRef}
+          style={{ width: "fit-content" }} // Add this line
+        >
+          <Button onClick={handleClick}>{options[selectedIndex]}</Button>
+          <Button
+            size="small"
+            aria-controls={open ? "split-button-menu" : undefined}
+            aria-expanded={open ? "true" : undefined}
+            aria-label="select merge strategy"
+            aria-haspopup="menu"
+            onClick={handleToggle}
+          >
+            <ArrowDropDownIcon />
           </Button>
+        </ButtonGroup>
+        <Popper
+          sx={{
+            zIndex: 1,
+          }}
+          open={open}
+          anchorEl={buttonGroupRef.current}
+          role={undefined}
+          transition
+          disablePortal
+        >
+          {({ TransitionProps, placement }) => (
+            <Grow
+              {...TransitionProps}
+              style={{
+                transformOrigin:
+                  placement === "bottom" ? "center top" : "center bottom",
+              }}
+            >
+              <Paper style={{ width: buttonGroupWidth }}>
+                <ClickAwayListener onClickAway={handleClose}>
+                  <MenuList id="split-button-menu" autoFocusItem>
+                    {options.map((option, index) => (
+                      <MenuItem
+                        key={option}
+                        selected={index === selectedIndex}
+                        onClick={(event) => handleMenuItemClick(event, index)}
+                      >
+                        {option}
+                      </MenuItem>
+                    ))}
+                  </MenuList>
+                </ClickAwayListener>
+              </Paper>
+            </Grow>
+          )}
+        </Popper>
+        {selectedIndex === 1 && (
+          <Box sx={{ marginTop: "1rem" }}>
+            <Grid container spacing={1}>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="downloadSpeed">Download Speed (MBps): </label>
+                <input
+                  type="text"
+                  id="downloadSpeed"
+                  value={downloadSpeed}
+                  onChange={(e) => setDownloadSpeed(e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="uploadSpeed">Upload Speed (MBps): </label>
+                <input
+                  type="text"
+                  id="uploadSpeed"
+                  value={uploadSpeed}
+                  onChange={(e) => setUploadSpeed(e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="techType">Technology Type: </label>
+                <FormControl variant="outlined" className={classes.formControl}>
+                  <Select
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={techType}
+                    onChange={(e) => setTechType(e.target.value)}
+                    className={classes.select}
+                  >
+                    {Object.entries(tech_types).map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        <div
+                          style={{
+                            maxWidth: techType === value ? "100px" : "none",
+                            textOverflow:
+                              techType === value ? "ellipsis" : "initial",
+                            overflow: techType === value ? "hidden" : "initial",
+                            whiteSpace:
+                              techType === value ? "nowrap" : "initial",
+                          }}
+                        >
+                          {key}
+                        </div>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <label htmlFor="wiredWireless">Network Type: </label>
+                <FormControl variant="outlined" className={classes.formControl}>
+                  <Select
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={networkType}
+                    onChange={(e) => setNetworkType(e.target.value)}
+                    className={classes.select}
+                  >
+                    {Object.entries(wiredWirelessOptions).map(
+                      ([key, value]) => (
+                        <MenuItem key={value} value={value}>
+                          {key}
+                        </MenuItem>
+                      )
+                    )}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
         )}
-        <MapKey />
+        {/* Hidden file input to allow file selection */}
+        <input
+          type="file"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+          ref={anchorRef}
+        />
+        {/* Display the uploaded files in a DataGrid */}
+        <Box sx={{ height: 400 }} style={{ marginTop: "3vh" }}>
+          <DataGrid
+            rows={selectedFiles}
+            columns={columns}
+            pageSize={5}
+            checkboxSelection
+          />
+        </Box>
+        <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
+          <ExportButton onClick={handleExportClick} />
+          <MapKey />
+        </Box>
       </Box>
     </React.Fragment>
   );

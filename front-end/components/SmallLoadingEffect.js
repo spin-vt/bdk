@@ -17,17 +17,6 @@ const useStyles = makeStyles({
 
 export default function SmallLoadingEffect({ isLoading }) {
     const classes = useStyles();
-    // const [isLoaded, setIsLoaded] = useState(false);
-
-    // useEffect(() => {
-    //     console.log(isLoading);
-    //     if (isLoading) {
-    //         setIsLoaded(false);
-    //     } else {
-    //         console.log('here');
-    //         setIsLoaded(true);
-    //     }
-    // }, [isLoading]);
 
     return (
         <div className="LoadingEffect">
@@ -35,7 +24,7 @@ export default function SmallLoadingEffect({ isLoading }) {
                 <Box display="flex" alignItems="center">
                     <CircularProgress color="inherit" />
                     <div className={classes.remindertext}>
-                        <Typography>Getting your map ready...</Typography>
+                        <Typography>Getting the editing tool ready...</Typography>
                     </div>
                 </Box>
             </Backdrop>

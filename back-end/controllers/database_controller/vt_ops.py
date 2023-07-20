@@ -1,7 +1,7 @@
 import os
 import psycopg2
 import sqlite3
-from controllers.database_controller.kml_ops import get_wired_data
+from controllers.database_controller.kml_ops import get_kml_data
 import json
 import subprocess
 from psycopg2.extensions import adapt, register_adapter, AsIs
@@ -12,10 +12,14 @@ from utils.settings import DATABASE_URL
 from multiprocessing import Lock
 from celery import chain 
 from datetime import datetime
-from database.sessions import ScopedSession
-from database.models import vector_tiles, File
+from database.sessions import ScopedSession, Session
+from database.models import vector_tiles, file, folder, kml_data, fabric_data
 from controllers.celery_controller.celery_config import celery
-from controllers.celery_controller.celery_tasks import run_tippecanoe, run_tippecanoe_tiles_join
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import desc
+from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
+from .folder_ops import get_folder
+from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles
 
 db_lock = Lock()
 
@@ -27,35 +31,46 @@ def recursive_placemarks(folder):
             yield from recursive_placemarks(feature)
 
 
-def read_kml(file_name):
+def read_kml(fileid, session):
 # Now you can extract all placemarks from the root KML object
-    # geojson_array= []
-    session = ScopedSession()
-    file_record = session.query(File).filter(File.file_name == file_name).first()
+    # geojson_array= [
+    file_record = get_file_with_id(fileid, session)
 
     if not file_record:
-        raise ValueError(f"No file found with name {file_name}")
+        raise ValueError(f"No file found with name {file_record.name}")
     
     kml_obj = kml.KML()
     doc = file_record.data
     kml_obj.from_string(doc)
 
+    network_type = None
+    polygon_encountered = False
+
     root_feature = list(kml_obj.features())[0]
     geojson_features = []
     for placemark in recursive_placemarks(root_feature):
+        if placemark.geometry.geom_type == 'Point':
+            continue
         # Use the placemark object here
         geojson_feature = {
             "type": "Feature",
             "geometry": placemark.geometry.__geo_interface__,  # This gets the GeoJSON geometry
-            "properties": {"feature_type": placemark.geometry.geom_type} # add the geometry type
+            "properties": {"feature_type": placemark.geometry.geom_type,
+                           'network_coverages': file_record.name,} # add the geometry type
         }
         geojson_features.append(geojson_feature)
+        if placemark.geometry.geom_type == "Polygon":
+            network_type = "wireless"
+            polygon_encountered = True
+        elif placemark.geometry.geom_type == "LineString" and not polygon_encountered:
+            network_type = "wired"
 
-    session.close()
+    update_file_type(fileid, network_type)
+
     return geojson_features
 
 
-def add_values_to_VT(mbtiles_file_path, user_id):
+def add_values_to_VT(mbtiles_file_path, folderid):
     with sqlite3.connect(mbtiles_file_path) as mb_conn:
         mb_c = mb_conn.cursor()
         mb_c.execute(
@@ -64,130 +79,78 @@ def add_values_to_VT(mbtiles_file_path, user_id):
             FROM tiles
             """
         )
+
+        # Create a new connection to Postgres
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
         
         try:
-            # Create a new connection to Postgres
-            conn = psycopg2.connect(DATABASE_URL)
-            cur = conn.cursor()
-            
-            # Prepare the vector tile data
-            data = [(row[0], row[1], row[2], Binary(row[3]), user_id) for row in mb_c]
-
-            # Execute values will generate a SQL INSERT query with placeholders for the parameters
-            execute_values(cur, """
-                INSERT INTO vt (zoom_level, tile_column, tile_row, tile_data, user_id) 
-                VALUES %s
-                """, data)
-
-            # Open the .mbtiles file as binary and read the data
             with open(mbtiles_file_path, 'rb') as file:
                 mbtiles_data = Binary(file.read())
             
-            # Insert the .mbtiles data
+            cur.execute("SELECT COUNT(*) FROM mbtiles WHERE folder_id = %s", (folderid,))
+            count = cur.fetchone()[0]
+            cur.execute('SELECT "name" FROM "folder" WHERE id = %s', (folderid,))
+            foldername = cur.fetchone()[0]
+            new_filename = f'{foldername}-{count+1}.mbtiles'
+
             cur.execute("""
-                INSERT INTO mbt (tile_data, filename, timestamp, user_id)
-                VALUES (%s, %s, %s, %s)
-                """, (mbtiles_data, 'curr.mbtiles', datetime.now(), user_id))
+                INSERT INTO mbtiles (tile_data, filename, timestamp, folder_id)
+                VALUES (%s, %s, %s, %s) RETURNING id
+                """, (mbtiles_data, new_filename, datetime.now(), folderid))
 
-            # Don't forget to commit the transaction
+            mbt_id = cur.fetchone()[0]
+
+            data = [(row[0], row[1], row[2], Binary(row[3]), mbt_id) for row in mb_c]
+
+            execute_values(cur, """
+                INSERT INTO vector_tiles (zoom_level, tile_column, tile_row, tile_data, mbtiles_id) 
+                VALUES %s
+                """, data)
+
+            # Commit the transaction
             conn.commit()
-
-        except Exception as e:
-            print(f"Error occurred: {e}")
+        except psycopg2.Error as e:
+            print(f"Database error occurred: {e}")
+            conn.rollback()
             return -1
-
+        except Exception as e:
+            print(f"Unexpected error occurred: {e}")
+            conn.rollback()
+            return -1
         finally:
             cur.close()
             conn.close()
             os.remove(mbtiles_file_path)
     return 1
 
-# Potential method for recreating mbtiles with pbf in db
-def create_mbtiles_from_db(output_path):
-    # Connect to the PostgreSQL database
-    pg_session = ScopedSession()
+def tiles_join(geojson_data, folderid, session):
+    from controllers.celery_controller.celery_tasks import run_tippecanoe_tiles_join
+    try:
+        mbtile_file = get_latest_mbtiles(folderid, session)
+        # Save the .mbtiles file temporarily on the disk
+        with open(mbtile_file.filename, 'wb') as f:
+            f.write(mbtile_file.tile_data)
+        # Save the geojson_data to a .geojson file
+        with open('data.geojson', 'w') as f:
+            json.dump(geojson_data, f)
+        # Use tippecanoe to create a new .mbtiles file from the geojson_data
+        command1 = "tippecanoe -o new.mbtiles -P -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
 
-    # Connect to the new .mbtiles file
-    with sqlite3.connect(output_path) as mb_conn:
-        mb_c = mb_conn.cursor()
+        # Use tile-join to merge the new .mbtiles file with the existing one
+        command2 = f"tile-join -o merged.mbtiles {mbtile_file.filename} new.mbtiles"
 
-        # Create the tables
-        mb_c.execute(
-            """
-            CREATE TABLE metadata (
-                name TEXT,
-                value TEXT
-            );
-            """
-        )
+        run_tippecanoe_tiles_join.apply(args=(command1, command2, 1, ["./merged.mbtiles", mbtile_file.filename, "./new.mbtiles"]), throw=True)
+        
+    except SQLAlchemyError as e:
+        print(f"Error occurred during query: {str(e)}")
+        return None
 
-        mb_c.execute(
-            """
-            CREATE TABLE tiles (
-                zoom_level INTEGER,
-                tile_column INTEGER,
-                tile_row INTEGER,
-                tile_data BLOB
-            );
-            """
-        )
-
-        # Query for the vector tile data
-        tile_data = pg_session.query(vector_tiles).all()
-
-        # Insert the data into the .mbtiles file
-        for row in tile_data:
-            mb_c.execute(
-                """
-                INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data)
-                VALUES (?, ?, ?, ?)
-                """,
-                (row.zoom_level, row.tile_column, row.tile_row, row.tile_data),
-            )
-
-        # Commit the changes and close the connection
-        mb_conn.commit()
-
-    # Close the PostgreSQL session
-    pg_session.close()
-
-def tiles_join(geojson_data):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    # Extract the .mbtiles file from the database
-    cursor.execute("SELECT tile_data FROM mbt LIMIT 1")
-    mbtiles_data = cursor.fetchone()[0]
-
-    # Save the .mbtiles file temporarily on the disk
-    with open('existing.mbtiles', 'wb') as f:
-        f.write(mbtiles_data)
-
-    # Save the geojson_data to a .geojson file
-    with open('data.geojson', 'w') as f:
-        json.dump(geojson_data, f)
     
-    # Use tippecanoe to create a new .mbtiles file from the geojson_data
-    command1 = "tippecanoe -o new.mbtiles -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
 
-    # Use tile-join to merge the new .mbtiles file with the existing one
-    command2 = "tile-join -o merged.mbtiles existing.mbtiles new.mbtiles"
-
-    # cursor.execute("TRUNCATE TABLE mbt")
-    conn.commit()
-    cursor.close()
-    conn.close()
-    # chain tasks
-    run_tippecanoe_tiles_join(command1, command2, 1, ["./merged.mbtiles", "./existing.mbtiles", "./new.mbtiles"])()
-
-
-def create_tiles(geojson_array, user_id):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-    cursor.execute('TRUNCATE TABLE vt')
-    conn.commit()
-    conn.close()
-    network_data = get_wired_data()
+def create_tiles(geojson_array, userid, folderid, session=None):
+    from controllers.celery_controller.celery_tasks import run_tippecanoe
+    network_data = get_kml_data(userid, folderid, session)
     point_geojson = {
          "type": "FeatureCollection",
          "features": [
@@ -217,13 +180,14 @@ def create_tiles(geojson_array, user_id):
     # print(geojson_array)
     point_geojson["features"].extend(geojson for geojson in geojson_array)
 
-    with open('data.geojson', 'w') as f:
-         json.dump(point_geojson, f)
-         
-    command = "tippecanoe -o output.mbtiles --base-zoom=7 --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
-    run_tippecanoe(command, user_id, "output.mbtiles") 
+    with open("data.geojson", 'w') as f:
+     json.dump(point_geojson, f)
+    
+    outputFile = "output" + str(userid) + ".mbtiles"
+    command = "tippecanoe -o " + outputFile + " --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
+    run_tippecanoe(command, folderid, outputFile) 
 
-def retrieve_tiles(zoom, x, y, username):
+def retrieve_tiles(zoom, x, y, username, mbtileid=None):
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
@@ -238,110 +202,118 @@ def retrieve_tiles(zoom, x, y, username):
     )
     user_id_result = cursor.fetchone()
 
-    # If the user ID is found, continue to the next query
-    if user_id_result:
-        user_id = user_id_result[0]
-    else: 
+    # If the user ID is not found, return None
+    if not user_id_result:
+        return None
+    
+    user_id = user_id_result[0]
+
+    # Find the last folder of the user
+    cursor.execute(
+        """
+        SELECT id
+        FROM "folder"
+        WHERE user_id = %s
+        ORDER BY id DESC
+        LIMIT 1
+        """, 
+        (user_id,)
+    )
+    folder_id_result = cursor.fetchone()
+
+    # If the folder ID is not found, return None
+    if not folder_id_result:
         return None
 
+    folder_id = folder_id_result[0]
+
+    # Retrieve tile data
     with db_lock:
+        if mbtileid:
             cursor.execute(
                 """
-                SELECT tile_data
-                FROM "vt"
-                WHERE zoom_level = %s AND tile_column = %s AND tile_row = %s AND user_id = %s
+                SELECT vector_tiles.tile_data
+                FROM vector_tiles
+                JOIN mbtiles ON vector_tiles.mbtiles_id = mbtiles.id
+                WHERE vector_tiles.zoom_level = %s AND vector_tiles.tile_column = %s AND vector_tiles.tile_row = %s AND mbtiles.id = %s
                 """, 
-                (int(zoom), int(x), int(y), user_id)
+                (int(zoom), int(x), int(y), mbtileid)
             )
-    tile = cursor.fetchone()
+        else:
+            cursor.execute(
+                """
+                SELECT vector_tiles.tile_data
+                FROM vector_tiles
+                JOIN mbtiles ON vector_tiles.mbtiles_id = mbtiles.id
+                WHERE vector_tiles.zoom_level = %s AND vector_tiles.tile_column = %s AND vector_tiles.tile_row = %s AND mbtiles.folder_id = %s
+                ORDER BY mbtiles.timestamp DESC
+                LIMIT 1
+                """, 
+                (int(zoom), int(x), int(y), folder_id)
+            )
+        tile = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
     return tile
 
-def toggle_tiles(markers):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
+def toggle_tiles(markers, userid):
 
-    geojson_data = []
-
+    
+    message = ''
+    status_code = 0
+    session = Session()
     try:
-        with db_lock:
+        # Get the last folder of the user
+        user_last_folder = get_folder(userid, None, session)
+        geojson_data = []
+        if user_last_folder:
+            
+            kml_set = set()
             for marker in markers:
-                cursor.execute(
-                    """
-                    UPDATE "KML"
-                    SET "served" = %s
-                    WHERE "location_id" = %s
-                    """, 
-                    (marker['served'], marker['id'],)
-                )
-                cursor.execute(
-                    """
-                    SELECT "KML".location_id, 
-                           "KML".served, 
-                           fabric.latitude, 
-                           fabric.address_primary, 
-                           fabric.longitude,
-                           "KML".wireless,
-                           "KML".lte,
-                           "KML".username,
-                           "KML"."coveredLocations",
-                           "KML"."maxDownloadNetwork",
-                           "KML"."maxDownloadSpeed" 
-                    FROM "KML"
-                    JOIN fabric ON "KML".location_id = fabric.location_id
-                    WHERE "KML".location_id = %s
-                    """, 
-                    (marker['id'],)
-                )
-                row = cursor.fetchone()
+                # Retrieve all kml_data entries where location_id equals to marker['id']
+                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
+                for kml_data_entry in kml_data_entries:
+                    kml_file = get_file_with_id(kml_data_entry.file_id, session)
+                    kml_file_name_without_ext = kml_file.name.replace(".kml", "")
+                    # Count files with .edit prefix in the folder
+                    edit_count = len(get_files_with_prefix(user_last_folder.id, f"{kml_file_name_without_ext}.edit", session))
+                    if kml_data_entry.file_id not in kml_set:
+                        new_file = create_file(f"{kml_file_name_without_ext}.edit{edit_count+1}/", None, user_last_folder.id, 'edit', session)
+                        session.add(new_file)
+                        session.commit()
+                        kml_set.add(kml_file.id)
+                    else:
+                        new_file = get_file_with_name(f"{kml_file_name_without_ext}.edit{edit_count}/", user_last_folder.id, session)
+                    
+                    # Update each entry
+                    kml_data_entry.file_id = new_file.id
+                    kml_data_entry.served = marker['served']
+                    kml_data_entry.coveredLocations = new_file.name
+                    session.add(kml_data_entry)
+                    session.flush()
 
-                point_geojson = {
-                    "type": "Feature",
-                    "properties": {
-                        "location_id": row[0],
-                        "served": row[1],
-                        "address": row[3],
-                        "wireless": row[5],
-                        'lte': row[6],
-                        'username': row[7],
-                        'network_coverages': row[8],
-                        'maxDownloadNetwork': row[9],
-                        'maxDownloadSpeed': row[10],
-                        "feature_type": "Point"
-                    },
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [row[4], row[2]]  # Please adjust indices based on your column order
-                    }
-                }
-
-                geojson_data.append(point_geojson)
-
-        conn.commit()
-
+        else:
+            raise Exception('No last folder for the user')
         
-        tiles_join(geojson_data)
+        all_kmls = get_files_with_postfix(user_last_folder.id, '.kml', session)
+        for kml_f in all_kmls:
+            geojson_data.append(read_kml(kml_f.id, session))
+        
+        delete_mbtiles(user_last_folder.id, session)
+        create_tiles(geojson_data, userid, user_last_folder.id, session)
         message = 'Markers toggled successfully'
         status_code = 200
+        
+        
 
     except Exception as e:
-        conn.rollback()  # rollback transaction on error
+        session.rollback()  # rollback transaction on error
         message = str(e)  # send the error message to client
         status_code = 500
 
     finally:
-        cursor.close()
-        conn.close()
+        session.commit()
+        session.close()
 
     return (message, status_code)
-
-def get_mbt_info():
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, filename, timestamp FROM mbt")
-    rows = cursor.fetchall()
-
-    if rows is None:
-        return None
-    mbtiles = [{"id": row[0], "filename": row[1], "timestamp": row[2]} for row in rows]
-    return mbtiles

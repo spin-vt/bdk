@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 
 
 # For production
@@ -14,3 +15,4 @@ BATCH_SIZE = 50000
 # db_host = os.getenv('postgres', 'localhost')
 # DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 # BATCH_SIZE = 50000
+

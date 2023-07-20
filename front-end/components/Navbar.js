@@ -13,90 +13,155 @@ import ListItemText from "@mui/material/ListItemText";
 import Link from "next/link";
 import { Menu, MenuItem } from "@mui/material";
 import { useRouter } from "next/router";
-import { makeStyles } from '@material-ui/core/styles';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import HomeIcon from '@mui/icons-material/Home';
-import InfoIcon from '@mui/icons-material/Info';
-import BusinessIcon from '@mui/icons-material/Business';
-import ContactMailIcon from '@mui/icons-material/ContactMail';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import LoginIcon from '@mui/icons-material/Login';
-import UploadIcon from '@mui/icons-material/Upload';
-import Searchbar from './Searchbar';
-import FolderIcon from '@mui/icons-material/Folder';
-
+import { makeStyles } from "@material-ui/core/styles";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import HomeIcon from "@mui/icons-material/Home";
+import InfoIcon from "@mui/icons-material/Info";
+import BusinessIcon from "@mui/icons-material/Business";
+import ContactMailIcon from "@mui/icons-material/ContactMail";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import LoginIcon from "@mui/icons-material/Login";
+import UploadIcon from "@mui/icons-material/Upload";
+import DownloadIcon from "@mui/icons-material/Download";
+import Searchbar from "./Searchbar";
+import FolderIcon from "@mui/icons-material/Folder";
+import EditIcon from "@mui/icons-material/Edit";
+import EditMapContext from "../contexts/EditMapContext";
+// import handleDownloadClick from "./Upload"
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
-    backgroundImage: 'linear-gradient(to right, #3A7BD5, #3A6073)', // Gradient color
-    position: 'sticky', // Make the AppBar sticky
-    boxShadow: '0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)',
+    backgroundImage: "linear-gradient(to right, #3A7BD5, #3A6073)", // Gradient color
+    position: "sticky", // Make the AppBar sticky
+    boxShadow:
+      "0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)",
   },
   drawer: {
-    width: '240px',
+    width: "240px",
     flexShrink: 0,
   },
   drawerPaper: {
-    width: '240px',
-    backgroundColor: '#EBF5FA',  // A modern, light blue color
+    width: "240px",
+    backgroundColor: "#EBF5FA", // A modern, light blue color
   },
   listItemElem: {
-    display: 'flex',  // Add flex display
-    alignItems: 'center',  // Vertically align items in the center
-    padding: '4px',
-    borderRadius: '4px',
-    transition: 'background-color 0.3s',
-    '&:hover': {
-      backgroundColor: '#E0F7FA',
+    display: "flex", // Add flex display
+    alignItems: "center", // Vertically align items in the center
+    padding: "4px",
+    borderRadius: "4px",
+    transition: "background-color 0.3s",
+    "&:hover": {
+      backgroundColor: "#E0F7FA",
     },
   },
   iconText: {
-    marginRight: '4px',  // Add right margin to the icon
-    color: '#0A539E',  // Blue color for icons
+    marginRight: "4px", // Add right margin to the icon
+    color: "#0A539E", // Blue color for icons
   },
   button_lowercase_text: {
-    textTransform: 'none',
+    textTransform: "none",
   },
   title: {
-    fontWeight: 700,  // Make the title bold
-    color: '#FFFFFF',  // White color for the title
+    fontWeight: 700, // Make the title bold
+    color: "#FFFFFF", // White color for the title
   },
   menuItem: {
-    transition: 'color 0.3s',
-    '&:hover': {
-      color: '#3A7BD5',
+    transition: "color 0.3s",
+    "&:hover": {
+      color: "#3A7BD5",
+    },
+  },
+  sidebar: {
+    backgroundColor: "#FFFFFF",
+    padding: theme.spacing(2),
+    boxShadow: "2px 0px 10px rgba(0, 0, 0, 0.1)",
+    transition: "transform 0.3s ease-in-out",
+    transform: "translateX(0)",
+  },
+  sidebarHidden: {
+    transform: "translateX(-100%)",
+  },
+  dataTypeHeading: {
+    fontSize: "1.6rem",
+    fontWeight: 500,
+    color: "#333",
+  },
+  dataTypeButton: {
+    margin: theme.spacing(2, 0),
+    fontSize: "1.2rem",
+    textTransform: "capitalize",
+    "&:hover": {
+      backgroundColor: "#f0f0f0",
+    },
+  },
+  backButton: {
+    display: "flex",
+    alignItems: "center",
+    textTransform: "capitalize",
+    "& h4": {
+      fontSize: "0.8rem",
+      fontWeight: 500,
+      color: "#333",
+    },
+  },
+  uploadHeading: {
+    fontSize: "1.6rem",
+    fontWeight: 500,
+    color: "#333",
+    marginBottom: theme.spacing(2),
+  },
+  tooltip: {
+    animation: `$fade-in-out 2s infinite`,
+  },
+  "@keyframes fade-in-out": {
+    "0%": {
+      opacity: 0,
+    },
+    "50%": {
+      opacity: 1,
+    },
+    "100%": {
+      opacity: 0,
     },
   },
 }));
 
-export default function Navbar() {
+export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
   const router = useRouter();
   const classes = useStyles();
+
+  const { isEditingMap, setEditingMap } = React.useContext(EditMapContext);
+
+  const handleEditToolClick = () => {
+    setEditingMap(!isEditingMap); // <-- toggle isEditing state
+  };
 
   function useLocalStorage(key, initialValue) {
     const [storedValue, setStoredValue] = React.useState(() => {
       try {
         if (typeof window !== undefined) {
-        const item = window.localStorage.getItem(key);
+          const item = window.localStorage.getItem(key);
+          return item ? item : initialValue;
+        } else {
+          return null;
         }
-        return item ? item : initialValue;
       } catch (error) {
         console.error(error);
         return initialValue;
       }
     });
-  
+
     const setValue = (value) => {
       try {
         if (value === null) {
           if (typeof window !== undefined) {
-          window.localStorage.removeItem(key);
+            window.localStorage.removeItem(key);
           }
           setStoredValue(null);
         } else {
           if (typeof window !== undefined) {
-          window.localStorage.setItem(key, value);
+            window.localStorage.setItem(key, value);
           }
           setStoredValue(value);
         }
@@ -104,10 +169,10 @@ export default function Navbar() {
         console.error(error);
       }
     };
-  
+
     return [storedValue, setValue];
   }
-  
+
   const searchInputRef = React.useRef(null);
   const buttonRef = React.useRef(null);
   const [username, setUsername] = useLocalStorage("username", null);
@@ -118,8 +183,10 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [menuWidth, setMenuWidth] = React.useState(null);
 
-
-  
+  const handleDownloadClick = (event) => {
+    event.preventDefault();
+    window.location.href = "http://localhost:5000/export";
+  };
 
   const handleMenuOpen = (event) => {
     setMenuOpen(true);
@@ -156,67 +223,59 @@ export default function Navbar() {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:5000/api/logout', {
-        method: 'POST',
+      const response = await fetch("http://localhost:5000/api/logout", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
+        credentials: "include", // Include cookies in the request
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.status === "success") {
-          localStorage.removeItem('token');
-          localStorage.removeItem('username');  // Remove username from local storage
-          setUsername(null);  // Update username state
-          router.push('/');
+          localStorage.removeItem("username"); // Remove username from local storage
+          setUsername(null); // Update username state
+          router.push("/");
         }
       } else {
-        console.error('Logout failed');
+        console.error("Logout failed");
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     }
-  }
+  };
 
   const fetchUserInfo = async () => {
     const usernameFromStorage = localStorage.getItem("username");
     console.log(usernameFromStorage);
-    if (!usernameFromStorage) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5000/api/user', {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.username === "") {
-            setUsername(null);
-            localStorage.removeItem("username");
-          } else {
-            setUsername(data.username);
-          }
-        } else {
-          console.error("Fetching user info failed");
-          setUsername(null); // Clear the username state variable
+    try {
+      const response = await fetch("http://localhost:5000/api/user", {
+        method: "GET",
+        credentials: "include", // Include cookies in the request
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.username === "") {
+          setUsername(null);
           localStorage.removeItem("username");
+        } else {
+          setUsername(data.username);
         }
-      } catch (error) {
-        console.error("Fetching user info error:", error);
+      } else {
+        console.error("Fetching user info failed");
         setUsername(null); // Clear the username state variable
         localStorage.removeItem("username");
       }
-    }
-    else {
-      setUsername(usernameFromStorage);
-      return usernameFromStorage;
+    } catch (error) {
+      console.error("Fetching user info error:", error);
+      setUsername(null); // Clear the username state variable
+      localStorage.removeItem("username");
     }
   };
-
 
   const [hasMounted, setHasMounted] = React.useState(false);
 
@@ -224,28 +283,52 @@ export default function Navbar() {
     setHasMounted(true);
     const fetchData = async () => {
       await fetchUserInfo();
-    }
+    };
 
     fetchData();
   }, [username]);
-  
+
   if (!hasMounted) {
     return null;
   }
 
   let menuTopItem;
 
-  if(username) {
-    menuTopItem = {text: 'Hello, ' + username, href: '/profile', icon: <AccountCircleIcon className={classes.icon}/>};
+  if (username) {
+    menuTopItem = {
+      text: "Hello, " + username,
+      href: "/profile",
+      icon: <AccountCircleIcon className={classes.icon} />,
+    };
   } else {
-    menuTopItem = {text: 'Hello, sign in', href: '/login', icon: <LoginIcon className={classes.icon}/>};
+    menuTopItem = {
+      text: "Hello, sign in",
+      href: "/login",
+      icon: <LoginIcon className={classes.icon} />,
+    };
   }
-  
+
   const menuItems = [
-    { text: 'Home', href: '/', icon: <HomeIcon className={classes.iconText}/> },
-    { text: 'About', href: '/about', icon: <InfoIcon className={classes.iconText}/> },
-    { text: 'Services', href: '/services', icon: <BusinessIcon className={classes.iconText}/> },
-    { text: 'Contact', href: '/contact', icon: <ContactMailIcon className={classes.iconText}/> },
+    {
+      text: "Home",
+      href: "/",
+      icon: <HomeIcon className={classes.iconText} />,
+    },
+    {
+      text: "About",
+      href: "/about",
+      icon: <InfoIcon className={classes.iconText} />,
+    },
+    {
+      text: "Services",
+      href: "/services",
+      icon: <BusinessIcon className={classes.iconText} />,
+    },
+    {
+      text: "Contact",
+      href: "/contact",
+      icon: <ContactMailIcon className={classes.iconText} />,
+    },
   ];
 
   return (
@@ -260,24 +343,76 @@ export default function Navbar() {
             sx={{ mr: 2 }}
             onClick={handleDrawerOpen}
           >
-            <MenuIcon className={classes.menuItem}/>
+            <MenuIcon className={classes.menuItem} />
           </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }} className={classes.title}>
-            Broadband Data Collection Helper
-          </Typography>
-          <Searchbar className={classes.menuItem}/>
 
-          <IconButton href='/previousfile'>
-            <FolderIcon sx={{color:"white", marginRight:"5px"}} />
-            <Typography component="div" sx={{ flexGrow: 1 }} className={classes.title}>
-              Your Files
+          <Link href="/" component="div" className={classes.title}>
+            <Typography variant="h6" sx={{ marginRight: "4vw" }}>
+              BDK Project
+            </Typography>
+          </Link>
+
+          <Searchbar className={classes.menuItem} />
+
+          <IconButton onClick={handleEditToolClick}>
+            <EditIcon sx={{ color: "white", marginRight: "5px" }} />
+            <Typography
+              component="div"
+              sx={{ flexGrow: 1 }}
+              className={classes.title}
+            >
+              {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
             </Typography>
           </IconButton>
- 
+
+
+          {!isEditingMap && (
+            <IconButton onClick={handleMyFileOpen}>
+              <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
+              <Typography
+                component="div"
+                sx={{ flexGrow: 1 }}
+                className={classes.title}
+              >
+                Your Files
+              </Typography>
+            </IconButton>
+          )}
+
+          {!isEditingMap && (
+            <IconButton onClick={handleUploadOpen}>
+              <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
+              <Typography
+                component="div"
+                sx={{ flexGrow: 1 }}
+                className={classes.title}
+              >
+                Upload
+              </Typography>
+            </IconButton>
+          )}
+
+          {!isEditingMap && (
+            <IconButton onClick={handleDownloadClick}>
+              <DownloadIcon sx={{ color: "white", marginRight: "5px" }} />
+              <Typography
+                component="div"
+                sx={{ flexGrow: 1 }}
+                className={classes.title}
+              >
+                Export
+              </Typography>
+            </IconButton>
+          )}
+
           <Box display="flex" alignItems="center">
             {username ? (
               <Box display="flex" alignItems="center">
-                <IconButton  ref={buttonRef} color="inherit" onClick={handleMenuOpen} >
+                <IconButton
+                  ref={buttonRef}
+                  color="inherit"
+                  onClick={handleMenuOpen}
+                >
                   <AccountCircleIcon />
                   <Typography variant="body1">{username}</Typography>
                   {menuOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
@@ -292,12 +427,10 @@ export default function Navbar() {
                     },
                   }}
                 >
-                  <MenuItem onClick={() => handleMenuNavigation("/profile")}>     
-                      Profile
+                  <MenuItem onClick={() => handleMenuNavigation("/profile")}>
+                    Profile
                   </MenuItem>
-                  <MenuItem onClick={handleLogout}>                
-                    Logout
-                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>Logout</MenuItem>
                 </Menu>
               </Box>
             ) : (
@@ -310,33 +443,38 @@ export default function Navbar() {
             )}
           </Box>
         </Toolbar>
-        </AppBar>
-    <Drawer 
-      anchor="left" open={isDrawerOpen} 
-      onClose={handleDrawerClose} 
-      className={classes.drawer}
-      classes={{
-      paper: classes.drawerPaper,
-    }}>
-      <List>
-        <Link href={menuTopItem.href}>
-          <ListItem onClick={handleDrawerClose} className={classes.listItemElem}>
-            
+      </AppBar>
+      <Drawer
+        anchor="left"
+        open={isDrawerOpen}
+        onClose={handleDrawerClose}
+        className={classes.drawer}
+        classes={{
+          paper: classes.drawerPaper,
+        }}
+      >
+        <List>
+          <Link href={menuTopItem.href}>
+            <ListItem
+              onClick={handleDrawerClose}
+              className={classes.listItemElem}
+            >
               {menuTopItem.icon}
               <ListItemText primary={menuTopItem.text} />
-
-          </ListItem>
-        </Link>
-        {menuItems.map((item, index) => (
-          <Link href={item.href} key={item.text}>
-            <ListItem onClick={handleDrawerClose} className={classes.listItemElem} >
-            
-                {item.icon}
-                <ListItemText primary={item.text} />
             </ListItem>
           </Link>
-        ))}
-      </List>
+          {menuItems.map((item, index) => (
+            <Link href={item.href} key={item.text}>
+              <ListItem
+                onClick={handleDrawerClose}
+                className={classes.listItemElem}
+              >
+                {item.icon}
+                <ListItemText primary={item.text} />
+              </ListItem>
+            </Link>
+          ))}
+        </List>
       </Drawer>
     </Box>
   );

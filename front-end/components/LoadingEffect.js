@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 
 const useStyles = makeStyles({
     backdrop: {
-        zIndex: 1200,
+        zindex: 1200,
+        positon: 'fixed',
         color: '#fff',
-        position: 'absolute',
         minWidth: '100%',
         minHeight: '100%',
     },

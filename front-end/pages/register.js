@@ -40,12 +40,12 @@ const Register = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ username, password }),
+        credentials: 'include', // Add this line
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.status === "success") {
-          localStorage.setItem('token', data.token);
           router.push('/');
         }
         else {
