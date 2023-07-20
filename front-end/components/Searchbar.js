@@ -70,7 +70,6 @@ function Searchbar() {
   const [isLoading, setIsLoading] = useState(false);
 
   const { setLocation } = useContext(SelectedLocationContext);
-  const { location } = useContext(SelectedLocationContext);
 
   const [searchByState, setSearchByState] = useState(false);
 

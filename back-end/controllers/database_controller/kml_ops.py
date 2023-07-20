@@ -131,7 +131,10 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
                 maxDownloadSpeed = int(download), 
                 maxUploadSpeed = int(upload), 
                 techType = tech,
-                file_id = fileVal.id
+                file_id = fileVal.id,
+                address_primary = row.address_primary,
+                longitude = row.longitude,
+                latitude = row.latitude,
             )
             batch.append(newData)
 
@@ -212,7 +215,7 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):
     df = pandas.concat(fabric_arr)
 
     fabric = geopandas.GeoDataFrame(
-        df.drop(['latitude', 'longitude'], axis=1),
+        df,
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
     
@@ -257,7 +260,7 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid):
     fiber_data = BytesIO(fiber_kml_data)
 
     fabric = geopandas.GeoDataFrame(
-        df.drop(['latitude', 'longitude'], axis=1),
+        df,
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
 

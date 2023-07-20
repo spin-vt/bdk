@@ -154,7 +154,11 @@ def get_filesinfo_in_folder(folderid, session=None):
                 'folder_id': file.folder_id,
                 'type': file.type,
                 'computed': file.computed,
+                'coordinates': None
             }
+            if file.name.endswith('/'):
+                edit_entry = session.query(kml_data).filter(kml_data.file_id == file.id).first()
+                file_dict['coordinates'] = [edit_entry.latitude, edit_entry.longitude]
             files_info.append(file_dict)
 
         return files_info

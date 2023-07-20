@@ -95,6 +95,9 @@ class kml_data(Base):
     techType = Column(String)
     file_id = Column(Integer, ForeignKey('file.id', ondelete='CASCADE'))
     file = relationship('file', back_populates='kml_data')
+    address_primary = Column(String)
+    longitude = Column(Float)
+    latitude = Column(Float)
 
 class mbtiles(Base):
     __tablename__ = 'mbtiles'
