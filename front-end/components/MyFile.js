@@ -254,7 +254,7 @@ const MyFile = () => {
           classes={classes}
           showSwitch={false}
           showLocate={false}
-          showDelete={false}
+          showDelete={true}
           handleLocateOnMap={handleLocateOnMap}
         />
 

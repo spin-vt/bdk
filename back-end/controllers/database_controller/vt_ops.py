@@ -122,6 +122,7 @@ def add_values_to_VT(mbtiles_file_path, folderid):
             cur.close()
             conn.close()
             os.remove(mbtiles_file_path)
+            os.remove('data.geojson')
     return 1
 
 def tiles_join(geojson_data, folderid, session):
@@ -148,7 +149,7 @@ def tiles_join(geojson_data, folderid, session):
 
     
 
-def create_tiles(geojson_array, userid, folderid, session=None):
+def create_tiles(geojson_array, userid, folderid, session):
     from controllers.celery_controller.celery_tasks import run_tippecanoe
     network_data = get_kml_data(userid, folderid, session)
     point_geojson = {
