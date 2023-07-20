@@ -146,7 +146,10 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
+    print('here')
+
     response = user_ops.create_user_in_db(username, password)
+    print('here')
 
     if "error" in response:
         return jsonify({'status': 'error', 'message': response["error"]})

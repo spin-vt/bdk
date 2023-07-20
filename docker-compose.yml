@@ -59,13 +59,10 @@ services:
 
 
   frontend:
-    build: 
-      context: ./front-end
-      target: runner
-    command: npm run dev
+    build: ./front-end
+    volumes:
+      - ./front-end:/app
     depends_on:
       - backend
     ports:
       - 3000:3000
-    environment:
-      NODE_ENV: development
