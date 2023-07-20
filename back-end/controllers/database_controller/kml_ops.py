@@ -39,11 +39,12 @@ def get_kml_data(userid, folderid, session=None):
                 fabric_data.location_id,
                 fabric_data.latitude, 
                 fabric_data.address_primary,
-                fabric_data.longitude
+                fabric_data.longitude,
+                fabric_data.bsl_flag
             ).filter(fabric_data.file_id == fabric_file.id).all()  # Change to fabric_file.id
 
             # Initialize a dictionary to hold location_id as key and its data as value, including location_id itself
-            all_data.update({r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3]} for r in all_locations})
+            all_data.update({r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3], 'bsl': r[4]} for r in all_locations})
 
         default_data = {
             'served': False,
