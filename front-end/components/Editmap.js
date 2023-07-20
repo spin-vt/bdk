@@ -679,7 +679,9 @@ function Editmap() {
         </Menu>
       </div>
       <div>
-        {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
+      <div style={{ position: 'fixed', zIndex: 10000 }}>
+      {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
+      </div>
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
         {isModalVisible && (
           <div className={classes.modal}>
