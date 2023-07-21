@@ -238,6 +238,7 @@ export default function Upload({ fetchMarkers }) {
   const handleClick = () => {
     console.info(`You clicked ${options[selectedIndex]}`);
     anchorRef.current.click();
+    console.log(storage.length)
   };
 
   const handleMenuItemClick = (event, index) => {
