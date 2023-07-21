@@ -14,13 +14,6 @@ import {
   IconButton,
   Grid,
 } from "@material-ui/core";
-import {
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Checkbox,
-} from "@material-ui/core";
 import { makeStyles, useTheme } from "@material-ui/core/styles";
 import Swal from "sweetalert2";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -29,6 +22,8 @@ import { Switch, FormControlLabel } from "@material-ui/core";
 import { styled } from "@mui/material/styles";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import LoadingEffect from "./LoadingEffect";
+import SelectedLocationContext from "../contexts/SelectedLocationContext";
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 
 const useStyles = makeStyles((theme) => ({
   headertext: {
@@ -117,7 +112,22 @@ const MyFile = () => {
   const [isDataReady, setIsDataReady] = useState(false);
   const loadingTimeInMs = 2 * 60 * 1000;
 
+  const { setLocation } = useContext(SelectedLocationContext);
+
   const router = useRouter();
+
+  const handleLocateOnMap = (option) => {
+    if (option !== undefined && option !== null) {
+      setLocation({
+        latitude: option.coordinates[0],
+        longitude: option.coordinates[1],
+        zoomlevel: 16,
+      });
+    }
+    else {
+      setLocation(null);
+    }
+  }
 
   const fetchFiles = async () => {
     const response = await fetch("http://localhost:5000/api/files", {
@@ -155,6 +165,7 @@ const MyFile = () => {
           name: file.name,
           uploadDate: new Date(file.timestamp).toLocaleString(),
           type: file.type,
+          coordinates: file.coordinates,
         };
         if (file.name.endsWith(".csv")) {
           setFabricFiles((prevFiles) => [...prevFiles, formattedFile]);
@@ -242,7 +253,9 @@ const MyFile = () => {
           setFiles={setFabricFiles}
           classes={classes}
           showSwitch={false}
-          showDelete={false}
+          showLocate={false}
+          showDelete={true}
+          handleLocateOnMap={handleLocateOnMap}
         />
 
         {/* Network Data Files Table */}
@@ -255,7 +268,9 @@ const MyFile = () => {
           setFiles={setNetworkDataFiles}
           classes={classes}
           showSwitch={true}
+          showLocate = {false}
           showDelete={true}
+          handleLocateOnMap={handleLocateOnMap}
         />
 
         {/* Manual Edit Files Table */}
@@ -268,7 +283,9 @@ const MyFile = () => {
           setFiles={setManualEditFiles}
           classes={classes}
           showSwitch={false}
+          showLocate = {true}
           showDelete={true}
+          handleLocateOnMap={handleLocateOnMap}
         />
       </Container>
     </div>
@@ -281,7 +298,9 @@ const FileTable = ({
   setFiles,
   classes,
   showSwitch,
+  showLocate,
   showDelete,
+  handleLocateOnMap
 }) => {
   const { setLayers } = useContext(LayerVisibilityContext);
   const [checked, setChecked] = useState([]);
@@ -335,6 +354,18 @@ const FileTable = ({
                     name="showOnMapSwitch"
                     inputProps={{ "aria-label": "secondary checkbox" }}
                   />
+                </TableCell>
+              )}
+              {showLocate && (
+                <TableCell align="right">
+                  <IconButton
+                     onClick={() => handleLocateOnMap(file)}
+                  >
+                    <LocationOnIcon />
+                    <Typography sx={{ marginLeft: "10px" }}>
+                      Locate on Map
+                    </Typography>
+                  </IconButton>
                 </TableCell>
               )}
               {showDelete && (

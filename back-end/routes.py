@@ -45,62 +45,71 @@ app.config['JWT_ACCESS_COOKIE_NAME'] = 'token'
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 
-@app.route("/served-data/<username>", methods=['GET'])
-def get_number_records(username):
+@app.route("/served-data", methods=['GET'])
+@jwt_required()
+def get_number_records():
 
-    userVal = user_ops.get_user_with_username(username)
-    folderVal = folder_ops.get_folder(userVal.id)
-    
-    return jsonify(kml_ops.get_kml_data(userVal.id, folderVal.id)), 200
+    try:
+        identity = get_jwt_identity()
+        userVal = user_ops.get_user_with_id(identity['id'])
+        folderVal = folder_ops.get_folder(userVal.id)
+        return jsonify(kml_ops.get_kml_data(userVal.id, folderVal.id)), 200
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
 
 @app.route('/submit-data', methods=['POST', 'GET'])
+@jwt_required()
 def submit_data():
     session = Session()
     try:
-        username = request.form.get('username')
-        
-        if 'file' not in request.files:
-            return jsonify({'Status': "Failed, no file uploaded"}), 400
-
-        files = request.files.getlist('file')
-
-        if len(files) <= 0:
-            return jsonify({'Status': "Failed, no file uploaded"}), 400
-
-        file_data_list = request.form.getlist('fileData')
-
-        userVal = user_ops.get_user_with_username(username, session=session)
-        # Retrieve the last folder of the user, if any, otherwise create a new one
-        folderVal = folder_ops.get_folder(userVal.id, session=session)
-        if folderVal is None:
-            folderVal = folder_ops.create_folder("user-1", userVal.id, session=session)
-            session.commit()
-        file_names = []
-
-        for f in files:
-            existing_file = file_ops.get_file_with_name(f.filename, folderVal.id, session=session)
-            if existing_file is not None:
-                # If file already exists, append its name to file_names and skip to next file
-                file_names.append(existing_file.name)
-                continue
+        identity = get_jwt_identity()
+        try:
             
-            data = f.read()
-            if (f.filename.endswith('.csv')):
-                file_ops.create_file(f.filename, data, folderVal.id, 'fabric', session=session)
-            elif (f.filename.endswith('.kml')):
-                file_ops.create_file(f.filename, data, folderVal.id, None, session=session)
-            file_names.append(f.filename)
-            session.commit()
+            if 'file' not in request.files:
+                return jsonify({'Status': "Failed, no file uploaded"}), 400
 
-        task = process_data.apply_async(args=[file_names, file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
-        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
-    
-    except Exception as e:
-        session.rollback()  # Rollback the session in case of error
-        return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+            files = request.files.getlist('file')
 
-    finally:
-        session.close()  # Always close the session at the end
+            if len(files) <= 0:
+                return jsonify({'Status': "Failed, no file uploaded"}), 400
+
+            file_data_list = request.form.getlist('fileData')
+
+            userVal = user_ops.get_user_with_id(identity['id'], session=session)
+            # Retrieve the last folder of the user, if any, otherwise create a new one
+            folderVal = folder_ops.get_folder(userVal.id, session=session)
+            if folderVal is None:
+                folderVal = folder_ops.create_folder("user-1", userVal.id, session=session)
+                session.commit()
+            file_names = []
+
+            for f in files:
+                existing_file = file_ops.get_file_with_name(f.filename, folderVal.id, session=session)
+                if existing_file is not None:
+                    # If file already exists, append its name to file_names and skip to next file
+                    file_names.append(existing_file.name)
+                    continue
+                
+                data = f.read()
+                if (f.filename.endswith('.csv')):
+                    file_ops.create_file(f.filename, data, folderVal.id, 'fabric', session=session)
+                elif (f.filename.endswith('.kml')):
+                    file_ops.create_file(f.filename, data, folderVal.id, None, session=session)
+                file_names.append(f.filename)
+                session.commit()
+
+            task = process_data.apply_async(args=[file_names, file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
+            return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+        
+        except Exception as e:
+            session.rollback()  # Rollback the session in case of error
+            return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+
+        finally:
+            session.close()  # Always close the session at the end
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+
 
 @app.route('/status/<task_id>')
 def taskstatus(task_id):

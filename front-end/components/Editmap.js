@@ -297,42 +297,21 @@ function Editmap() {
       map.current.removeSource("custom");
     }
   };
-  
+
   const addVectorTiles = () => {
     removeVectorTiles();
 
-    fetch("http://localhost:5000/api/user", {
-      method: "GET",
-      credentials: "include", // Include cookies in the request
-      headers: {
-        Accept: "application/json",
-      },
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        console.log(data);
-        addSource();
-        function handleSourcedata(e) {
-          if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
-            map.current.off("sourcedata", handleSourcedata);
-            fetchMarkers().then(() => {
-              addLayers();
-            });
-          }
-        }
-        map.current.on("sourcedata", handleSourcedata);
-      })
-      .catch((error) => {
-        console.log(
-          "There has been a problem with your fetch operation: ",
-          error
-        );
-      });
+
+    addSource();
+    function handleSourcedata(e) {
+      if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
+        map.current.off("sourcedata", handleSourcedata);
+        fetchMarkers().then(() => {
+          addLayers();
+        });
+      }
+    }
+    map.current.on("sourcedata", handleSourcedata);
 
     map.current.on("draw.create", (event) => {
       const polygon = event.features[0];
@@ -351,18 +330,18 @@ function Editmap() {
     });
 
     map.current.on("click", "custom-point", function (e) {
-        let featureProperties = e.features[0].properties;
-  
-        let content = "<h1>Marker Information</h1>";
-        for (let property in featureProperties) {
-          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
-        }
-  
-        new maplibregl.Popup({ closeOnClick: false })
-          .setLngLat(e.lngLat)
-          .setHTML(content)
-          .addTo(map.current);
-      });
+      let featureProperties = e.features[0].properties;
+
+      let content = "<h1>Marker Information</h1>";
+      for (let property in featureProperties) {
+        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+      }
+
+      new maplibregl.Popup({ closeOnClick: false })
+        .setLngLat(e.lngLat)
+        .setHTML(content)
+        .addTo(map.current);
+    });
 
   };
 
@@ -528,12 +507,27 @@ function Editmap() {
       allMarkersRef.current.length === 0
     ) {
       setIsLoadingForUntimedEffect(true);
-      const user = localStorage.getItem("username");
 
-      return fetch(`http://localhost:5000/served-data/${user}`, {
+      return fetch(`http://localhost:5000/served-data`, {
         method: "GET",
+        credentials: "include",
       })
-        .then((response) => response.json())
+        .then((response) => {
+          if (response.status === 401) {
+            Swal.fire({
+              icon: "error",
+              title: "Oops...",
+              text: "Session expired, please log in again!",
+            });
+            // Redirect to login page
+            router.push("/login");
+            setIsLoading(false);
+            return;
+          }
+          else if (response.status === 200) {
+            return response.json();
+          }
+        })
         .then((data) => {
           const newMarkers = data.map((item) => ({
             name: item.address,
@@ -587,7 +581,7 @@ function Editmap() {
     if (canvasContainer.classList.contains("maplibregl-interactive")) {
       canvasContainer.classList.add("mapboxgl-interactive");
     }
-    
+
     const draw = new MapboxDraw({
       displayControlsDefault: false,
       controls: {
@@ -601,7 +595,7 @@ function Editmap() {
       const controlContainer = originalOnAdd(map);
       controlContainer.classList.add(
         "maplibregl-ctrl",
-        "maplibregl-ctrl-group", 
+        "maplibregl-ctrl-group",
       );
       return controlContainer;
     };
@@ -679,7 +673,9 @@ function Editmap() {
         </Menu>
       </div>
       <div>
-        {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
+        <div style={{ position: 'fixed', zIndex: 10000 }}>
+          {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
+        </div>
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
         {isModalVisible && (
           <div className={classes.modal}>

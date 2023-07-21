@@ -1,6 +1,7 @@
 from database.models import kml_data, fabric_data, file, user
 from sqlalchemy.exc import IntegrityError
 from utils.settings import BATCH_SIZE, DATABASE_URL
+from sqlalchemy.exc import SQLAlchemyError
 from multiprocessing import Lock
 from database.sessions import ScopedSession, Session
 import logging
@@ -14,6 +15,7 @@ from utils.settings import DATABASE_URL
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix
+
 
 db_lock = Lock()
 
@@ -29,81 +31,124 @@ def get_kml_data(userid, folderid, session=None):
         fabric_files = get_files_with_postfix(folderid, ".csv", session)
         kml_files = get_files_with_postfix(folderid, ".kml", session)
 
-        if not fabric_files or not kml_files:
-            raise FileNotFoundError("Either fabric or KML files not found")
-
         # Query all locations in fabric_data
         all_data = {}
-        for fabric_file in fabric_files:
-            all_locations = session.query(
-                fabric_data.location_id,
-                fabric_data.latitude, 
-                fabric_data.address_primary,
-                fabric_data.longitude
-            ).filter(fabric_data.file_id == fabric_file.id).all()  # Change to fabric_file.id
+        if len(fabric_files) > 0:
+            for fabric_file in fabric_files:
+                all_locations = session.query(
+                    fabric_data.location_id,
+                    fabric_data.latitude, 
+                    fabric_data.address_primary,
+                    fabric_data.longitude,
+                    fabric_data.bsl_flag
+                ).filter(fabric_data.file_id == fabric_file.id).all()  # Change to fabric_file.id
 
-            # Initialize a dictionary to hold location_id as key and its data as value, including location_id itself
-            all_data.update({r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3]} for r in all_locations})
+                # Initialize a dictionary to hold location_id as key and its data as value, including location_id itself
+                all_data.update({r[0]: {'location_id': r[0], 'latitude': r[1], 'address': r[2], 'longitude': r[3], 'bsl': r[4]} for r in all_locations})
 
-        default_data = {
-            'served': False,
-            'wireless': False,
-            'lte': False,
-            'username': userVal.username,
-            'coveredLocations': "",
-            'maxDownloadNetwork': -1,
-            'maxDownloadSpeed': -1
-        }
+            default_data = {
+                'served': False,
+                'wireless': False,
+                'lte': False,
+                'username': userVal.username,
+                'coveredLocations': "",
+                'maxDownloadNetwork': -1,
+                'maxDownloadSpeed': -1
+            }
 
-        for kml_file in kml_files:
-            # Query all locations that are served
-            resultsServed = session.query(
-                kml_data.location_id, 
-                kml_data.served, 
-                kml_data.wireless,
-                kml_data.lte,
-                kml_data.username,
-                kml_data.coveredLocations,
-                kml_data.maxDownloadNetwork,
-                kml_data.maxDownloadSpeed
-            ).filter(
-                kml_data.file_id == kml_file.id  # Change to kml_file.id
-            ).all()
+            for kml_file in kml_files:
+                # Query all locations that are served
+                resultsServed = session.query(
+                    kml_data.location_id, 
+                    kml_data.served, 
+                    kml_data.wireless,
+                    kml_data.lte,
+                    kml_data.username,
+                    kml_data.coveredLocations,
+                    kml_data.maxDownloadNetwork,
+                    kml_data.maxDownloadSpeed
+                ).filter(
+                    kml_data.file_id == kml_file.id  # Change to kml_file.id
+                ).all()
 
-            # Add served data to the respective location in all_data, merge two file that served the same point,
-            # record the maxdownloadnetwork and maxuploadspeed
-            for r in resultsServed:
-                if r[0] in all_data:
-                    existing_data = all_data[r[0]]
+                # Add served data to the respective location in all_data, merge two file that served the same point,
+                # record the maxdownloadnetwork and maxuploadspeed
+                for r in resultsServed:
+                    if r[0] in all_data:
+                        existing_data = all_data[r[0]]
+                        new_data = {
+                            'served': r[1],
+                            'wireless': r[2] or existing_data.get('wireless', False),
+                            'lte': r[3] or existing_data.get('lte', False),
+                            'username': r[4],
+                            'coveredLocations': ', '.join(filter(None, [r[5], existing_data.get('coveredLocations', '')])),
+                            'maxDownloadNetwork': r[6] if r[7] > existing_data.get('maxDownloadSpeed', -1) else existing_data.get('maxDownloadNetwork', ''),
+                            'maxDownloadSpeed': max(r[7], existing_data.get('maxDownloadSpeed', -1))
+                        }
+                        # Merge the existing and new data
+                        all_data[r[0]].update(new_data)
+                    else:
+                        # The location was not in the fabric file, but it is in one of the KML files
+                        # You need to decide how to handle this situation.
+                        pass
+
+                # For all other locations, fill with default values
+            for loc in all_data.values():
+                for key, value in default_data.items():
+                    loc.setdefault(key, value)
+        else:
+            for kml_file in kml_files:
+                print(kml_file.name)
+                # Query all locations that are served
+                resultsServed = session.query(
+                    kml_data.location_id, 
+                    kml_data.served, 
+                    kml_data.wireless,
+                    kml_data.lte,
+                    kml_data.username,
+                    kml_data.coveredLocations,
+                    kml_data.maxDownloadNetwork,
+                    kml_data.maxDownloadSpeed,
+                    kml_data.address_primary,
+                    kml_data.latitude,
+                    kml_data.longitude
+                ).filter(
+                    kml_data.file_id == kml_file.id  # Change to kml_file.id
+                ).all()
+
+                # Add served data to the respective location in all_data, merge two file that served the same point,
+                # record the maxdownloadnetwork and maxuploadspeed
+                for r in resultsServed:
+                    existing_data = all_data.get(r[0], {})
                     new_data = {
+                        'location_id': r[0],
                         'served': r[1],
                         'wireless': r[2] or existing_data.get('wireless', False),
                         'lte': r[3] or existing_data.get('lte', False),
                         'username': r[4],
                         'coveredLocations': ', '.join(filter(None, [r[5], existing_data.get('coveredLocations', '')])),
                         'maxDownloadNetwork': r[6] if r[7] > existing_data.get('maxDownloadSpeed', -1) else existing_data.get('maxDownloadNetwork', ''),
-                        'maxDownloadSpeed': max(r[7], existing_data.get('maxDownloadSpeed', -1))
+                        'maxDownloadSpeed': max(r[7], existing_data.get('maxDownloadSpeed', -1)),
+                        'address': r[8],
+                        'latitude': r[9],
+                        'longitude': r[10],
+                        'bsl': 'False',
                     }
                     # Merge the existing and new data
-                    all_data[r[0]].update(new_data)
-                else:
-                    # The location was not in the fabric file, but it is in one of the KML files
-                    # You need to decide how to handle this situation.
-                    pass
+                    all_data[r[0]] = new_data
+                
 
-            # For all other locations, fill with default values
-            for loc in all_data.values():
-                for key, value in default_data.items():
-                    loc.setdefault(key, value)
 
         # Convert dictionary values to a list
         data = list(all_data.values())
-
+    except SQLAlchemyError as e:
+        print('Error when querying the database')
+        return None
     finally:
         if owns_session:
             session.close()
 
-    return data
+        return data
 
 def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
     batch = [] 
@@ -131,7 +176,10 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
                 maxDownloadSpeed = int(download), 
                 maxUploadSpeed = int(upload), 
                 techType = tech,
-                file_id = fileVal.id
+                file_id = fileVal.id,
+                address_primary = row.address_primary,
+                longitude = row.longitude,
+                latitude = row.latitude,
             )
             batch.append(newData)
 
@@ -212,7 +260,7 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):
     df = pandas.concat(fabric_arr)
 
     fabric = geopandas.GeoDataFrame(
-        df.drop(['latitude', 'longitude'], axis=1),
+        df,
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
     
@@ -257,7 +305,7 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid):
     fiber_data = BytesIO(fiber_kml_data)
 
     fabric = geopandas.GeoDataFrame(
-        df.drop(['latitude', 'longitude'], axis=1),
+        df,
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
 

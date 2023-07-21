@@ -93,9 +93,8 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         
         mbtiles_ops.delete_mbtiles(folderid, session)
         print("finished kml processing, now creating tiles")
-        if geojson_array != []: 
-            print("going to create tiles now")
-            vt_ops.create_tiles(geojson_array, userid, folderid, session)
+        
+        vt_ops.create_tiles(geojson_array, userid, folderid, session)
         
         # try:
         #     for name in names:
@@ -171,12 +170,12 @@ def deleteFiles(self, fileid, userid, session):
         file_ops.delete_file(fileid, session)
         mbtiles_ops.delete_mbtiles(folderid, session)
         session.commit()
-        if len(file_ops.get_files_with_postfix(folderid, '.kml', session)) > 0:
-            geojson_array = []
-            all_kmls = file_ops.get_files_with_postfix(folderid, '.kml', session)
-            for kml_f in all_kmls:
-                geojson_array.append(vt_ops.read_kml(kml_f.id, session))
-            vt_ops.create_tiles(geojson_array, userid, folderid, session)
+        
+        geojson_array = []
+        all_kmls = file_ops.get_files_with_postfix(folderid, '.kml', session)
+        for kml_f in all_kmls:
+            geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+        vt_ops.create_tiles(geojson_array, userid, folderid, session)
         return jsonify({'message': 'mbtiles successfully deleted'}), 200
     except Exception as e:
         session.rollback()  # Rollback the session in case of error

@@ -18,6 +18,7 @@ import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
 import Swal from "sweetalert2";
 import { makeStyles, TextField, Typography } from "@material-ui/core";
+import { useRouter } from "next/router";
 
 // Define your styles
 const useStyles = makeStyles((theme) => ({
@@ -127,7 +128,8 @@ export default function Upload({ fetchMarkers }) {
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [isDataReady, setIsDataReady] = React.useState(false);
-  const loadingTimeInMs = 6.5 * 60 * 1000;
+  const loadingTimeInMs = 3.5 * 60 * 1000;
+  const router = useRouter();
 
   const handleExportClick = (event) => {
     event.preventDefault();
@@ -143,18 +145,27 @@ export default function Upload({ fetchMarkers }) {
     });
 
     setIsLoading(true);
-    const user = localStorage.getItem("username");
-    formData.append("username", user);
 
     fetch("http://localhost:5000/submit-data", {
       method: "POST",
       body: formData,
+      credentials: "include",
     })
       .then((response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP status code: ${response.status}`);
+        if (response.status === 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Oops...",
+            text: "Session expired, please log in again!",
+          });
+          // Redirect to login page
+          router.push("/login");
+          setIsLoading(false);
+          return;
         }
-        return response.json(); // Added return statement to provide data for the next then
+        else if (response.status === 200) {
+          return response.json();
+        }
       })
       .then((data) => {
         if (data) {
@@ -170,7 +181,7 @@ export default function Upload({ fetchMarkers }) {
                   setIsLoading(false);
                   setTimeout(() => {
                     setIsDataReady(false);
-                    window.location.href = "http://localhost:3000/";
+                    router.reload();
                   }, 5000);
                 }
               });
@@ -180,7 +191,6 @@ export default function Upload({ fetchMarkers }) {
       .catch((error) => {
         console.error("Error:", error);
         setIsLoading(false);
-        Swal.fire("A problem has occured", error.toString(), "error"); // Used error.toString() to ensure that the error message is a string
       });
   };
 

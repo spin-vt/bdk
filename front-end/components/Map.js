@@ -303,7 +303,12 @@ function Map({ markers }) {
           15,
           3, // When zoom is more than 12, circle radius will be 3
         ],
-        "circle-color": "#FF0000",
+        "circle-color": [
+          "case",
+          ["==", ["get", "bsl"], "True"], // change 'get' to 'feature-state'
+          "#FF4040",
+          "#FFA840",
+        ],
       },
       filter: [
         "all",
