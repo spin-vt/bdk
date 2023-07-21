@@ -216,7 +216,7 @@ function Map({ markers }) {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = `http://localhost:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `http://backend:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -405,7 +405,7 @@ function Map({ markers }) {
       allKmlLayerRef.current === null ||
       Object.keys(allKmlLayerRef.current).length === 0
     ) {
-      return fetch("http://localhost:5000/api/files", {
+      return fetch("http://backend:5000/api/files", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -454,7 +454,7 @@ function Map({ markers }) {
   const addVectorTiles = () => {
     removeVectorTiles();
 
-    fetch("http://localhost:5000/api/user", {
+    fetch("http://backend:5000/api/user", {
       method: "GET",
       credentials: "include", // Include cookies in the request
       headers: {
