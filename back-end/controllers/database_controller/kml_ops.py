@@ -31,9 +31,6 @@ def get_kml_data(userid, folderid, session=None):
         fabric_files = get_files_with_postfix(folderid, ".csv", session)
         kml_files = get_files_with_postfix(folderid, ".kml", session)
 
-        if not kml_files:
-            raise FileNotFoundError("Either fabric or KML files not found")
-
         # Query all locations in fabric_data
         all_data = {}
         if len(fabric_files) > 0:
@@ -96,9 +93,9 @@ def get_kml_data(userid, folderid, session=None):
                         pass
 
                 # For all other locations, fill with default values
-                for loc in all_data.values():
-                    for key, value in default_data.items():
-                        loc.setdefault(key, value)
+            for loc in all_data.values():
+                for key, value in default_data.items():
+                    loc.setdefault(key, value)
         else:
             for kml_file in kml_files:
                 print(kml_file.name)
