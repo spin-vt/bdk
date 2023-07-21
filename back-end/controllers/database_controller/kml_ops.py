@@ -4,11 +4,7 @@ from utils.settings import BATCH_SIZE, DATABASE_URL
 from sqlalchemy.exc import SQLAlchemyError
 from multiprocessing import Lock
 from database.sessions import ScopedSession, Session
-import logging
-import psycopg2
-import pandas
-import geopandas
-import shapely
+import logging, uuid, psycopg2, io, pandas, geopandas, shapely
 from shapely.geometry import Point
 import fiona
 from utils.settings import DATABASE_URL
@@ -237,10 +233,9 @@ def export():
     availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
                                         'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
 
-    filename = '../../FCC_broadband.csv'
-    availability_csv.to_csv(filename, index=False)
-    return filename
-
+    output = io.BytesIO()
+    availability_csv.to_csv(output, index=False, encoding='utf-8')
+    return output
 
 #might need to add lte data in the future
 def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):

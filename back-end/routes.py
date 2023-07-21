@@ -11,6 +11,8 @@ from flask_jwt_extended import (
     get_jwt_identity,
     decode_token
 )
+from datetime import datetime
+import shortuuid
 from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
@@ -205,15 +207,15 @@ def get_user_info():
 
 @app.route('/export', methods=['GET'])
 def export():
-    response_data = {'Status': 'Failure'}
-
-    filename = kml_ops.export()
-    if filename:
-        response_data = {'Status': "Success"}
-        return send_file(filename, as_attachment=True)
+    csv_output = kml_ops.export()
+    if csv_output:
+        csv_output.seek(0)  # rewind the stream back to the start
+        current_time = datetime.now()
+        formatted_time = current_time.strftime('%Y_%B')
+        download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
+        return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
     else:
-        return jsonify(response_data)
-    
+        return jsonify({'Status': 'Failure'})
 
 @app.route("/tiles/<mbtile_id>/<username>/<zoom>/<x>/<y>.pbf")
 def serve_tile_withid(mbtile_id, username, zoom, x, y):
