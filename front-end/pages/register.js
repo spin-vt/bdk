@@ -34,7 +34,7 @@ const Register = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://backend:5000/api/register', {
+      const response = await fetch('http://bdk.cs.vt.edu:443/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

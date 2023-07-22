@@ -146,7 +146,7 @@ export default function Upload({ fetchMarkers }) {
 
     setIsLoading(true);
 
-    fetch("http://backend:5000/submit-data", {
+    fetch("http://bdk.cs.vt.edu:443/submit-data", {
       method: "POST",
       body: formData,
       credentials: "include",
@@ -171,7 +171,7 @@ export default function Upload({ fetchMarkers }) {
         if (data) {
           const intervalId = setInterval(() => {
             console.log(data.task_id);
-            fetch(`http://backend:5000/status/${data.task_id}`)
+            fetch(`http://bdk.cs.vt.edu:443/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
                 if (status.state !== "PENDING") {

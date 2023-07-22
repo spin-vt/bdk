@@ -195,7 +195,7 @@ function Editmap() {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = `http://backend:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `http://bdk.cs.vt.edu:443/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -347,7 +347,7 @@ function Editmap() {
 
 
   const toggleMarkers = (markers) => {
-    return fetch("http://backend:5000/toggle-markers", {
+    return fetch("http://bdk.cs.vt.edu:443/toggle-markers", {
       method: "POST",
       credentials: "include", // Include cookies in the request
       headers: {
@@ -508,7 +508,7 @@ function Editmap() {
     ) {
       setIsLoadingForUntimedEffect(true);
 
-      return fetch(`http://backend:5000/served-data`, {
+      return fetch(`http://bdk.cs.vt.edu:443/served-data`, {
         method: "GET",
         credentials: "include",
       })

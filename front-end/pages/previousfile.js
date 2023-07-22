@@ -67,7 +67,7 @@ const PreviousFile = () => {
   const handleClose = () => setOpen(false);
 
   const fetchMbtiles = async () => {
-    const response = await fetch("http://backend:5000/api/mbtiles", {
+    const response = await fetch("http://bdk.cs.vt.edu:443/api/mbtiles", {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ const PreviousFile = () => {
 
   const handleDelete = async (index) => {
     const file = files[index];
-    const response = await fetch(`http://backend:5000/api/delmbtiles/${file.id}`, {
+    const response = await fetch(`http://bdk.cs.vt.edu:443/api/delmbtiles/${file.id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

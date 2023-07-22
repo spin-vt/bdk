@@ -52,6 +52,8 @@ services:
     depends_on:
       - db
       - redis
+    ports:
+      - 443:5000
 
   frontend:
     image: zhuoweiwen/frontend:latest

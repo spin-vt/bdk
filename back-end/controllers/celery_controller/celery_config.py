@@ -25,8 +25,8 @@ def make_celery(app):
 app = Flask(__name__)
 
 app.config.update(
-    CELERY_BROKER_URL='redis://bdk-redis-1:6379/0',
-    CELERY_RESULT_BACKEND='redis://bdk-redis-1:6379/0'
+    CELERY_BROKER_URL='redis://redis:6379/0',
+    CELERY_RESULT_BACKEND='redis://redis:6379/0'
 )
 
 CORS(app, supports_credentials=True)

@@ -185,7 +185,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
 
   const handleDownloadClick = (event) => {
     event.preventDefault();
-    window.location.href = "http://backend:5000/export";
+    window.location.href = "http://bdk.cs.vt.edu:443/export";
   };
 
   const handleMenuOpen = (event) => {
@@ -223,7 +223,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://backend:5000/api/logout", {
+      const response = await fetch("http://bdk.cs.vt.edu:443/api/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -250,7 +250,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     const usernameFromStorage = localStorage.getItem("username");
     console.log(usernameFromStorage);
     try {
-      const response = await fetch("http://backend:5000/api/user", {
+      const response = await fetch("http://bdk.cs.vt.edu:443/api/user", {
         method: "GET",
         credentials: "include", // Include cookies in the request
         headers: {
