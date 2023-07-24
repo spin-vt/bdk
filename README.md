@@ -9,8 +9,8 @@ POSTGRES_USER={Fill here} <br>
 POSTGRES_PASSWORD={Fill here} <br>
 POSTGRES_DB={Fill here}<br>
 POSTGRES_HOST_AUTH_METHOD=trust<br>
-DB_HOST={Fill here}<br>
-DB_PORT={Fill here}<br>
+DB_HOST=db<br>
+DB_PORT=5432<br>
 SECRET_KEY={Fill here}<br>
 JWT_SECRET={Fill here}<br>
 
