@@ -4,7 +4,7 @@ This branch is for deploying the container published on dockerhub to your server
 
 # Environment variable and image name
 1) You should also change the image name in docker-compose.yml for backend, worker, frontend. The format is {dockeraccountusername}/backend:latest for backend. This ensure when executing docker-compose pull the built image on your dockerhub account will be pulled to the server. <br>
-2) You will also need a .env file formatted as below. <br>
+2) You will also need a .env file in the bdk folder formatted as below. <br>
 POSTGRES_USER={Fill here} <br>
 POSTGRES_PASSWORD={Fill here} <br>
 POSTGRES_DB={Fill here}<br>
