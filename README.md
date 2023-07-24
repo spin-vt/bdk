@@ -2,6 +2,18 @@
 Tool developed by the SPIN Lab at Virginia Tech. This branch is dedicated to build and use the app with docker
 This branch is for deploying the container published on dockerhub to your server
 
+# Environment variable and image name
+1) You should also change the image name in docker-compose.yml for backend, worker, frontend. The format is {dockeraccountusername}/backend:latest for backend. This ensure when executing docker-compose pull the built image on your dockerhub account will be pulled to the server. <br>
+2) You will also need a .env file formatted as below. <br>
+POSTGRES_USER={Fill here} <br>
+POSTGRES_PASSWORD={Fill here} <br>
+POSTGRES_DB={Fill here}<br>
+POSTGRES_HOST_AUTH_METHOD=trust<br>
+DB_HOST={Fill here}<br>
+DB_PORT={Fill here}<br>
+SECRET_KEY={Fill here}<br>
+JWT_SECRET={Fill here}<br>
+
 # Building and running the docker container
 To build and run the docker container on your container, simply goes to the "bdk" folder, checkout to this branch, and run the following commands
 1) `docker-compose pull`
