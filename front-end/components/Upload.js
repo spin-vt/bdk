@@ -146,7 +146,7 @@ export default function Upload({ fetchMarkers }) {
 
     setIsLoading(true);
 
-    fetch("http://bdk.cs.vt.edu:443/submit-data", {
+    fetch("http://bdk.cs.vt.edu:80/submit-data", {
       method: "POST",
       body: formData,
       credentials: "include",
