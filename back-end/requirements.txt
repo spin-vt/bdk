@@ -44,7 +44,6 @@ pandas==2.0.0
 Pillow==9.5.0
 prompt-toolkit==3.0.38
 protobuf==4.23.3
-psycopg2==2.9.6
 pygeoif==0.7
 PyJWT==2.7.0
 pyparsing==3.0.9
