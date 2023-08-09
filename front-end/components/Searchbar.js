@@ -123,7 +123,7 @@ function Searchbar() {
         }, 0);
       } else {
         const response = await fetch(
-          `http://bdk.cs.vt.edu:443/api/search?query=${nextValue}`
+          `http://bdk.cs.vt.edu/api/search?query=${nextValue}`
         );
         const data = await response.json();
         setTimeout(() => {

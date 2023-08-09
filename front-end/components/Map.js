@@ -216,7 +216,7 @@ function Map({ markers }) {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = `http://bdk.cs.vt.edu:443/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `http://bdk.cs.vt.edu/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -405,7 +405,7 @@ function Map({ markers }) {
       allKmlLayerRef.current === null ||
       Object.keys(allKmlLayerRef.current).length === 0
     ) {
-      return fetch("http://bdk.cs.vt.edu:443/api/files", {
+      return fetch("http://bdk.cs.vt.edu/api/files", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -454,7 +454,7 @@ function Map({ markers }) {
   const addVectorTiles = () => {
     removeVectorTiles();
 
-    fetch("http://bdk.cs.vt.edu:443/api/user", {
+    fetch("http://bdk.cs.vt.edu/api/user", {
       method: "GET",
       credentials: "include", // Include cookies in the request
       headers: {
