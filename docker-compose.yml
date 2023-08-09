@@ -39,7 +39,7 @@ services:
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
-    command: python3 routes.py
+    command: gunicorn routes:app -b 0.0.0.0:5000 -w 4
     environment: 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
