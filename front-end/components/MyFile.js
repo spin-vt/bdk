@@ -130,7 +130,7 @@ const MyFile = () => {
   }
 
   const fetchFiles = async () => {
-    const response = await fetch("http://bdk.cs.vt.edu:443/api/files", {
+    const response = await fetch("http://bdk.cs.vt.edu/api/files", {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -189,7 +189,7 @@ const MyFile = () => {
   const handleDelete = async (id, setFiles) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://bdk.cs.vt.edu:443/api/delfiles/${id}`, {
+      const response = await fetch(`http://bdk.cs.vt.edu/api/delfiles/${id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

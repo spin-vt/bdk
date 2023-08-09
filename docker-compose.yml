@@ -16,8 +16,8 @@ services:
   redis:
     image: redis:latest
 
-  work:
-    image: ghcr.io/spin-vt/worker:latest
+  worker:
+    image: zhuoweiwen/worker:latest
     build: 
       context: ./back-end
       dockerfile: Dockerfile.worker
@@ -35,7 +35,7 @@ services:
       - redis
   
   backend:
-    image: ghcr.io/spin-vt/backend:latest
+    image: zhuoweiwen/backend:latest
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
@@ -56,7 +56,7 @@ services:
       - 5000
 
   frontend:
-    image: ghcr.io/spin-vt/frontend:latest
+    image: zhuoweiwen/frontend:latest
     depends_on:
       - backend
     expose:
