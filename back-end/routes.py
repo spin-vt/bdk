@@ -17,7 +17,7 @@ from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
 from database.models import file, user, folder
-from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops
+from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles
 
@@ -208,14 +208,26 @@ def get_user_info():
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
-@app.route('/export', methods=['GET'])
-def export():
+@app.route('/exportFiling', methods=['GET'])
+def exportFiling():
     csv_output = kml_ops.export()
     if csv_output:
         csv_output.seek(0)  # rewind the stream back to the start
         current_time = datetime.now()
         formatted_time = current_time.strftime('%Y_%B')
         download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
+        return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
+    else:
+        return jsonify({'Status': 'Failure'})
+    
+@app.route('/exportChallenge', methods=['GET'])
+def exportChallenge():
+    csv_output = challenge_ops.export()
+    if csv_output:
+        csv_output.seek(0)  # rewind the stream back to the start
+        current_time = datetime.now()
+        formatted_time = current_time.strftime('%Y_%B')
+        download_name = "BDC_BulkChallenge_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
         return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
     else:
         return jsonify({'Status': 'Failure'})
@@ -303,11 +315,18 @@ def delete_files(fileid):
         return jsonify({'Status': "OK"}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
+    
+@app.route('/submit-challenge', methods=['POST'])
+def submit_challenge():
+    data = request.json  # This will give you the entire JSON payload
+    challenge_ops.writeToDB(data)
+    return jsonify({"message": "Data processed!"}), 200
+
 
 # For production
 # if __name__ == '__main__':
 #     app.run(host="0.0.0.0", port=5000, debug=True)
 
-# For local
+
 # if __name__ == '__main__':
 #     app.run(port=5000, debug=True)

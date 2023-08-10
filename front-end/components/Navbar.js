@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { useState } from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
@@ -28,7 +28,6 @@ import Searchbar from "./Searchbar";
 import FolderIcon from "@mui/icons-material/Folder";
 import EditIcon from "@mui/icons-material/Edit";
 import EditMapContext from "../contexts/EditMapContext";
-// import handleDownloadClick from "./Upload"
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
@@ -130,6 +129,9 @@ const useStyles = makeStyles((theme) => ({
 export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
   const router = useRouter();
   const classes = useStyles();
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [profileAnchorEl, setProfileAnchorEl] = useState(null);
+  const isMenuOpen = Boolean(anchorEl);
 
   const { isEditingMap, setEditingMap } = React.useContext(EditMapContext);
 
@@ -178,14 +180,29 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
   const [username, setUsername] = useLocalStorage("username", null);
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
 
-  const [anchorEl, setAnchorEl] = React.useState(null);
-
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [menuWidth, setMenuWidth] = React.useState(null);
 
   const handleDownloadClick = (event) => {
-    event.preventDefault();
-    window.location.href = "http://bdk.cs.vt.edu/export";
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = (option) => {
+    setAnchorEl(null);
+
+    if (option === 1) {
+      downloadFiling();
+    } else if (option === 2) {
+      downloadChallenge();
+    }
+  };
+
+  const downloadFiling = () => {
+    window.location.href = "http://bdk.cs.vt.edu/exportFiling";
+  };
+
+  const downloadChallenge = () => {
+    window.location.href = "http://bdk.cs.vt.edu/exportChallenge";
   };
 
   const handleMenuOpen = (event) => {
@@ -365,7 +382,6 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             </Typography>
           </IconButton>
 
-
           {!isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
               <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
@@ -392,18 +408,31 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             </IconButton>
           )}
 
-          {!isEditingMap && (
-            <IconButton onClick={handleDownloadClick}>
-              <DownloadIcon sx={{ color: "white", marginRight: "5px" }} />
-              <Typography
-                component="div"
-                sx={{ flexGrow: 1 }}
-                className={classes.title}
-              >
-                Export
-              </Typography>
-            </IconButton>
-          )}
+          <div>
+            {!isEditingMap && (
+              <IconButton onClick={handleDownloadClick}>
+                <DownloadIcon sx={{ color: "white", marginRight: "5px" }} />
+                <Typography
+                  component="div"
+                  sx={{ flexGrow: 1 }}
+                  className={classes.title}
+                >
+                  Export
+                </Typography>
+              </IconButton>
+            )}
+
+            <Menu
+              anchorEl={anchorEl}
+              open={isMenuOpen}
+              onClose={() => handleClose()}
+            >
+              <MenuItem onClick={() => handleClose(1)}>BDC Filing</MenuItem>
+              <MenuItem onClick={() => handleClose(2)}>
+                BDC Bulk Challenge
+              </MenuItem>
+            </Menu>
+          </div>
 
           <Box display="flex" alignItems="center">
             {username ? (
@@ -411,16 +440,16 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
                 <IconButton
                   ref={buttonRef}
                   color="inherit"
-                  onClick={handleMenuOpen}
+                  onClick={(e) => setProfileAnchorEl(e.currentTarget)} // Use the setProfileAnchorEl here.
                 >
                   <AccountCircleIcon />
                   <Typography variant="body1">{username}</Typography>
                   {menuOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </IconButton>
                 <Menu
-                  anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
-                  onClose={handleMenuClose}
+                  anchorEl={profileAnchorEl} // Use profileAnchorEl for this dropdown.
+                  open={Boolean(profileAnchorEl)} // Check if profileAnchorEl is not null.
+                  onClose={() => setProfileAnchorEl(null)} // Reset profileAnchorEl to null on close.
                   PaperProps={{
                     style: {
                       width: menuWidth,

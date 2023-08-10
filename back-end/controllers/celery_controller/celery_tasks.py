@@ -10,10 +10,6 @@ def process_data(self, file_names, file_data_list, userid, folderid):
     from controllers.database_controller import vt_ops
     print(file_names)
     try:
-        # Start profiling
-        # profiler = cProfile.Profile()
-        # profiler.enable()
-
         geojson_array = []
         tasks = []  
         session = Session()
@@ -96,23 +92,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         
         vt_ops.create_tiles(geojson_array, userid, folderid, session)
         
-        # try:
-        #     for name in names:
-        #         file_to_delete = session.query(File).filter_by(file_name=name, user_id=userVal.id).first()  # get the file
-        #         if file_to_delete:
-        #             session.delete(file_to_delete)  # delete the file
-        #             session.commit()  # commit the transaction
-        # except Exception as e:
-        #     session.rollback()  # rollback the transaction in case of error
-        #     raise e  # propagate the error further
-        
         session.close()
-
-        # Stop profiling
-        # profiler.disable()
-        # filepath = f'profiler_output_{os.getpid()}_{self.request.id}.txt'
-        # profiler.dump_stats(filepath)
-
         return {'Status': "Ok"}
     
     except Exception as e:
