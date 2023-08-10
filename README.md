@@ -32,14 +32,14 @@ The core workflow of BDK is outlined as follows:
 * For wired data, we calculate coverage by identifying all locations within a 100m radius of the fiber route, ensuring an accurate estimation.
 3) `Visualization`: After processing, your data is displayed on a map. This interactive feature lets you zoom in to specific locations, enabling you to validate the tool's accuracy.
 
-#### The map will be color-coded in the following manner:
-
-| Color             | Hex                                                                |
-| ----------------- | ------------------------------------------------------------------ |
-| Purple | ![#800080](https://via.placeholder.com/10/800080?text=+) Your Network Coverage |
-| Green | ![#008000](https://via.placeholder.com/10/008000?text=+) Served Fabric Locations (BSL)|
-| Red | ![#FF0000](https://via.placeholder.com/10/FF0000?text=+) Unserved Fabric Locations (BSL)|
-| Orange| ![#FFA500](https://via.placeholder.com/10/FFA500?text=+) Non-BSL Locations |
+   #### The map will be color-coded in the following manner:
+   
+   | Color             | Hex                                                                |
+   | ----------------- | ------------------------------------------------------------------ |
+   | Purple | ![#800080](https://via.placeholder.com/10/800080?text=+) Your Network Coverage |
+   | Green | ![#008000](https://via.placeholder.com/10/008000?text=+) Served Fabric Locations (BSL)|
+   | Red | ![#FF0000](https://via.placeholder.com/10/FF0000?text=+) Unserved Fabric Locations (BSL)|
+   | Orange| ![#FFA500](https://via.placeholder.com/10/FFA500?text=+) Non-BSL Locations |
 
 
 4) `Editing`: If discrepancies arise or adjustments are required, use the integrated editing tool to make necessary changes.
