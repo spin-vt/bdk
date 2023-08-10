@@ -118,3 +118,26 @@ class vector_tiles(Base):
     tile_data = Column(LargeBinary)
     mbtiles_id = Column(Integer, ForeignKey('mbtiles.id', ondelete='CASCADE'))
     mbtiles = relationship('mbtiles', back_populates='vector_tiles')
+
+class ChallengeLocations(Base):
+    __tablename__ = 'challenge_locations'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    #these should be modified to store the correct data type in the future
+    address = Column(String)
+    primary_city = Column(String)
+    state = Column(String)
+    zip_code = Column(String)
+    zip_code_suffix = Column(String)
+    unit_count = Column(String)
+    building_type_code = Column(String)
+    non_bsl_code = Column(String)
+    bsl_lacks_address_flag = Column(String) 
+    latitude = Column(String)   
+    longitude = Column(String)
+    address_id = Column(String)
+    contact_name = Column(String)
+    contact_email = Column(String)
+    contact_phone = Column(String)
+    category_code = Column(String)
+    location_id = Column(String)
