@@ -132,8 +132,6 @@ def get_kml_data(userid, folderid, session=None):
                     }
                     # Merge the existing and new data
                     all_data[r[0]] = new_data
-                
-
 
         # Convert dictionary values to a list
         data = list(all_data.values())

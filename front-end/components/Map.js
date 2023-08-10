@@ -19,7 +19,8 @@ import Menu from "@material-ui/core/Menu";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
-import Swal from 'sweetalert2';
+import Swal from "sweetalert2";
+import Questionnaire from "../components/Questionnaire";
 
 const useStyles = makeStyles({
   buttonUnserve: {
@@ -169,12 +170,13 @@ function Map({ markers }) {
   const classes = useStyles();
   const mapContainer = useRef(null);
   const map = useRef(null);
-
+  const currentPopup = useRef(null); // Ref to store the current popup
 
   const [isLoadingForTimedEffect, setIsLoadingForTimedEffect] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   const loadingTimeInMs = 3.5 * 60 * 1000;
-  const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] = useState(false);
+  const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] =
+    useState(false);
 
   const { layers } = useContext(LayerVisibilityContext);
   const allKmlLayerRef = useRef({});
@@ -183,6 +185,36 @@ function Map({ markers }) {
 
   const router = useRouter();
 
+  const [popupInfo, setPopupInfo] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
+
+  const createPopupContent = (featureProperties) => {
+    const container = document.createElement("div");
+
+    const header = document.createElement("h1");
+    header.textContent = "Marker Information";
+    container.appendChild(header);
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.textContent = "Challenge";
+    toggleBtn.addEventListener("click", () => {
+      details.style.display =
+        details.style.display === "none" ? "block" : "none";
+    });
+    container.appendChild(toggleBtn);
+
+    const details = document.createElement("div");
+    details.style.display = "none";
+    Object.entries(featureProperties).map(([key, value]) => {
+      const detailLine = document.createElement("p");
+      detailLine.innerHTML = `<strong>${key}:</strong> ${value}`;
+      details.appendChild(detailLine);
+    });
+
+    container.appendChild(details);
+
+    return container;
+  };
   const baseMaps = {
     STREETS:
       "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
@@ -223,7 +255,6 @@ function Map({ markers }) {
       maxzoom: 16,
     });
   };
-
   const addLayers = () => {
     let lineColor;
     let fillColor;
@@ -234,17 +265,83 @@ function Map({ markers }) {
         fillColor = "#42004F";
         break;
       case "SATELLITE":
-        lineColor = "#FF00F7"; // Replace with appropriate color
-        fillColor = "#565EC1"; // Replace with appropriate color
+        lineColor = "#FF00F7";
+        fillColor = "#565EC1";
         break;
       case "DARK":
-        lineColor = "#FF00F7"; // Replace with appropriate color
-        fillColor = "#565EC1"; // Replace with appropriate color
+        lineColor = "#FF00F7";
+        fillColor = "#565EC1";
         break;
       default:
         lineColor = "#888";
         fillColor = "#42004F";
     }
+
+    const createPopupContent = (featureProperties) => {
+      const container = document.createElement("div");
+
+      const header = document.createElement("h1");
+      header.textContent = "Marker Information";
+      container.appendChild(header);
+
+      const locationBtn = document.createElement("button");
+      locationBtn.textContent = "Location Info";
+      locationBtn.addEventListener("click", () => {
+        locationDetails.style.display = "block";
+        challengeDetails.style.display = "none";
+      });
+      container.appendChild(locationBtn);
+
+      const challengeBtn = document.createElement("button");
+      challengeBtn.textContent = "Challenge Info";
+      challengeBtn.addEventListener("click", () => {
+        challengeDetails.style.display = "block";
+        locationDetails.style.display = "none";
+      });
+      container.appendChild(challengeBtn);
+
+      const locationDetails = document.createElement("div");
+      locationDetails.style.display = "none";
+      // Here you can modify what details you want for location info
+      Object.entries(featureProperties).map(([key, value]) => {
+        const detailLine = document.createElement("p");
+        detailLine.innerHTML = `<strong>${key}:</strong> ${value}`;
+        locationDetails.appendChild(detailLine);
+      });
+      container.appendChild(locationDetails);
+
+      const challengeDetails = document.createElement("div");
+      challengeDetails.style.display = "none";
+
+      const customInfo = document.createElement("p");
+      customInfo.innerHTML = `
+If you would like to challenge only this location, 
+please submit your challenge directly on the <a href="https://broadbandmap.fcc.gov/home?version=jun2022" target="_blank" style="color: blue;">FCC Website</a>.
+However, if you would like to submit a bulk challenge please click the button below to add this location to your list of challenged locations. 
+<br><br>
+Note: By exporting the bulk-challenge from our website, you only have 50% of the required paperwork to submit your challenge. You must also provide evidence 
+to support why this location is being challenged. This can be done in a variety of ways, please refer to these links for more information: <br><br>
+<ol>
+  <li> <a href="https://help.bdc.fcc.gov/hc/en-us/articles/9200359586971-Bulk-Fabric-Challenge-FAQs" target="_blank" style="color: blue;">Fabric Challenge FAQ</a></li>
+  <li> <a href="https://help.bdc.fcc.gov/hc/en-us/articles/13308560752155-How-to-Submit-a-Successful-Bulk-Fabric-Challenge-" target="_blank" style="color: blue;">Guide on how to submit a successful challenge</a></li>
+</ol>
+`;
+
+      challengeDetails.appendChild(customInfo);
+      container.appendChild(challengeDetails);
+
+      const addButton = document.createElement("button");
+      addButton.textContent = "Add to Bulk Challenge";
+      addButton.addEventListener("click", function () {
+        router.push('/challenge');
+      });
+
+      challengeDetails.appendChild(customInfo);
+      challengeDetails.appendChild(addButton);
+
+      return container;
+    };
+
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
       console.log(layer);
       if (allKmlLayerRef.current[layer][0] === "wired") {
@@ -264,11 +361,10 @@ function Map({ markers }) {
             "all",
             ["==", ["get", "feature_type"], "LineString"],
             ["==", ["get", "network_coverages"], layer],
-          ], // Only apply this layer to linestrings
+          ],
           "source-layer": "data",
         });
-      }
-      else {
+      } else {
         map.current.addLayer({
           id: `wireless-${layer}`,
           type: "fill",
@@ -281,7 +377,7 @@ function Map({ markers }) {
             "all",
             ["==", ["get", "feature_type"], "Polygon"],
             ["==", ["get", "network_coverages"], layer],
-          ], // Only apply this layer to polygons
+          ],
           "source-layer": "data",
         });
       }
@@ -297,37 +393,37 @@ function Map({ markers }) {
           ["linear"],
           ["zoom"],
           5,
-          0.5, // When zoom is less than or equal to 12, circle radius will be 1
+          0.5,
           12,
           2,
           15,
-          3, // When zoom is more than 12, circle radius will be 3
+          3,
         ],
         "circle-color": [
           "case",
-          ["==", ["get", "bsl"], "True"], // change 'get' to 'feature-state'
+          ["==", ["get", "bsl"], "True"],
           "#FF4040",
           "#FFA840",
         ],
       },
-      filter: [
-        "all",
-        ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
-      ],
+      filter: ["all", ["==", ["get", "feature_type"], "Point"]],
       "source-layer": "data",
     });
-    map.current.on("click", "unserved-points", function (e) {
-      let featureProperties = e.features[0].properties;
 
-      let content = "<h1>Marker Information</h1>";
-      for (let property in featureProperties) {
-        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+    map.current.on("click", "unserved-points", function (e) {
+      if (currentPopup.current) {
+        currentPopup.current.remove();
+        currentPopup.current = null;
       }
 
-      new maplibregl.Popup({ closeOnClick: false })
+      const content = createPopupContent(e.features[0].properties);
+
+      let popup = new maplibregl.Popup({ closeOnClick: false })
         .setLngLat(e.lngLat)
-        .setHTML(content)
+        .setDOMContent(content)
         .addTo(map.current);
+
+      currentPopup.current = popup;
     });
 
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
@@ -342,37 +438,38 @@ function Map({ markers }) {
             ["linear"],
             ["zoom"],
             5,
-            0.5, // When zoom is less than or equal to 12, circle radius will be 1
+            0.5,
             12,
             2,
             15,
-            3, // When zoom is more than 12, circle radius will be 3
+            3,
           ],
           "circle-color": "#46DF39",
         },
         filter: [
           "all",
-          ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
+          ["==", ["get", "feature_type"], "Point"],
           ["in", layer, ["get", "network_coverages"]],
         ],
         "source-layer": "data",
       });
-      map.current.on("click", `served-points-${layer}`, function (e) {
-        let featureProperties = e.features[0].properties;
 
-        console.log('here');
-        let content = "<h1>Marker Information</h1>";
-        for (let property in featureProperties) {
-          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+      map.current.on("click", `served-points-${layer}`, function (e) {
+        if (currentPopup.current) {
+          currentPopup.current.remove();
+          currentPopup.current = null;
         }
 
-        new maplibregl.Popup({ closeOnClick: false })
+        const content = createPopupContent(e.features[0].properties);
+
+        let popup = new maplibregl.Popup({ closeOnClick: false })
           .setLngLat(e.lngLat)
-          .setHTML(content)
+          .setDOMContent(content)
           .addTo(map.current);
+
+        currentPopup.current = popup;
       });
     });
-
   };
 
   const removeVectorTiles = () => {
@@ -385,12 +482,11 @@ function Map({ markers }) {
       }
       if (allKmlLayerRef.current[layer][0] === "wired") {
         if (map.current.getLayer(`wired-${layer}`)) {
-          map.current.removeLayer(`wired-${layer}`)
+          map.current.removeLayer(`wired-${layer}`);
         }
-      }
-      else {
+      } else {
         if (map.current.getLayer(`wireless-${layer}`)) {
-          map.current.removeLayer(`wireless-${layer}`)
+          map.current.removeLayer(`wireless-${layer}`);
         }
       }
     });
@@ -422,8 +518,7 @@ function Map({ markers }) {
             // Redirect to login page
             router.push("/login");
             return;
-          }
-          else if (response.status === 200) {
+          } else if (response.status === 200) {
             return response.json();
           }
         })
@@ -439,8 +534,6 @@ function Map({ markers }) {
           }, {});
 
           allKmlLayerRef.current = newLayers;
-
-
         })
         .catch((error) => {
           console.log(error);
@@ -486,7 +579,6 @@ function Map({ markers }) {
           error
         );
       });
-
   };
 
   const addSingleLayer = (layername, featuretype) => {
@@ -530,8 +622,7 @@ function Map({ markers }) {
         ], // Only apply this layer to linestrings
         "source-layer": "data",
       });
-    }
-    else {
+    } else {
       map.current.addLayer({
         id: `wireless-${layername}`,
         type: "fill",
@@ -594,12 +685,11 @@ function Map({ markers }) {
     }
     if (featuretype === "wired") {
       if (map.current.getLayer(`wired-${layername}`)) {
-        map.current.removeLayer(`wired-${layername}`)
+        map.current.removeLayer(`wired-${layername}`);
       }
-    }
-    else {
+    } else {
       if (map.current.getLayer(`wireless-${layername}`)) {
-        map.current.removeLayer(`wireless-${layername}`)
+        map.current.removeLayer(`wireless-${layername}`);
       }
     }
   };
@@ -618,15 +708,12 @@ function Map({ markers }) {
     });
   }, [layers]);
 
-
-
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
     console.log(initialStyle);
     // Get current zoom level and center
     let currentZoom = 4;
     let currentCenter = [-98.35, 39.5];
-
 
     if (map.current) {
       currentZoom = map.current.getZoom();
@@ -655,7 +742,6 @@ function Map({ markers }) {
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
-
 
   useEffect(() => {
     if (location && map.current) {
@@ -713,8 +799,15 @@ function Map({ markers }) {
         </Menu>
       </div>
       <div>
-        {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
-        {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
+        {(isLoadingForTimedEffect || isDataReady) && (
+          <LoadingEffect
+            isLoading={isLoadingForTimedEffect}
+            loadingTimeInMs={loadingTimeInMs}
+          />
+        )}
+        {isLoadingForUntimedEffect && (
+          <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />
+        )}
       </div>
 
       <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />
