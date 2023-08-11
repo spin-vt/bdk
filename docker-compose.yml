@@ -29,6 +29,8 @@ services:
       - DB_PORT=${DB_PORT}
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
+      - JWT_ACCESS_COOKIE_NAME=${token}
     volumes:
       - ./back-end:/app
     depends_on:
@@ -47,6 +49,8 @@ services:
       - DB_PORT=${DB_PORT}
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
+      - JWT_ACCESS_COOKIE_NAME=${token}
     volumes:
       - ./back-end:/app
     depends_on:

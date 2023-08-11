@@ -5,6 +5,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import Link from 'next/link'
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
+import { backend_url } from '../utils/settings';
 
 const useStyles = makeStyles((theme) => ({
   loginContainer: {
@@ -38,7 +39,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://bdk.cs.vt.edu/api/login', {
+      const response = await fetch(`${backend_url}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

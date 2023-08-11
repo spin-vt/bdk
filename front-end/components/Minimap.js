@@ -5,6 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Menu, IconButton, MenuItem } from '@material-ui/core';
 import LayersIcon from "@mui/icons-material/Layers";
 import SelectedLocationContext from '../contexts/SelectedLocationContext'
+import { backend_url } from "../utils/settings";
 
 const useStyles = makeStyles({
     baseMap: {
@@ -66,7 +67,7 @@ function Minimap({ id }) {
         }
 
         const user = localStorage.getItem("username");
-        const tilesURL = `http://localhost:5000/tiles/${id}/${user}/{z}/{x}/{y}.pbf`;
+        const tilesURL = `${backend_url}/tiles/${id}/${user}/{z}/{x}/{y}.pbf`;
         map.current.addSource("custom", {
             type: "vector",
             tiles: [tilesURL],

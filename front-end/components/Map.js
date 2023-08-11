@@ -21,6 +21,7 @@ import { useRouter } from "next/router";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import Swal from "sweetalert2";
 import Questionnaire from "../components/Questionnaire";
+import { backend_url } from "../utils/settings";
 
 const useStyles = makeStyles({
   buttonUnserve: {
@@ -248,7 +249,7 @@ function Map({ markers }) {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = `http://bdk.cs.vt.edu/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -501,7 +502,7 @@ to support why this location is being challenged. This can be done in a variety 
       allKmlLayerRef.current === null ||
       Object.keys(allKmlLayerRef.current).length === 0
     ) {
-      return fetch("http://bdk.cs.vt.edu/api/files", {
+      return fetch(`${backend_url}/api/files`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -547,7 +548,7 @@ to support why this location is being challenged. This can be done in a variety 
   const addVectorTiles = () => {
     removeVectorTiles();
 
-    fetch("http://bdk.cs.vt.edu/api/user", {
+    fetch(`${backend_url}/api/user`, {
       method: "GET",
       credentials: "include", // Include cookies in the request
       headers: {

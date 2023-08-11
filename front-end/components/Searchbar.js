@@ -10,6 +10,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { stateList } from './FactSheets';
 import { styled } from '@mui/material/styles';
 import Box from "@mui/material/Box";
+import { backend_url } from "../utils/settings";
 
 
 const IOSSwitch = styled((props) => (
@@ -123,7 +124,7 @@ function Searchbar() {
         }, 0);
       } else {
         const response = await fetch(
-          `http://bdk.cs.vt.edu/api/search?query=${nextValue}`
+          `${backend_url}/api/search?query=${nextValue}`
         );
         const data = await response.json();
         setTimeout(() => {

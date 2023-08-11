@@ -40,10 +40,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
 logging.basicConfig(level=logging.DEBUG)
 
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'ADFAKJFDLJEOQRIOPQ498689780')  # Use a default value for development if SECRET_KEY environment variable doesn't exist
-app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET', 'ADFAKJFDLJEOQRI').encode())  # Use a default value for development if JWT_SECRET environment variable doesn't exist
-app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
-app.config['JWT_ACCESS_COOKIE_NAME'] = 'token'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET').encode())
+app.config["JWT_TOKEN_LOCATION"] = [os.getenv('JWT_TOKEN_LOCATION')]
+app.config['JWT_ACCESS_COOKIE_NAME'] = os.getenv('JWT_ACCESS_COOKIE_NAME')
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 

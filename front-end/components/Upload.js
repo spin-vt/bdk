@@ -19,6 +19,7 @@ import LoadingEffect from "./LoadingEffect";
 import Swal from "sweetalert2";
 import { makeStyles, TextField, Typography } from "@material-ui/core";
 import { useRouter } from "next/router";
+import { backend_url } from "../utils/settings";
 
 // Define your styles
 const useStyles = makeStyles((theme) => ({
@@ -146,7 +147,7 @@ export default function Upload({ fetchMarkers }) {
 
     setIsLoading(true);
 
-    fetch("http://bdk.cs.vt.edu:80/submit-data", {
+    fetch(`${backend_url}/submit-data`, {
       method: "POST",
       body: formData,
       credentials: "include",
@@ -171,7 +172,7 @@ export default function Upload({ fetchMarkers }) {
         if (data) {
           const intervalId = setInterval(() => {
             console.log(data.task_id);
-            fetch(`http://bdk.cs.vt.edu/status/${data.task_id}`)
+            fetch(`${backend_url}/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
                 if (status.state !== "PENDING") {

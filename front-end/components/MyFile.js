@@ -24,6 +24,7 @@ import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import LoadingEffect from "./LoadingEffect";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import { backend_url } from "../utils/settings";
 
 const useStyles = makeStyles((theme) => ({
   headertext: {
@@ -130,7 +131,7 @@ const MyFile = () => {
   }
 
   const fetchFiles = async () => {
-    const response = await fetch("http://bdk.cs.vt.edu/api/files", {
+    const response = await fetch(`${backend_url}/api/files`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -189,7 +190,7 @@ const MyFile = () => {
   const handleDelete = async (id, setFiles) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://bdk.cs.vt.edu/api/delfiles/${id}`, {
+      const response = await fetch(`${backend_url}/api/delfiles/${id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

@@ -17,6 +17,7 @@ import MergeIcon from '@mui/icons-material/Merge';
 import Searchbar from "../components/Searchbar";
 
 import dynamic from 'next/dynamic';
+import { backend_url } from "../utils/settings";
 
 const Minimap = dynamic(
   () => import('../components/Minimap'),
@@ -67,7 +68,7 @@ const PreviousFile = () => {
   const handleClose = () => setOpen(false);
 
   const fetchMbtiles = async () => {
-    const response = await fetch("http://bdk.cs.vt.edu/api/mbtiles", {
+    const response = await fetch(`${backend_url}/api/mbtiles`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -100,7 +101,7 @@ const PreviousFile = () => {
 
   const handleDelete = async (index) => {
     const file = files[index];
-    const response = await fetch(`http://bdk.cs.vt.edu/api/delmbtiles/${file.id}`, {
+    const response = await fetch(`${backend_url}/api/delmbtiles/${file.id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
