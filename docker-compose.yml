@@ -16,8 +16,8 @@ services:
   redis:
     image: redis:latest
 
-  worker:
-    image: zhuoweiwen/worker:latest
+  work:
+    image: ${DOCKER_IMAGE_WORKER}
     build: 
       context: ./back-end
       dockerfile: Dockerfile.worker
@@ -37,7 +37,7 @@ services:
       - redis
   
   backend:
-    image: zhuoweiwen/backend:latest
+    image: ${DOCKER_IMAGE_BACKEND}
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
@@ -60,7 +60,7 @@ services:
       - 5000
 
   frontend:
-    image: zhuoweiwen/frontend:latest
+    image: ${DOCKER_IMAGE_FRONTEND}
     depends_on:
       - backend
     expose:
