@@ -18,12 +18,6 @@ RUN echo "Node version:" \
   && echo "npm version:" \
   && npm --version
 
-# Install Tippecanoe
-RUN git clone https://github.com/mapbox/tippecanoe.git && \
-    cd tippecanoe && \
-    make -j && \
-    make install
-
 # Install application packages
 COPY package*.json ./
 RUN npm install --force

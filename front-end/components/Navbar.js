@@ -28,6 +28,7 @@ import Searchbar from "./Searchbar";
 import FolderIcon from "@mui/icons-material/Folder";
 import EditIcon from "@mui/icons-material/Edit";
 import EditMapContext from "../contexts/EditMapContext";
+import { backend_url } from "../utils/settings";
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
@@ -198,11 +199,11 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
   };
 
   const downloadFiling = () => {
-    window.location.href = "http://localhost:5000/exportFiling";
+    window.location.href = `${backend_url}/exportFiling`;
   };
 
   const downloadChallenge = () => {
-    window.location.href = "http://localhost:5000/exportChallenge";
+    window.location.href = `${backend_url}/exportChallenge`;
   };
 
   const handleMenuOpen = (event) => {
@@ -240,7 +241,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:5000/api/logout", {
+      const response = await fetch(`${backend_url}/api/logout`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -267,7 +268,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     const usernameFromStorage = localStorage.getItem("username");
     console.log(usernameFromStorage);
     try {
-      const response = await fetch("http://localhost:5000/api/user", {
+      const response = await fetch(`${backend_url}/api/user`, {
         method: "GET",
         credentials: "include", // Include cookies in the request
         headers: {

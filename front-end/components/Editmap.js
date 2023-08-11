@@ -21,6 +21,7 @@ import Menu from "@material-ui/core/Menu";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import Swal from 'sweetalert2';
+import { backend_url } from "../utils/settings";
 
 const useStyles = makeStyles({
   modal: {
@@ -195,7 +196,7 @@ function Editmap() {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = `http://localhost:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -347,7 +348,7 @@ function Editmap() {
 
 
   const toggleMarkers = (markers) => {
-    return fetch("http://localhost:5000/toggle-markers", {
+    return fetch(`${backend_url}/toggle-markers`, {
       method: "POST",
       credentials: "include", // Include cookies in the request
       headers: {
@@ -508,7 +509,7 @@ function Editmap() {
     ) {
       setIsLoadingForUntimedEffect(true);
 
-      return fetch(`http://localhost:5000/served-data`, {
+      return fetch(`${backend_url}/served-data`, {
         method: "GET",
         credentials: "include",
       })

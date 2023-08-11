@@ -4,6 +4,7 @@ import { TextField, Button, Typography, Container } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
+import { backend_url } from '../utils/settings';
 
 const useStyles = makeStyles({
   registerContainer: {
@@ -34,7 +35,7 @@ const Register = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:5000/api/register', {
+      const response = await fetch(`${backend_url}/api/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

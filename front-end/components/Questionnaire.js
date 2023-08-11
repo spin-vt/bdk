@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Button from "@mui/material/Button";
 import { data } from "@maptiler/sdk";
+import { backend_url } from "../utils/settings";
 
 const Questionnaire = () => {
   const questions = [
@@ -76,7 +77,7 @@ const Questionnaire = () => {
     };
     console.log(dataToSend)
 
-    fetch("http://localhost:5000/submit-challenge", {
+    fetch(`${backend_url}/submit-challenge`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

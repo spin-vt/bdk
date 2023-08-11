@@ -40,10 +40,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
 logging.basicConfig(level=logging.DEBUG)
 
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'ADFAKJFDLJEOQRIOPQ498689780')  # Use a default value for development if SECRET_KEY environment variable doesn't exist
-app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET', 'ADFAKJFDLJEOQRI').encode())  # Use a default value for development if JWT_SECRET environment variable doesn't exist
-app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
-app.config['JWT_ACCESS_COOKIE_NAME'] = 'token'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET').encode())
+app.config["JWT_TOKEN_LOCATION"] = [os.getenv('JWT_TOKEN_LOCATION')]
+app.config['JWT_ACCESS_COOKIE_NAME'] = os.getenv('JWT_ACCESS_COOKIE_NAME')
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 
@@ -157,7 +157,10 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
+    print('here')
+
     response = user_ops.create_user_in_db(username, password)
+    print('here')
 
     if "error" in response:
         return jsonify({'status': 'error', 'message': response["error"]})
@@ -312,13 +315,18 @@ def delete_files(fileid):
         return jsonify({'Status': "OK"}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
-
-
+    
 @app.route('/submit-challenge', methods=['POST'])
 def submit_challenge():
     data = request.json  # This will give you the entire JSON payload
     challenge_ops.writeToDB(data)
     return jsonify({"message": "Data processed!"}), 200
 
-if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+
+# For production
+# if __name__ == '__main__':
+#     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
+# if __name__ == '__main__':
+#     app.run(port=5000, debug=True)
