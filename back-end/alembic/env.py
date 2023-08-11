@@ -15,15 +15,15 @@ config = context.config
 
 # For production
 # Get the database URL from the environment variables
-# db_user = os.getenv('POSTGRES_USER')
-# db_password = os.getenv('POSTGRES_PASSWORD')
-# db_host = os.getenv('DB_HOST')
-# db_port = os.getenv('DB_PORT')
-# sqlalchemy_database_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
+db_user = os.getenv('POSTGRES_USER')
+db_password = os.getenv('POSTGRES_PASSWORD')
+db_host = os.getenv('DB_HOST')
+db_port = os.getenv('DB_PORT')
+sqlalchemy_database_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
 
 # For local testing
-db_host = os.getenv('postgres', 'localhost')
-sqlalchemy_database_url = f'postgresql://postgres:db123@{db_host}:5432/postgres'
+# db_host = os.getenv('postgres', 'localhost')
+# sqlalchemy_database_url = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 
 # Override the SQLAlchemy URL from the .ini file
 config.set_main_option('sqlalchemy.url', sqlalchemy_database_url)

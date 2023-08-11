@@ -1,0 +1,32 @@
+name: Build and Push Docker Images to GitHub Registry
+
+on:
+  push:
+    branches:
+      - server-deployment
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repo
+      uses: actions/checkout@v2
+
+    - name: Login to GitHub Docker Registry
+      run: echo "$DOCKER_LOGIN_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: Build and push Worker Docker image
+      run: |
+        docker build --network=host -t ghcr.io/spin-vt/worker:latest ./back-end -f ./back-end/Dockerfile.worker
+        docker push ghcr.io/spin-vt/worker:latest
+
+    - name: Build and push Backend Docker image
+      run: |
+        docker build --network=host -t ghcr.io/spin-vt/backend:latest ./back-end -f ./back-end/Dockerfile.backend
+        docker push ghcr.io/spin-vt/backend:latest
+
+    - name: Build and push Frontend Docker image
+      run: |
+        docker build --network=host -t ghcr.io/spin-vt/frontend:latest ./front-end
+        docker push ghcr.io/spin-vt/frontend:latest

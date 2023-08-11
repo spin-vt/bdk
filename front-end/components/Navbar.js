@@ -184,25 +184,8 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
   const [menuWidth, setMenuWidth] = React.useState(null);
 
   const handleDownloadClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = (option) => {
-    setAnchorEl(null);
-
-    if (option === 1) {
-      downloadFiling();
-    } else if (option === 2) {
-      downloadChallenge();
-    }
-  };
-
-  const downloadFiling = () => {
-    window.location.href = "http://localhost:5000/exportFiling";
-  };
-
-  const downloadChallenge = () => {
-    window.location.href = "http://localhost:5000/exportChallenge";
+    event.preventDefault();
+    window.location.href = "http://bdk.cs.vt.edu/export";
   };
 
   const handleMenuOpen = (event) => {
@@ -240,7 +223,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     e.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:5000/api/logout", {
+      const response = await fetch("http://bdk.cs.vt.edu/api/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -267,7 +250,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     const usernameFromStorage = localStorage.getItem("username");
     console.log(usernameFromStorage);
     try {
-      const response = await fetch("http://localhost:5000/api/user", {
+      const response = await fetch("http://bdk.cs.vt.edu/api/user", {
         method: "GET",
         credentials: "include", // Include cookies in the request
         headers: {

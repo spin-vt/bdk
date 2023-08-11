@@ -157,7 +157,10 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
+    print('here')
+
     response = user_ops.create_user_in_db(username, password)
+    print('here')
 
     if "error" in response:
         return jsonify({'status': 'error', 'message': response["error"]})
@@ -313,12 +316,10 @@ def delete_files(fileid):
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
+# For production
+# if __name__ == '__main__':
+#     app.run(host="0.0.0.0", port=5000, debug=True)
 
-@app.route('/submit-challenge', methods=['POST'])
-def submit_challenge():
-    data = request.json  # This will give you the entire JSON payload
-    challenge_ops.writeToDB(data)
-    return jsonify({"message": "Data processed!"}), 200
-
-if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+# For local
+# if __name__ == '__main__':
+#     app.run(port=5000, debug=True)

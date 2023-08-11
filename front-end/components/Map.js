@@ -248,7 +248,7 @@ function Map({ markers }) {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = `http://localhost:5000/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `http://bdk.cs.vt.edu/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -501,7 +501,7 @@ to support why this location is being challenged. This can be done in a variety 
       allKmlLayerRef.current === null ||
       Object.keys(allKmlLayerRef.current).length === 0
     ) {
-      return fetch("http://localhost:5000/api/files", {
+      return fetch("http://bdk.cs.vt.edu/api/files", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -547,7 +547,7 @@ to support why this location is being challenged. This can be done in a variety 
   const addVectorTiles = () => {
     removeVectorTiles();
 
-    fetch("http://localhost:5000/api/user", {
+    fetch("http://bdk.cs.vt.edu/api/user", {
       method: "GET",
       credentials: "include", // Include cookies in the request
       headers: {
