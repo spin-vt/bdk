@@ -30,7 +30,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
-      - JWT_ACCESS_COOKIE_NAME=${token}
+      - JWT_ACCESS_COOKIE_NAME=${JWT_ACCESS_COOKIE_NAME}
     volumes:
       - ./back-end:/app
     depends_on:
@@ -50,7 +50,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
-      - JWT_ACCESS_COOKIE_NAME=${token}
+      - JWT_ACCESS_COOKIE_NAME=${JWT_ACCESS_COOKIE_NAME}
     volumes:
       - ./back-end:/app
     depends_on:
