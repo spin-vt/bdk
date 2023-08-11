@@ -9,15 +9,9 @@ The Broadband Data Kit (BDK) is a tool developed by the SPIN Lab at Virginia Tec
 # Where to begin? 
 We offer multiple ways to utilize BDK:
 
-* `Web Service`: If you're primarily interested in the service, visit BDK Web Portal.
+* `Web Service`: If you're primarily interested in the service, visit BDK Web Portal at "bdk.cs.vt.edu".
 
-* `Local Deployment`: For those who prefer a local setup, there are two options:
-
-   1) Docker: Run the docker container using the docker4main branch.
-   2) Manual Setup: If you want more granular control, follow the setup instructions on the dev branch. This approach gives you control over the Flask server, Next.js front-end, and Celery/Redis asynchronous workers.
-
-Installation instructions are located on the associated branches. 
-
+* `Local Deployment`: For those who prefer a local setup, you should clone this repository. Then create a .env file with all your information and run the main branch. If interested in development, consider using the READ-ME approach in the develop branch. 
 
 # How does it work? 
 
