@@ -3,7 +3,7 @@ name: Build and Push Docker Images to GitHub Registry
 on:
   push:
     branches:
-      - server-deployment
+      - main
 
 jobs:
   build-and-push:
