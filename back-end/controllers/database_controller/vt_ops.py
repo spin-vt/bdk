@@ -122,7 +122,8 @@ def add_values_to_VT(mbtiles_file_path, folderid):
             cur.close()
             conn.close()
             os.remove(mbtiles_file_path)
-            os.remove('data.geojson')
+            unique_geojson_filename = f"data-{folderid}.geojson"
+            os.remove(unique_geojson_filename)
     return 1
 
 def tiles_join(geojson_data, folderid, session):
@@ -183,11 +184,13 @@ def create_tiles(geojson_array, userid, folderid, session):
         # print(geojson_array)
         point_geojson["features"].extend(geojson for geojson in geojson_array)
 
-        with open("data.geojson", 'w') as f:
+        unique_geojson_filename = f"data-{folderid}.geojson"
+
+        with open(unique_geojson_filename, 'w') as f:
             json.dump(point_geojson, f)
         
         outputFile = "output" + str(userid) + ".mbtiles"
-        command = "tippecanoe -o " + outputFile + " --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed data.geojson --force --use-attribute-for-id=location_id"
+        command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
         run_tippecanoe(command, folderid, outputFile) 
 
 def retrieve_tiles(zoom, x, y, username, mbtileid=None):

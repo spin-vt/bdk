@@ -49,13 +49,11 @@ const Register = () => {
         if (data.status === "success") {
           router.push('/');
         }
-        else {
-          if (data.message === "Username already exists.") {
-            Swal.fire('Error', 'Username already exists. Please try another one.', 'error');
-          }
+      } else if (response.status === 400){
+        const data = await response.json();
+        if (data.message === "Username already exists") {
+          Swal.fire('Error', 'Username already exists. Please try another one.', 'error');
         }
-      } else {
-        console.error('Register failed');
       }
     } catch (error) {
       console.error('Register error:', error);

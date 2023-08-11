@@ -159,14 +159,14 @@ def register():
 
     response = user_ops.create_user_in_db(username, password)
 
-    if "error" in response:
-        return jsonify({'status': 'error', 'message': response["error"]})
+    if 'error' in response:
+        return jsonify({'status': 'error', 'message': response["error"]}), 400
 
     access_token = create_access_token(identity={'id': response["success"], 'username': username})
 
     response = make_response(jsonify({'status': 'success', 'token': access_token}))
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
-    return response
+    return response, 200
 
 
 @app.route('/api/login', methods=['POST'])
