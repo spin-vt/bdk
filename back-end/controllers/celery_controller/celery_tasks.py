@@ -92,6 +92,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         
         vt_ops.create_tiles(geojson_array, userid, folderid, session)
         
+        
         session.close()
         return {'Status': "Ok"}
     

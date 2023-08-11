@@ -1,1 +1,1 @@
-export const backend_url = 'http://bdk.cs.vt.edu';
+export const backend_url = 'http://localhost:5000';

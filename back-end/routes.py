@@ -157,10 +157,7 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
-    print('here')
-
     response = user_ops.create_user_in_db(username, password)
-    print('here')
 
     if "error" in response:
         return jsonify({'status': 'error', 'message': response["error"]})
@@ -323,9 +320,9 @@ def submit_challenge():
     return jsonify({"message": "Data processed!"}), 200
 
 
-# For production
-# if __name__ == '__main__':
-#     app.run(host="0.0.0.0", port=5000, debug=True)
+# For docker
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=5000, debug=True)
 
 
 # if __name__ == '__main__':

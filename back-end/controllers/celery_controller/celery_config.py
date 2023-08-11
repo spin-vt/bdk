@@ -4,7 +4,6 @@ from flask_cors import CORS
 
 
 
-# For production
 def make_celery(app):
     celery = Celery(
         app.import_name,
