@@ -17,6 +17,7 @@ services:
     image: redis:latest
 
   work:
+    image: worker
     build: 
       context: ./back-end
       dockerfile: Dockerfile.worker
@@ -36,6 +37,7 @@ services:
       - redis
   
   backend:
+    image: backend
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
@@ -58,7 +60,7 @@ services:
       - 5000:5000
 
   frontend:
-    build: ./front-end
+    image: frontend
     volumes:
       - ./front-end:/app
     depends_on:

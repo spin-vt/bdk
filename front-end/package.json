@@ -27,6 +27,8 @@
     "d3-array": "^3.2.4",
     "d3-hexbin": "^0.2.2",
     "file-saver": "^2.0.5",
+    "firebase": "^10.1.0",
+    "firebaseui": "^6.1.0",
     "formik": "^2.4.3",
     "h3-js": "^4.1.0",
     "http-proxy-middleware": "^2.0.6",

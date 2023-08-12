@@ -26,3 +26,5 @@ __init__.py
 pushgateway-*/
 profiling_data/
 data/
+helpful.txt
+.env.local
