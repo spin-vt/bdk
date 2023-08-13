@@ -7,7 +7,7 @@ import debounce from "lodash.debounce";
 import Switch from '@mui/material/Switch';
 import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import { stateList } from './FactSheets';
+import { stateList } from "../utils/FactSheets";
 import { styled } from '@mui/material/styles';
 import Box from "@mui/material/Box";
 import { backend_url } from "../utils/settings";

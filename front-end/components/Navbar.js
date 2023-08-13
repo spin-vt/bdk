@@ -383,6 +383,19 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             </Typography>
           </IconButton>
 
+          {isEditingMap && (
+            <IconButton onClick={handleMyFileOpen}>
+            <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
+            <Typography
+              component="div"
+              sx={{ flexGrow: 1 }}
+              className={classes.title}
+            >
+              Your Edits
+            </Typography>
+          </IconButton>
+          )}
+
           {!isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
               <FolderIcon sx={{ color: "white", marginRight: "5px" }} />

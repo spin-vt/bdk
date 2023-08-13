@@ -6,9 +6,11 @@ import MyFile from '../components/MyFile';
 import Upload from '../components/Upload';
 import { useContext, useState, useEffect } from 'react';
 import LayerVisibilityProvider from '../contexts/LayerVisibilityProvider';
-import SelectedLocationProvider from '../contexts/SelectLocationProvider';
+import SelectedLocationProvider from '../contexts/SelectedLocationProvider';
 import EditMapProvider from '../contexts/EditMapProvider';
 import EditMapContext from '../contexts/EditMapContext';
+import MyEdit from '../components/MyEdit';
+import SelectedPointsProvider from '../contexts/SelectedPointsProvider';
 
 const DynamicMap = dynamic(() => import('../components/Map'), { ssr: false });
 const Editmap = dynamic(() => import('../components/Editmap'), { ssr: false });
@@ -40,14 +42,17 @@ const HomePage = () => {
     <div>
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
-            <Navbar handleMyFileOpen={handleDrawerOpen} handleUploadOpen={handleDrawerOpen2}/>
-            {isEditingMap ? <Editmap/> : <DynamicMap />}
-            <Drawer anchor='right' open={myFileOpen} onClose={handleDrawerClose}>
-              <MyFile />
-            </Drawer>
-      <Drawer anchor='right' open={uploadOpen} onClose={handleDrawerClose2}>
-        <Upload />
-      </Drawer>
+          <SelectedPointsProvider>
+              <Navbar handleMyFileOpen={handleDrawerOpen} handleUploadOpen={handleDrawerOpen2} />
+              {isEditingMap ? <Editmap /> : <DynamicMap />}
+              <Drawer anchor='right' open={myFileOpen} onClose={handleDrawerClose}>
+                {isEditingMap ? <MyEdit /> : <MyFile />}
+              </Drawer>
+
+              <Drawer anchor='right' open={uploadOpen} onClose={handleDrawerClose2}>
+                <Upload />
+              </Drawer>
+          </SelectedPointsProvider>
         </SelectedLocationProvider>
       </LayerVisibilityProvider>
     </div>

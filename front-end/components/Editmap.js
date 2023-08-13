@@ -22,6 +22,7 @@ import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import Swal from 'sweetalert2';
 import { backend_url } from "../utils/settings";
+import SelectedPointsContext from "../contexts/SelectedPointsContext";
 
 const useStyles = makeStyles({
   modal: {
@@ -158,10 +159,13 @@ function Editmap() {
 
   const [isModalVisible, setModalVisible] = useState(false);
   const selectedMarkersRef = useRef([]);
+  const selectedSingleMarkersRef = useRef([]);
 
-  // Use mbtiles to determine which tiles to fetc
+  const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
 
   const router = useRouter();
+
+  let currentPopup;
 
   const baseMaps = {
     STREETS:
@@ -326,25 +330,103 @@ function Editmap() {
         return turf.booleanPointInPolygon(point, turfPolygon);
       });
 
-      selectedMarkersRef.current.push(selected);
-      setModalVisible(true); // Show the modal
+      changeToUnserve(selected);
+      setSelectedPoints(selectedSingleMarkersRef.current);
     });
 
     map.current.on("click", "custom-point", function (e) {
       let featureProperties = e.features[0].properties;
+      let featureId = e.features[0].id;  // Capture the feature ID here
+      let featureCoordinates = e.features[0].geometry.coordinates;
 
       let content = "<h1>Marker Information</h1>";
       for (let property in featureProperties) {
         content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
       }
+      content += '<button id="setUnserved">Set to Unserve</button>';
 
-      new maplibregl.Popup({ closeOnClick: false })
+      if (currentPopup) {
+        currentPopup.remove();
+      }
+
+
+      const popup = new maplibregl.Popup({ closeOnClick: false })
         .setLngLat(e.lngLat)
         .setHTML(content)
         .addTo(map.current);
+
+      document.getElementById('setUnserved').addEventListener('click', function () {
+        // Logic to set the marker as unserved
+        featureProperties.served = false;
+
+
+        const currentFeatureState = map.current.getFeatureState({
+          source: "custom",
+          sourceLayer: "data",
+          id: featureId,
+        });
+
+        if (currentFeatureState.hasOwnProperty("served")) {
+          // Set the 'served' feature state to false
+          map.current.setFeatureState(
+            {
+              source: "custom",
+              sourceLayer: "data",
+              id: featureId,
+            },
+            {
+              served: false,
+            }
+          );
+
+          const locationInfo = {
+            id: featureId,
+            latitude: featureCoordinates[0],
+            longitude: featureCoordinates[0],
+            address: featureProperties.address,
+            served: false
+          };
+          selectedSingleMarkersRef.current.push(locationInfo);
+          setSelectedPoints(selectedSingleMarkersRef.current);
+        }
+
+        // Refresh the popup content to reflect changes
+        let updatedContent = "<h1>Marker Information</h1>";
+        for (let property in featureProperties) {
+          updatedContent += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+        }
+        updatedContent += '<button id="setUnserved">Set to Unserve</button>';
+        popup.setHTML(updatedContent);
+      });
+
+      currentPopup = popup;
     });
 
   };
+
+  useEffect(() => {
+    // Loop through the current ref list
+    selectedSingleMarkersRef.current.forEach((marker) => {
+      // Check if the marker is not in the selectedPoints
+      if (!selectedPoints.some(point => point.id === marker.id)) {
+        // If it's not in selectedPoints, set served back to true
+        map.current.setFeatureState(
+          {
+            source: "custom",
+            sourceLayer: "data",
+            id: marker.id,
+          },
+          {
+            served: true,
+          }
+        );
+      }
+    });
+
+    // Sync ref with the current state
+    selectedSingleMarkersRef.current = [...selectedPoints];
+
+  }, [selectedPoints]); // Dependency on selectedPoints
 
 
   const toggleMarkers = (markers) => {
@@ -378,10 +460,7 @@ function Editmap() {
     setModalVisible(!isModalVisible);
   };
 
-  const changeToUnserve = () => {
-    const lastList =
-      selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
-    console.log(lastList);
+  const changeToUnserve = (lastList) => {
     if (lastList !== undefined && lastList !== null) {
       lastList.forEach((marker) => {
         // Update the state of the selected markers
@@ -409,6 +488,7 @@ function Editmap() {
             );
           }
         }
+        selectedSingleMarkersRef.current.push(marker);
       });
     }
   };
@@ -531,14 +611,12 @@ function Editmap() {
         })
         .then((data) => {
           const newMarkers = data.map((item) => ({
-            name: item.address,
+            address: item.address,
             id: item.location_id,
             latitude: item.latitude,
             longitude: item.longitude,
             served: item.served,
           }));
-
-          console.log(newMarkers);
 
           setFeatureStateForMarkers(newMarkers);
 
@@ -557,7 +635,6 @@ function Editmap() {
 
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
-    console.log(initialStyle);
     // Get current zoom level and center
     let currentZoom = 4;
     let currentCenter = [-98.35, 39.5];
