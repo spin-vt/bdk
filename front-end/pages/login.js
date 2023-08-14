@@ -36,7 +36,7 @@ const useStyles = makeStyles((theme) => ({
     justifyContent: 'center', // changed to center
     alignItems: 'center',
     width: '100%',
-    marginTop: '2%', // adjust the value as required to move higher
+    marginTop: '-7%', // adjust the value as required to move higher
   },
   root: {
     height: '100vh',
@@ -110,8 +110,39 @@ const Login = () => {
           EmailAuthProvider.PROVIDER_ID,
         ],
         callbacks: {
-          signInSuccessWithAuthResult: () => {
+          signInSuccessWithAuthResult: async (authResult) => {
             if (typeof window !== "undefined") {
+              
+              // Extracting user information
+              const { user } = authResult;
+              const username = user.email; // Using email as the username
+              const password = user.uid;   // Using uid as a placeholder password
+        
+              // Send this information to your backend
+              try {
+                const response = await fetch(`${backend_url}/api/register`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ username, password }),  // send them as required by your backend
+                  credentials: 'include',
+                });
+        
+                if (response.ok) {
+                  const data = await response.json();
+                  if (data.status !== 'success') {
+                    Swal.fire('Error', data.message || 'Unknown error occurred during registration.', 'error');
+                  }
+                } else {
+                  Swal.fire('Error', 'Failed to register with Firebase.', 'error');
+                }
+        
+              } catch (error) {
+                Swal.fire('Error', 'Failed to register with Firebase.', 'error');
+                console.error('Firebase registration error:', error);
+              }
+              
               window.location.href = "/";
             }
             return false;
@@ -189,6 +220,9 @@ const Login = () => {
           </div>
 
           <div className={classes.divider}></div>
+          <Typography component="h2" variant="h6" style={{textAlign: 'center', marginBottom: '1em'}}>
+          Or with these providers
+        </Typography>
           <div id="firebaseui-auth-container"></div>
 
           <div className={styles.container}>
