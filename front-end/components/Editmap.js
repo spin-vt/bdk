@@ -8,7 +8,6 @@ import KeyboardDoubleArrowUpIcon from "@mui/icons-material/KeyboardDoubleArrowUp
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import * as turf from "@turf/turf";
-import LoadingEffect from "./LoadingEffect";
 import { styled } from "@mui/material/styles";
 import { saveAs } from "file-saver";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
@@ -25,23 +24,6 @@ import { backend_url } from "../utils/settings";
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
 
 const useStyles = makeStyles({
-  modal: {
-    position: "absolute",
-    top: "10%", // adjust as needed
-    left: "50%",
-    zIndex: "1000",
-    transform: "translate(-50%, -50%)",
-    backgroundColor: "#fff",
-    boxShadow: "0px 5px 15px rgba(0, 0, 0, 0.3)",
-    padding: "16px 32px",
-    borderRadius: "40px", // for rounded corners
-    display: "flex",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    maxHeight: "8vh",
-    minWidth: "60vw",
-  },
   drawtoolbutton: {
     margin: "8px",
     borderRadius: "20px",
@@ -149,15 +131,10 @@ function Editmap() {
   const mapContainer = useRef(null);
   const map = useRef(null);
 
-
-  const [isLoadingForTimedEffect, setIsLoadingForTimedEffect] = useState(false);
-  const [isDataReady, setIsDataReady] = useState(false);
-  const loadingTimeInMs = 3.5 * 60 * 1000;
   const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] = useState(false);
 
   const allMarkersRef = useRef([]); // create a ref for allMarkers
 
-  const [isModalVisible, setModalVisible] = useState(false);
   const selectedMarkersRef = useRef([]);
   const selectedSingleMarkersRef = useRef([]);
 
@@ -330,7 +307,7 @@ function Editmap() {
         return turf.booleanPointInPolygon(point, turfPolygon);
       });
 
-      changeToUnserve(selected);
+      changeToUnserved(selected);
       setSelectedPoints(selectedSingleMarkersRef.current);
     });
 
@@ -338,6 +315,8 @@ function Editmap() {
       let featureProperties = e.features[0].properties;
       let featureId = e.features[0].id;  // Capture the feature ID here
       let featureCoordinates = e.features[0].geometry.coordinates;
+
+      console.log(featureCoordinates);
 
       let content = "<h1>Marker Information</h1>";
       for (let property in featureProperties) {
@@ -381,7 +360,7 @@ function Editmap() {
 
           const locationInfo = {
             id: featureId,
-            latitude: featureCoordinates[0],
+            latitude: featureCoordinates[1],
             longitude: featureCoordinates[0],
             address: featureProperties.address,
             served: false
@@ -456,11 +435,7 @@ function Editmap() {
       });
   };
 
-  const toggleModalVisibility = () => {
-    setModalVisible(!isModalVisible);
-  };
-
-  const changeToUnserve = (lastList) => {
+  const changeToUnserved = (lastList) => {
     if (lastList !== undefined && lastList !== null) {
       lastList.forEach((marker) => {
         // Update the state of the selected markers
@@ -493,49 +468,6 @@ function Editmap() {
     }
   };
 
-  const undoChanges = () => {
-    const lastList =
-      selectedMarkersRef.current[selectedMarkersRef.current.length - 1];
-    console.log(lastList);
-    if (lastList !== undefined && lastList !== null) {
-      lastList.forEach((marker) => {
-        marker.served = true;
-
-        // If the map and the 'custom' source have been loaded
-        if (map.current && map.current.getSource("custom")) {
-          // Check if the marker's feature state has been previously set
-          const currentFeatureState = map.current.getFeatureState({
-            source: "custom",
-            sourceLayer: "data",
-            id: marker.id,
-          });
-
-          if (currentFeatureState.hasOwnProperty("served")) {
-            // Set the 'served' feature state to false
-            map.current.setFeatureState(
-              {
-                source: "custom",
-                sourceLayer: "data",
-                id: marker.id,
-              },
-              {
-                served: true,
-              }
-            );
-          }
-        }
-      });
-      selectedMarkersRef.current.pop();
-      if (
-        selectedMarkersRef.current === undefined ||
-        selectedMarkersRef.current === null ||
-        selectedMarkersRef.current.length === 0
-      ) {
-        toggleModalVisibility();
-      }
-    }
-  };
-
   const doneWithChanges = () => {
     setIsLoadingForTimedEffect(true);
     const selectedMarkerIds = [];
@@ -560,7 +492,6 @@ function Editmap() {
     });
 
     selectedMarkersRef.current = [];
-    toggleModalVisibility();
   };
 
   const setFeatureStateForMarkers = (markers) => {
@@ -751,32 +682,7 @@ function Editmap() {
         </Menu>
       </div>
       <div>
-        <div style={{ position: 'fixed', zIndex: 10000 }}>
-          {(isLoadingForTimedEffect || isDataReady) && <LoadingEffect isLoading={isLoadingForTimedEffect} loadingTimeInMs={loadingTimeInMs} />}
-        </div>
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
-        {isModalVisible && (
-          <div className={classes.modal}>
-            <button
-              className={`${classes.drawtoolbutton} ${classes.buttonUnserve}`}
-              onClick={changeToUnserve}
-            >
-              Change locations status to unserved
-            </button>
-            <button
-              className={`${classes.drawtoolbutton} ${classes.buttonUndo}`}
-              onClick={undoChanges}
-            >
-              Undo change
-            </button>
-            <button
-              className={`${classes.drawtoolbutton} ${classes.buttonDone}`}
-              onClick={doneWithChanges}
-            >
-              Save your changes
-            </button>
-          </div>
-        )}
       </div>
 
       <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />

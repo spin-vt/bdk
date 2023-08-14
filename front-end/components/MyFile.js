@@ -111,7 +111,7 @@ const MyFile = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
-  const loadingTimeInMs = 2 * 60 * 1000;
+  const loadingTimeInMs = 3.5 * 60 * 1000;
 
   const { setLocation } = useContext(SelectedLocationContext);
 
