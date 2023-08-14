@@ -1,9 +1,6 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, EmailAuthProvider } from 'firebase/auth';
-import { getAnalytics } from "firebase/analytics";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -14,17 +11,23 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-let app;
-if (typeof window !== 'undefined') {
-  app = initializeApp(firebaseConfig);
-}
+let app, analytics, auth;
 
-let analytics;
 if (typeof window !== 'undefined') {
-  const { getAnalytics } = require('firebase/analytics');
-  analytics = getAnalytics(app);
-}
+  if (!getApps().length) {  // Checks if there isn't already an app initialized.
+    app = initializeApp(firebaseConfig);
+  } else {
+    app = getApp();  // If there is already an initialized app, get it.
+  }
 
-const auth = getAuth(app);
+  try {
+    const { getAnalytics } = require('firebase/analytics');
+    analytics = getAnalytics(app);
+  } catch (error) {
+    console.error("Failed to initialize analytics:", error);
+  }
+
+  auth = getAuth(app);
+}
 
 export { app, analytics, auth, GoogleAuthProvider, EmailAuthProvider };
