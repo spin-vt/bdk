@@ -154,11 +154,16 @@ def get_filesinfo_in_folder(folderid, session=None):
                 'folder_id': file.folder_id,
                 'type': file.type,
                 'computed': file.computed,
-                'coordinates': None
+                'kml_data': None
             }
             if file.name.endswith('/'):
-                edit_entry = session.query(kml_data).filter(kml_data.file_id == file.id).first()
-                file_dict['coordinates'] = [edit_entry.latitude, edit_entry.longitude]
+                edit_entries = session.query(kml_data).filter(kml_data.file_id == file.id).all()
+                converted_entries = [{
+                    'address': edit_entry.address_primary,
+                    'latitude': edit_entry.latitude,
+                    'longitude': edit_entry.longitude
+                } for edit_entry in edit_entries]
+                file_dict['kml_data'] = converted_entries
             files_info.append(file_dict)
 
         return files_info

@@ -25,6 +25,7 @@ import LoadingEffect from "./LoadingEffect";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 const useStyles = makeStyles((theme) => ({
   headertext: {
@@ -120,8 +121,8 @@ const MyFile = () => {
   const handleLocateOnMap = (option) => {
     if (option !== undefined && option !== null) {
       setLocation({
-        latitude: option.coordinates[0],
-        longitude: option.coordinates[1],
+        latitude: option.latitude,
+        longitude: option.longitude,
         zoomlevel: 16,
       });
     }
@@ -166,7 +167,7 @@ const MyFile = () => {
           name: file.name,
           uploadDate: new Date(file.timestamp).toLocaleString(),
           type: file.type,
-          coordinates: file.coordinates,
+          kmlData: file.kml_data,
         };
         if (file.name.endsWith(".csv")) {
           setFabricFiles((prevFiles) => [...prevFiles, formattedFile]);
@@ -254,9 +255,7 @@ const MyFile = () => {
           setFiles={setFabricFiles}
           classes={classes}
           showSwitch={false}
-          showLocate={false}
           showDelete={true}
-          handleLocateOnMap={handleLocateOnMap}
         />
 
         {/* Network Data Files Table */}
@@ -269,24 +268,18 @@ const MyFile = () => {
           setFiles={setNetworkDataFiles}
           classes={classes}
           showSwitch={true}
-          showLocate = {false}
           showDelete={true}
-          handleLocateOnMap={handleLocateOnMap}
         />
 
         {/* Manual Edit Files Table */}
         <Typography component="h2" variant="h6" className={classes.headertext}>
           Manual Edits
         </Typography>
-        <FileTable
+        <ManualEditFilesTable
           files={manualEditFiles}
-          handleDelete={handleDelete}
-          setFiles={setManualEditFiles}
-          classes={classes}
-          showSwitch={false}
-          showLocate = {true}
-          showDelete={true}
           handleLocateOnMap={handleLocateOnMap}
+          handleDelete={handleDelete}
+          classes={classes}
         />
       </Container>
     </div>
@@ -299,9 +292,7 @@ const FileTable = ({
   setFiles,
   classes,
   showSwitch,
-  showLocate,
-  showDelete,
-  handleLocateOnMap
+  showDelete
 }) => {
   const { setLayers } = useContext(LayerVisibilityContext);
   const [checked, setChecked] = useState([]);
@@ -357,18 +348,6 @@ const FileTable = ({
                   />
                 </TableCell>
               )}
-              {showLocate && (
-                <TableCell align="right">
-                  <IconButton
-                     onClick={() => handleLocateOnMap(file)}
-                  >
-                    <LocationOnIcon />
-                    <Typography sx={{ marginLeft: "10px" }}>
-                      Locate on Map
-                    </Typography>
-                  </IconButton>
-                </TableCell>
-              )}
               {showDelete && (
                 <TableCell align="right">
                   <IconButton
@@ -387,6 +366,89 @@ const FileTable = ({
         </TableBody>
       </Table>
     </TableContainer>
+  );
+};
+
+const ManualEditFilesTable = ({
+  files,
+  handleLocateOnMap,
+  handleDelete,
+  classes }) => {
+  const [expandedRows, setExpandedRows] = React.useState([]);
+
+  const toggleRowExpansion = (fileId) => {
+    setExpandedRows(prev => {
+      if (prev.includes(fileId)) {
+        return prev.filter(id => id !== fileId);
+      } else {
+        return [...prev, fileId];
+      }
+    });
+  };
+
+  return (
+    <Table>
+      <TableHead>
+        <TableRow>
+          <TableCell>Filename</TableCell>
+          <TableCell>Created Time</TableCell>
+          <TableCell>Type</TableCell>
+          <TableCell align="right">Show All Points</TableCell>
+          <TableCell align="right">Action</TableCell>
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {files.map((file, index) => (
+          <React.Fragment key={index}>
+            <TableRow>
+              <TableCell>{file.name}</TableCell>
+              <TableCell>{file.timestamp}</TableCell>
+              <TableCell>{file.type}</TableCell>
+
+              <TableCell align="right">
+                <IconButton
+                  onClick={() => toggleRowExpansion(file.id)}
+                >
+                  <ExpandMoreIcon />
+                </IconButton>
+              </TableCell>
+
+              <TableCell align="right">
+                <IconButton
+                  className={classes.deleteButton}
+                  onClick={() => handleDelete(file.id, setFiles)}
+                >
+                  <DeleteIcon />
+                  <Typography sx={{ marginLeft: "10px" }}>
+                    Delete File
+                  </Typography>
+                </IconButton>
+              </TableCell>
+
+            </TableRow>
+            {file.kmlData && expandedRows.includes(file.id) && (
+              <TableRow>
+                <TableCell colSpan={4}>
+                  {file.kmlData.map((data, dataIndex) => (
+                    <div key={dataIndex} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ marginRight: '16px' }}>{data.address}</span>
+                      <IconButton
+                        onClick={() => handleLocateOnMap({
+                          latitude: data.latitude,
+                          longitude: data.longitude
+                        })}
+                      >
+                        <LocationOnIcon />
+                      </IconButton>
+                    </div>
+                  ))}
+                </TableCell>
+              </TableRow>
+            )}
+          </React.Fragment>
+        ))}
+      </TableBody>
+    </Table>
   );
 };
 
