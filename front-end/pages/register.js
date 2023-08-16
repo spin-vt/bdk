@@ -1,32 +1,32 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { TextField, Button, Typography, Container } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
+import { TextField, Button, Typography, Container } from '@mui/material';
 import Navbar from '../components/Navbar';
 import Swal from 'sweetalert2';
 import { backend_url } from '../utils/settings';
+import { styled } from '@mui/system';
 
-const useStyles = makeStyles({
-  registerContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginTop: '8px',
-  },
-  registerForm: {
-    width: '100%',
-    marginTop: '8px',
-  },
-  registerButtonContainer: {
-    marginTop: '16px',
-    display: 'flex',
-    gap: '16px',
-  },
-}, {name: 'registerPageStyle'});
+const RegisterContainer = styled('div')({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  marginTop: '8px',
+});
+
+const RegisterForm = styled('form')({
+  width: '100%',
+  marginTop: '8px',
+});
+
+const RegisterButtonContainer = styled('div')({
+  marginTop: '16px',
+  display: 'flex',
+  gap: '16px',
+});
+
 
 const Register = () => {
   const router = useRouter();
-  const classes = useStyles();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -49,7 +49,7 @@ const Register = () => {
         if (data.status === "success") {
           router.push('/');
         }
-      } else if (response.status === 400){
+      } else if (response.status === 400) {
         const data = await response.json();
         if (data.message === "Username already exists") {
           Swal.fire('Error', 'Username already exists. Please try another one.', 'error');
@@ -62,53 +62,53 @@ const Register = () => {
 
   return (
     <div>
-        <Navbar />
-    <Container component="main" maxWidth="xs">
-      <div className={classes.registerContainer}>
-        <Typography component="h1" variant="h5">
-          Register
-        </Typography>
-        <form className={classes.registerForm} onSubmit={handleRegister} noValidate>
-          <TextField
-            variant="outlined"
-            margin="normal"
-            required
-            fullWidth
-            id="username"
-            label="Username"
-            name="username"
-            autoComplete="username"
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            key="username-input"
-          />
-          <TextField
-            variant="outlined"
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            key="password-input"
-          />
-          <div className={classes.registerButtonContainer}>
-          <Button 
-            type="submit"
-            fullWidth
-            variant="contained"
-            color="primary">
+      <Navbar />
+      <Container component="main" maxWidth="xs">
+        <RegisterContainer>
+          <Typography component="h1" variant="h5">
             Register
-          </Button>
-          </div>
-        </form>
-      </div>
-    </Container>
+          </Typography>
+          <RegisterForm onSubmit={handleRegister} noValidate>
+            <TextField
+              variant="outlined"
+              margin="normal"
+              required
+              fullWidth
+              id="username"
+              label="Username"
+              name="username"
+              autoComplete="username"
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              key="username-input"
+            />
+            <TextField
+              variant="outlined"
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              key="password-input"
+            />
+            <RegisterButtonContainer>
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                color="primary">
+                Register
+              </Button>
+            </RegisterButtonContainer>
+          </RegisterForm>
+        </RegisterContainer>
+      </Container>
     </div>
   );
 };

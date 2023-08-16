@@ -20,7 +20,7 @@ RUN echo "Node version:" \
 
 # Install application packages
 COPY package*.json ./
-RUN npm install --force
+RUN npm install
 
 COPY . .
 

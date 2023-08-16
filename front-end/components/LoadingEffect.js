@@ -1,24 +1,21 @@
-import { Backdrop, CircularProgress, Typography } from '@mui/material';
-import { makeStyles } from '@mui/styles';
 import React, { useState, useEffect } from 'react';
+import { Backdrop, CircularProgress, Typography } from '@mui/material';
+import { styled } from '@mui/material/styles';
 
-const useStyles = makeStyles({
-    backdrop: {
-        zindex: 1200,
-        positon: 'fixed',
-        color: '#fff',
-        minWidth: '100%',
-        minHeight: '100%',
-    },
-    remindertext: {
-        marginLeft: '10px',
-    }
+const StyledBackdrop = styled(Backdrop)(({ theme }) => ({
+    zIndex: 1200,
+    position: 'fixed',
+    color: '#fff',
+    minWidth: '100%',
+    minHeight: '100%',
+}));
+
+const ReminderTextArea = styled('div')({
+    marginLeft: '10px',
 });
 
 export default function LoadingEffect({ isLoading, loadingTimeInMs }) {
-    const classes = useStyles();
     const [progress, setProgress] = useState(0);
-    // const loadingTimeInMs = 3 * 60 * 1000; // 3 minutes in milliseconds
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
@@ -53,18 +50,16 @@ export default function LoadingEffect({ isLoading, loadingTimeInMs }) {
 
     return (
         <div className="LoadingEffect">
-            <Backdrop className={classes.backdrop} open={isLoading || isLoaded}>
-
-
+            <StyledBackdrop open={isLoading || isLoaded}>
                 <CircularProgress color="inherit" variant="determinate" value={progress} />
-                <div className={classes.remindertext}>
+                <ReminderTextArea>
                     {isLoaded ? (
                         <Typography>Your data is ready!</Typography>
                     ) : (
-                        <Typography>Crunching your data, please wait {Math.floor(progress)}%</Typography>)}
-                </div>
-
-            </Backdrop>
+                        <Typography>Crunching your data, please wait {Math.floor(progress)}%</Typography>
+                    )}
+                </ReminderTextArea>
+            </StyledBackdrop>
         </div>
     );
 }

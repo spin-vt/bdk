@@ -2,173 +2,36 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
-import { Toolbar, Switch, FormControlLabel, Button } from "@material-ui/core";
-import { makeStyles } from "@material-ui/core/styles";
-import KeyboardDoubleArrowUpIcon from "@mui/icons-material/KeyboardDoubleArrowUp";
-import * as turf from "@turf/turf";
+import { MenuItem, IconButton, Menu } from "@mui/material";
+import { styled } from '@mui/material/styles';
 import LoadingEffect from "./LoadingEffect";
-import { styled } from "@mui/material/styles";
-import { saveAs } from "file-saver";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { Select, MenuItem } from "@material-ui/core";
 import LayersIcon from "@mui/icons-material/Layers";
-import IconButton from "@material-ui/core/IconButton";
-import Menu from "@material-ui/core/Menu";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import Swal from "sweetalert2";
-import Questionnaire from "../components/Questionnaire";
 import { backend_url } from "../utils/settings";
 
-const useStyles = makeStyles({
-  buttonUnserve: {
-    backgroundColor: "#0ADB1F",
-    "&:hover": {
-      backgroundColor: "#0ab81e",
-    },
+const StyledBaseMapIconButton = styled(IconButton)({
+  width: "33px",
+  height: "33px",
+  top: "30%",
+  position: "absolute",
+  left: "10px",
+  zIndex: 1000,
+  backgroundColor: "rgba(255, 255, 255, 1)",
+  color: "#333",
+  '&:hover': {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
-  buttonUndo: {
-    backgroundColor: "#F44B14",
-    "&:hover": {
-      backgroundColor: "#e33c10",
-    },
-  },
-  buttonDone: {
-    backgroundColor: "#0691DA",
-    "&:hover": {
-      backgroundColor: "#0277bd",
-    },
-  },
-  expandToolbarButton: {
-    top: "50%",
-    position: "absolute",
-    minHeight: "5vh",
-    // maxHeight: '10vh',
-    left: "20px",
-    zIndex: 1000,
-    backgroundColor: "#0691DA",
-    border: "0px",
-    color: "#fff",
-    "&:hover": {
-      backgroundColor: "#73A5C6",
-    },
-    borderRadius: "30px",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    transform: `translateY(-50%)`,
-  },
-  wrapper: {
-    position: "absolute",
-    left: "10px",
-    top: "55%",
-    transform: `translateY(-50%)`,
-    zIndex: 1000,
-    display: "grid",
-    alignItems: "column", // this will align items vertically in the center
-    justifyContent: "center",
-    maxHeight: "50vh",
-    maxWidth: "20vw",
-  },
-  collapseToolbarContainer: {
-    display: "flex",
-    alignItems: "center", // this will align items vertically in the center
-    justifyContent: "center",
-    zIndex: 1000,
-    backgroundColor: "#3A7BD5",
-    color: "#fff",
-    "&:hover": {
-      backgroundColor: "#73A5C6",
-    },
-    border: "0px",
-    borderRadius: "10px",
-    paddingLeft: "10px",
-    paddingRight: "10px",
-  },
-  toolbar: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    // maxHeight: '10vh',
-    // maxWidth: "20vw", // reduce width
-    borderRadius: "20px",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    zIndex: 1000,
-  },
-  baseMap: {
-    width: "33px",
-    height: "33px",
-    top: "30%",
-    position: "absolute",
-    left: "10px",
-    zIndex: 1000,
-    backgroundColor: "rgba(255, 255, 255, 1)", // lighter color theme
-    color: "#333", // dark icon for visibility against light background
-    "&:hover": {
-      backgroundColor: "rgba(255, 255, 255, 0.9)",
-    },
-    borderRadius: "4px", // added back borderRadius with a smaller value
-    padding: "10px", // decrease padding if it's too much
-    boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.3)", // subtle shadow as seen in MapLibre controls
-  },
+  borderRadius: "4px",
+  padding: "10px",
+  boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.3)",
 });
 
-const IOSSwitch = styled((props) => (
-  <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
-))(({ theme }) => ({
-  width: 42,
-  height: 26,
-  padding: 0,
-  "& .MuiSwitch-switchBase": {
-    padding: 0,
-    margin: 2,
-    transitionDuration: "300ms",
-    "&.Mui-checked": {
-      transform: "translateX(16px)",
-      color: "#fff",
-      "& + .MuiSwitch-track": {
-        backgroundColor: theme.palette.mode === "dark" ? "#2ECA45" : "#65C466",
-        opacity: 1,
-        border: 0,
-      },
-      "&.Mui-disabled + .MuiSwitch-track": {
-        opacity: 0.5,
-      },
-    },
-    "&.Mui-focusVisible .MuiSwitch-thumb": {
-      color: "#33cf4d",
-      border: "6px solid #fff",
-    },
-    "&.Mui-disabled .MuiSwitch-thumb": {
-      color:
-        theme.palette.mode === "light"
-          ? theme.palette.grey[100]
-          : theme.palette.grey[600],
-    },
-    "&.Mui-disabled + .MuiSwitch-track": {
-      opacity: theme.palette.mode === "light" ? 0.7 : 0.3,
-    },
-  },
-  "& .MuiSwitch-thumb": {
-    boxSizing: "border-box",
-    width: 22,
-    height: 22,
-  },
-  "& .MuiSwitch-track": {
-    borderRadius: 26 / 2,
-    backgroundColor: theme.palette.mode === "light" ? "#E9E9EA" : "#39393D",
-    opacity: 1,
-    transition: theme.transitions.create(["background-color"], {
-      duration: 500,
-    }),
-  },
-}));
-
-function Map({ markers }) {
-  const classes = useStyles();
+function Map() {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const currentPopup = useRef(null); // Ref to store the current popup
@@ -774,9 +637,9 @@ to support why this location is being challenged. This can be done in a variety 
   return (
     <div>
       <div>
-        <IconButton className={classes.baseMap} onClick={handleBasemapMenuOpen}>
+        <StyledBaseMapIconButton onClick={handleBasemapMenuOpen}>
           <LayersIcon color="inherit" />
-        </IconButton>
+        </StyledBaseMapIconButton>
         <Menu
           id="basemap-menu"
           anchorEl={basemapAnchorEl}

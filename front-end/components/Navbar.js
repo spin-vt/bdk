@@ -13,7 +13,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Link from "next/link";
 import { Menu, MenuItem } from "@mui/material";
 import { useRouter } from "next/router";
-import { makeStyles } from "@material-ui/core/styles";
+import { styled } from "@mui/material/styles";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import HomeIcon from "@mui/icons-material/Home";
@@ -30,106 +30,46 @@ import EditIcon from "@mui/icons-material/Edit";
 import EditMapContext from "../contexts/EditMapContext";
 import { backend_url } from "../utils/settings";
 
-const useStyles = makeStyles((theme) => ({
-  appBar: {
-    backgroundImage: "linear-gradient(to right, #3A7BD5, #3A6073)", // Gradient color
-    position: "sticky", // Make the AppBar sticky
-    boxShadow:
-      "0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)",
-  },
-  drawer: {
+
+const StyledAppBar = styled(AppBar)({
+  backgroundImage: "linear-gradient(to right, #3A7BD5, #3A6073)",
+  position: "sticky",
+  boxShadow: "0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)"
+});
+
+const StyledDrawer = styled(Drawer)({
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'center',
+  width: "240px",
+  flexShrink: 0,
+  '.MuiDrawer-paper': {
     width: "240px",
-    flexShrink: 0,
-  },
-  drawerPaper: {
-    width: "240px",
-    backgroundColor: "#EBF5FA", // A modern, light blue color
-  },
-  listItemElem: {
-    display: "flex", // Add flex display
-    alignItems: "center", // Vertically align items in the center
-    padding: "4px",
-    borderRadius: "4px",
-    transition: "background-color 0.3s",
-    "&:hover": {
-      backgroundColor: "#E0F7FA",
-    },
-  },
-  iconText: {
-    marginRight: "4px", // Add right margin to the icon
-    color: "#0A539E", // Blue color for icons
-  },
-  button_lowercase_text: {
-    textTransform: "none",
-  },
-  title: {
-    fontWeight: 700, // Make the title bold
-    color: "#FFFFFF", // White color for the title
-  },
-  menuItem: {
-    transition: "color 0.3s",
-    "&:hover": {
-      color: "#3A7BD5",
-    },
-  },
-  sidebar: {
-    backgroundColor: "#FFFFFF",
-    padding: theme.spacing(2),
-    boxShadow: "2px 0px 10px rgba(0, 0, 0, 0.1)",
-    transition: "transform 0.3s ease-in-out",
-    transform: "translateX(0)",
-  },
-  sidebarHidden: {
-    transform: "translateX(-100%)",
-  },
-  dataTypeHeading: {
-    fontSize: "1.6rem",
-    fontWeight: 500,
-    color: "#333",
-  },
-  dataTypeButton: {
-    margin: theme.spacing(2, 0),
-    fontSize: "1.2rem",
-    textTransform: "capitalize",
-    "&:hover": {
-      backgroundColor: "#f0f0f0",
-    },
-  },
-  backButton: {
-    display: "flex",
-    alignItems: "center",
-    textTransform: "capitalize",
-    "& h4": {
-      fontSize: "0.8rem",
-      fontWeight: 500,
-      color: "#333",
-    },
-  },
-  uploadHeading: {
-    fontSize: "1.6rem",
-    fontWeight: 500,
-    color: "#333",
-    marginBottom: theme.spacing(2),
-  },
-  tooltip: {
-    animation: `$fade-in-out 2s infinite`,
-  },
-  "@keyframes fade-in-out": {
-    "0%": {
-      opacity: 0,
-    },
-    "50%": {
-      opacity: 1,
-    },
-    "100%": {
-      opacity: 0,
-    },
-  },
-}));
+    backgroundColor: "#EBF5FA"
+  }
+});
+
+const StyledListItem = styled(ListItem)({
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: "4px",
+  borderRadius: "4px",
+  transition: "background-color 0.3s",
+  '&:hover': {
+    backgroundColor: "#E0F7FA"
+  }
+});
+
+const TitleTypography = styled(Typography)({
+  fontWeight: 700,
+  color: "#FFFFFF",
+  flexGrow: 1
+});
+
 
 export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
   const router = useRouter();
-  const classes = useStyles();
   const [anchorEl, setAnchorEl] = useState(null);
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
   const isMenuOpen = Boolean(anchorEl);
@@ -316,13 +256,13 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     menuTopItem = {
       text: "Hello, " + username,
       href: "/profile",
-      icon: <AccountCircleIcon className={classes.icon} />,
+      icon: <AccountCircleIcon />,
     };
   } else {
     menuTopItem = {
       text: "Hello, sign in",
       href: "/login",
-      icon: <LoginIcon className={classes.icon} />,
+      icon: <LoginIcon />,
     };
   }
 
@@ -330,28 +270,28 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
     {
       text: "Home",
       href: "/",
-      icon: <HomeIcon className={classes.iconText} />,
+      icon: <HomeIcon />,
     },
     {
       text: "About",
       href: "/about",
-      icon: <InfoIcon className={classes.iconText} />,
+      icon: <InfoIcon />,
     },
     {
       text: "Services",
       href: "/services",
-      icon: <BusinessIcon className={classes.iconText} />,
+      icon: <BusinessIcon />,
     },
     {
       text: "Contact",
       href: "/contact",
-      icon: <ContactMailIcon className={classes.iconText} />,
+      icon: <ContactMailIcon />,
     },
   ];
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static" className={classes.appBar}>
+      <StyledAppBar position="static">
         <Toolbar>
           <IconButton
             size="large"
@@ -361,64 +301,61 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             sx={{ mr: 2 }}
             onClick={handleDrawerOpen}
           >
-            <MenuIcon className={classes.menuItem} />
+            <MenuIcon sx={{
+              transition: "color 0.3s",
+              '&:hover': {
+                color: "#3A7BD5"
+              }
+            }} />
           </IconButton>
 
-          <Link href="/" component="div" className={classes.title}>
+          <Link href="/" component="div" sx={{ fontWeight: "700", color: "#FFFFFF" }}>
             <Typography variant="h6" sx={{ marginRight: "4vw" }}>
               BDK Project
             </Typography>
           </Link>
 
-          <Searchbar className={classes.menuItem} />
+          <Searchbar />
 
           <IconButton onClick={handleEditToolClick}>
             <EditIcon sx={{ color: "white", marginRight: "5px" }} />
-            <Typography
+            <TitleTypography
               component="div"
-              sx={{ flexGrow: 1 }}
-              className={classes.title}
             >
               {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
-            </Typography>
+            </TitleTypography>
           </IconButton>
 
           {isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
-            <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
-            <Typography
-              component="div"
-              sx={{ flexGrow: 1 }}
-              className={classes.title}
-            >
-              Your Edits
-            </Typography>
-          </IconButton>
+              <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
+              <TitleTypography
+                component="div"
+              >
+                Your Edits
+              </TitleTypography>
+            </IconButton>
           )}
 
           {!isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
               <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
-              <Typography
+              <TitleTypography
                 component="div"
-                sx={{ flexGrow: 1 }}
-                className={classes.title}
               >
                 Your Files
-              </Typography>
+              </TitleTypography>
             </IconButton>
           )}
 
           {!isEditingMap && (
             <IconButton onClick={handleUploadOpen}>
               <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
-              <Typography
+              <TitleTypography
                 component="div"
-                sx={{ flexGrow: 1 }}
-                className={classes.title}
               >
                 Upload
-              </Typography>
+              </TitleTypography>
             </IconButton>
           )}
 
@@ -426,13 +363,11 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             {!isEditingMap && (
               <IconButton onClick={handleDownloadClick}>
                 <DownloadIcon sx={{ color: "white", marginRight: "5px" }} />
-                <Typography
+                <TitleTypography
                   component="div"
-                  sx={{ flexGrow: 1 }}
-                  className={classes.title}
                 >
                   Export
-                </Typography>
+                </TitleTypography>
               </IconButton>
             )}
 
@@ -464,11 +399,6 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
                   anchorEl={profileAnchorEl} // Use profileAnchorEl for this dropdown.
                   open={Boolean(profileAnchorEl)} // Check if profileAnchorEl is not null.
                   onClose={() => setProfileAnchorEl(null)} // Reset profileAnchorEl to null on close.
-                  PaperProps={{
-                    style: {
-                      width: menuWidth,
-                    },
-                  }}
                 >
                   <MenuItem onClick={() => handleMenuNavigation("/profile")}>
                     Profile
@@ -477,48 +407,44 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
                 </Menu>
               </Box>
             ) : (
-              <Link href="/login">
-                <Button color="inherit">
-                  <LoginIcon />
+              <IconButton onClick={() => router.push("/login")}>
+                <LoginIcon sx={{ color: "white", marginRight: "5px" }} />
+                <TitleTypography
+                  component="div"
+                >
                   Login
-                </Button>
-              </Link>
+                </TitleTypography>
+              </IconButton>
             )}
           </Box>
         </Toolbar>
-      </AppBar>
-      <Drawer
+      </StyledAppBar>
+      <StyledDrawer
         anchor="left"
         open={isDrawerOpen}
         onClose={handleDrawerClose}
-        className={classes.drawer}
-        classes={{
-          paper: classes.drawerPaper,
-        }}
       >
         <List>
           <Link href={menuTopItem.href}>
-            <ListItem
+            <StyledListItem
               onClick={handleDrawerClose}
-              className={classes.listItemElem}
             >
               {menuTopItem.icon}
               <ListItemText primary={menuTopItem.text} />
-            </ListItem>
+            </StyledListItem>
           </Link>
           {menuItems.map((item, index) => (
             <Link href={item.href} key={item.text}>
-              <ListItem
+              <StyledListItem
                 onClick={handleDrawerClose}
-                className={classes.listItemElem}
               >
                 {item.icon}
                 <ListItemText primary={item.text} />
-              </ListItem>
+              </StyledListItem>
             </Link>
           ))}
         </List>
-      </Drawer>
+      </StyledDrawer>
     </Box>
   );
 }

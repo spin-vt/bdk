@@ -13,54 +13,38 @@ import ExportButton from "./SubmitButton";
 import { DataGrid } from "@mui/x-data-grid";
 import Select from "@mui/material/Select";
 import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
 import Swal from "sweetalert2";
-import { makeStyles, TextField, Typography } from "@material-ui/core";
+import { Typography } from "@mui/material";
 import { useRouter } from "next/router";
 import { backend_url } from "../utils/settings";
+import { styled } from '@mui/material/styles';
 
-// Define your styles
-const useStyles = makeStyles((theme) => ({
-  buttonGroup: {
-    color: "#FFF",
-    backgroundColor: "#3f51b5",
-    padding: "10px 20px",
-    borderRadius: "5px",
-    margin: "10px 0",
-  },
-  paper: {
-    backgroundColor: "#f3f3f3",
-    padding: "10px",
-    borderRadius: "5px",
-  },
-  formControl: {
-    margin: "4px",
-    minWidth: "150px",
-    backgroundColor: "white",
-    borderRadius: "4px",
-    height: "25px",
-    display: "flex",
-    alignItems: "center",
-  },
-  inputLabel: {
-    fontSize: "0.875rem",
-    top: "-000px",
-  },
-  select: {
-    height: "25px",
-    padding: "0 0 0 10px",
-    minWidth: "150px",
-  },
-  gridItem: {
-    padding: "10px",
-  },
-  headertext: {
-    marginTop: "20px",
-    marginBottom: "20px",
-  },
-}));
+
+const StyledFormControl = styled(FormControl)({
+  margin: "4px",
+  minWidth: "150px",
+  backgroundColor: "white",
+  borderRadius: "4px",
+  height: "25px",
+  display: "flex",
+  alignItems: "center",
+});
+
+const StyledSelect = styled(Select)({
+  height: "25px",
+  padding: "0 0 0 10px",
+  minWidth: "150px",
+});
+
+
+const StyledTypography = styled(Typography)({
+  marginTop: "20px",
+  marginBottom: "20px",
+});
+
+
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
@@ -110,7 +94,6 @@ function MapKey() {
 }
 
 export default function Upload({ fetchMarkers }) {
-  const classes = useStyles();
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
@@ -335,12 +318,12 @@ export default function Upload({ fetchMarkers }) {
   return (
     <React.Fragment>
       <div style={{ position: 'fixed', zIndex: 10000 }}>
-      {(isLoading || isDataReady) && (
-        <LoadingEffect
-          isLoading={isLoading}
-          loadingTimeInMs={loadingTimeInMs}
-        />
-      )}
+        {(isLoading || isDataReady) && (
+          <LoadingEffect
+            isLoading={isLoading}
+            loadingTimeInMs={loadingTimeInMs}
+          />
+        )}
       </div>
       <Box
         sx={{
@@ -352,9 +335,9 @@ export default function Upload({ fetchMarkers }) {
           position: "relative",
         }}
       >
-        <Typography component="h1" variant="h5" className={classes.headertext}>
+        <StyledTypography component="h1" variant="h5">
           Upload Network Files Below:
-        </Typography>
+        </StyledTypography>
 
         <ButtonGroup
           variant="contained"
@@ -432,13 +415,12 @@ export default function Upload({ fetchMarkers }) {
               </Grid>
               <Grid item xs={12} sm={2}>
                 <label htmlFor="techType">Technology Type: </label>
-                <FormControl variant="outlined" className={classes.formControl}>
-                  <Select
+                <StyledFormControl variant="outlined">
+                  <StyledSelect
                     labelId="demo-simple-select-outlined-label"
                     id="demo-simple-select-outlined"
                     value={techType}
                     onChange={(e) => setTechType(e.target.value)}
-                    className={classes.select}
                   >
                     {Object.entries(tech_types).map(([key, value]) => (
                       <MenuItem key={value} value={value}>
@@ -456,18 +438,17 @@ export default function Upload({ fetchMarkers }) {
                         </div>
                       </MenuItem>
                     ))}
-                  </Select>
-                </FormControl>
+                  </StyledSelect>
+                </StyledFormControl>
               </Grid>
               <Grid item xs={12} sm={2}>
                 <label htmlFor="wiredWireless">Network Type: </label>
-                <FormControl variant="outlined" className={classes.formControl}>
-                  <Select
+                <StyledFormControl variant="outlined">
+                  <StyledSelect
                     labelId="demo-simple-select-outlined-label"
                     id="demo-simple-select-outlined"
                     value={networkType}
                     onChange={(e) => setNetworkType(e.target.value)}
-                    className={classes.select}
                   >
                     {Object.entries(wiredWirelessOptions).map(
                       ([key, value]) => (
@@ -476,8 +457,8 @@ export default function Upload({ fetchMarkers }) {
                         </MenuItem>
                       )
                     )}
-                  </Select>
-                </FormControl>
+                  </StyledSelect>
+                </StyledFormControl>
               </Grid>
             </Grid>
           </Box>
