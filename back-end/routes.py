@@ -321,7 +321,7 @@ def submit_challenge():
 
 @app.route('/compute-challenge', methods=['GET'])
 def compute_challenge():
-    challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", "postgres", "postgres", "db123")
+    challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", "db", "user", "password")
     return jsonify({"message": "Data Computed!"}), 200
 
 # For docker
