@@ -2,6 +2,7 @@ FROM python:3.9-slim-buster
 
 RUN apt-get update && apt-get install -y \
   gcc \
+  gdal-bin \
   python3-dev \
   libpq-dev \
   build-essential \
@@ -24,6 +25,11 @@ WORKDIR /app
 
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
+
+COPY activeBSL.csv activeBSL.csv
+COPY activeNOBSL.csv activeNOBSL.csv 
+COPY filled_full_poly.kml filled_full_poly.kml
+COPY Idaho.geojson Idaho.geojson
 
 # Copy the entrypoint script and wait-for script, and make them executable
 COPY entrypoint.sh /entrypoint.sh

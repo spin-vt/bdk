@@ -97,22 +97,34 @@ def export():
 
 
 def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_user, db_password):
-    # 1. Create and set up PostGIS database (assumes you have created a new database already)
+    # Check if the paths exist
+    for path in [geojson_path, kml_path, csv1_path, csv2_path]:
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"The file {path} does not exist.")
+
+    # 1. Create and set up PostGIS database
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
     
     cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
     conn.commit()
 
+    # Function to run ogr2ogr and check its status
+    def run_ogr2ogr(filepath, table_name):
+        cmd = f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{filepath}" -nln {table_name}'
+        ret = os.system(cmd)
+        if ret != 0:
+            raise RuntimeError(f"Failed to execute command {cmd} with return code {ret}")
+
     # 2. Import GeoJSON
-    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{geojson_path}" -nln buildings')
-    
+    run_ogr2ogr(geojson_path, "buildings")
+
     # 3. Import KML
-    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{kml_path}" -nln network')
+    run_ogr2ogr(kml_path, "network")
     
     # 4. Import CSVs
-    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{csv1_path}" -nln fcc_data1')
-    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{csv2_path}" -nln fcc_data2')
+    run_ogr2ogr(csv1_path, "fcc_data1")
+    run_ogr2ogr(csv2_path, "fcc_data2")
 
     # 5. Create geometry columns for CSVs
     sql_commands = [
@@ -121,10 +133,19 @@ def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_
         "ALTER TABLE fcc_data2 ADD COLUMN geom geometry(Point, 4326);",
         "UPDATE fcc_data2 SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);"
     ]
-    
+
+    # Check if table exists before altering it
+    def table_exists(table_name):
+        cur.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='{table_name}');")
+        return cur.fetchone()[0]
+
     for command in sql_commands:
-        cur.execute(command)
-        conn.commit()
+        table_name = command.split(" ")[2]  # Extracting table name from command
+        if table_exists(table_name):
+            cur.execute(command)
+            conn.commit()
+        else:
+            raise RuntimeError(f"Table {table_name} does not exist in the database.")
 
     cur.close()
     conn.close()

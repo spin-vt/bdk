@@ -254,7 +254,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
 
   if (username) {
     menuTopItem = {
-      text: "Hello, " + username,
+      text: " Hello, " + username,
       href: "/profile",
       icon: <AccountCircleIcon />,
     };
@@ -268,7 +268,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
 
   const menuItems = [
     {
-      text: "Filing",
+      text: "Home",
       href: "/",
       icon: <HomeIcon />,
     },

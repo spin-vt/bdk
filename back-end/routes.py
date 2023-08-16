@@ -319,6 +319,10 @@ def submit_challenge():
     challenge_ops.writeToDB(data)
     return jsonify({"message": "Data processed!"}), 200
 
+@app.route('/compute-challenge', methods=['GET'])
+def compute_challenge():
+    challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", "postgres", "postgres", "db123")
+    return jsonify({"message": "Data Computed!"}), 200
 
 # For docker
 if __name__ == '__main__':

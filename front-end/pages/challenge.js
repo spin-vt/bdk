@@ -1,27 +1,25 @@
-import Questionnaire from '../components/Questionnaire';
-import Navbar from '../components/Navbar';
+import { useState } from 'react';
+import { backend_url } from "../utils/settings";
 
-  
-const Challenge = () => {
-    return (
-        <div>
-            <Navbar />
-            <div className="centered-container">
-                <h1>Challenge Form</h1>
-                <Questionnaire />
-            </div>
+function ChallengePage() {
+  const [data, setData] = useState(null);
 
-            <style jsx>{`
-                .centered-container {
-                    min-height: calc(100vh - [Height of Navbar]);
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: center;
-                    align-items: center;
-                }
-            `}</style>
-        </div>
-    );
-};
-  
-export default Challenge;
+  const fetchData = async () => {
+    try {
+      const response = await fetch(`${backend_url}/compute-challenge`);
+      const jsonData = await response.json();
+      setData(jsonData);
+    } catch (error) {
+      console.error("Error fetching data: ", error);
+    }
+  }
+
+  return (
+    <div>
+      <button onClick={fetchData}>Fetch Data</button>
+      {data && <pre>{JSON.stringify(data, null, 4)}</pre>}
+    </div>
+  );
+}
+
+export default ChallengePage;
