@@ -7,7 +7,9 @@ from utils.facts import states
 from database.models import fabric_data, file, ChallengeLocations
 from psycopg2.errors import UniqueViolation
 from threading import Lock
-import logging, uuid, psycopg2, io, pandas, geopandas, shapely
+import logging, uuid, psycopg2, io, pandas, geopandas, shapely, os
+import geopandas as gpd
+import pandas as pd
 
 db_lock = Lock()
 
@@ -92,3 +94,38 @@ def export():
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding='utf-8')
     return output
+
+
+def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_user, db_password):
+    # 1. Create and set up PostGIS database (assumes you have created a new database already)
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    
+    cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+    conn.commit()
+
+    # 2. Import GeoJSON
+    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{geojson_path}" -nln buildings')
+    
+    # 3. Import KML
+    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{kml_path}" -nln network')
+    
+    # 4. Import CSVs
+    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{csv1_path}" -nln fcc_data1')
+    os.system(f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{csv2_path}" -nln fcc_data2')
+
+    # 5. Create geometry columns for CSVs
+    sql_commands = [
+        "ALTER TABLE fcc_data1 ADD COLUMN geom geometry(Point, 4326);",
+        "UPDATE fcc_data1 SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);",
+        "ALTER TABLE fcc_data2 ADD COLUMN geom geometry(Point, 4326);",
+        "UPDATE fcc_data2 SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);"
+    ]
+    
+    for command in sql_commands:
+        cur.execute(command)
+        conn.commit()
+
+    cur.close()
+    conn.close()
+    print("Data imported successfully!")

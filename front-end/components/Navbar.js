@@ -268,24 +268,14 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
 
   const menuItems = [
     {
-      text: "Home",
+      text: "Filing",
       href: "/",
       icon: <HomeIcon />,
     },
     {
-      text: "About",
-      href: "/about",
+      text: "Challenges",
+      href: "/challenge",
       icon: <InfoIcon />,
-    },
-    {
-      text: "Services",
-      href: "/services",
-      icon: <BusinessIcon />,
-    },
-    {
-      text: "Contact",
-      href: "/contact",
-      icon: <ContactMailIcon />,
     },
   ];
 
