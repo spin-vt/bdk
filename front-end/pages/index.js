@@ -1,13 +1,12 @@
 import styles from '../styles/Home.module.css';
 import Navbar from '../components/Navbar';
 import dynamic from 'next/dynamic';
-import { Drawer, Popover, SwipeableDrawer } from '@material-ui/core';
+import { Drawer } from '@mui/material';
 import MyFile from '../components/MyFile';
 import Upload from '../components/Upload';
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState } from 'react';
 import LayerVisibilityProvider from '../contexts/LayerVisibilityProvider';
 import SelectedLocationProvider from '../contexts/SelectedLocationProvider';
-import EditMapProvider from '../contexts/EditMapProvider';
 import EditMapContext from '../contexts/EditMapContext';
 import MyEdit from '../components/MyEdit';
 import SelectedPointsProvider from '../contexts/SelectedPointsProvider';

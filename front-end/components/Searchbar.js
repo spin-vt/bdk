@@ -5,7 +5,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import debounce from "lodash.debounce";
 import Switch from '@mui/material/Switch';
-import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { stateList } from "../utils/FactSheets";
 import { styled } from '@mui/material/styles';
@@ -95,10 +94,6 @@ function Searchbar() {
       setLocation(null);
     }
   };
-
-  // React.useEffect(() => {
-  //   console.log(location); // Should log the updated location
-  // }, [location]);
 
   const debouncedSave = React.useCallback(
     debounce((nextValue) => handleSearchChange(nextValue), 600), // debounce time of 600ms

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useContext } from "react";
 import { useRouter } from "next/router";
 import {
-  TextField,
   Typography,
   Container,
   Table,
@@ -12,41 +11,41 @@ import {
   TableRow,
   Paper,
   IconButton,
-  Grid,
-} from "@material-ui/core";
-import { makeStyles, useTheme } from "@material-ui/core/styles";
+  Switch,
+} from "@mui/material";
 import Swal from "sweetalert2";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { Box } from "@mui/system";
-import { Switch, FormControlLabel } from "@material-ui/core";
-import { styled } from "@mui/material/styles";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import LoadingEffect from "./LoadingEffect";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { styled } from '@mui/material/styles';
 
-const useStyles = makeStyles((theme) => ({
-  headertext: {
-    marginBottom: "20px",
-    marginTop: "20px",
-  },
-  table: {
-    minWidth: 650,
-  },
-  container: {
-    zIndex: 1000,
-    position: "relative",
-    minWidth: "80%",
-    height: "90vh",
-    marginTop: "20px",
-  },
-  deleteButton: {
-    color: "#f44336", // Red color
-    "&:hover": {
-      color: "#d32f2f", // Darker red on hover
-    },
+
+// useStyles is replaced by the styled utility in v5
+const StyledContainer = styled(Container)(({ }) => ({
+  zIndex: 1000,
+  position: "relative",
+  minWidth: "80%",
+  height: "90vh",
+  marginTop: "20px",
+}));
+
+const StyledTypography = styled(Typography)(({ }) => ({
+  marginBottom: "20px",
+  marginTop: "20px",
+}));
+
+const StyledTable = styled(Table)(({ }) => ({
+  minWidth: 650,
+}));
+
+const StyledIconButton = styled(IconButton)(({ }) => ({
+  color: "#f44336", // Red color
+  "&:hover": {
+    color: "#d32f2f", // Darker red on hover
   },
 }));
 
@@ -102,8 +101,6 @@ const IOSSwitch = styled((props) => (
 }));
 
 const MyFile = () => {
-  const classes = useStyles();
-  const theme = useTheme();
   const [fabricFiles, setFabricFiles] = useState([]);
   const [networkDataFiles, setNetworkDataFiles] = useState([]);
   const [manualEditFiles, setManualEditFiles] = useState([]);
@@ -241,47 +238,44 @@ const MyFile = () => {
           />
         )}
       </div>
-      <Container component="main" maxWidth="md" className={classes.container}>
-        <Typography component="h1" variant="h5" className={classes.headertext}>
+      <StyledContainer component="main" maxWidth="md">
+        <StyledTypography component="h1" variant="h5">
           Your Uploaded Files
-        </Typography>
+        </StyledTypography>
         {/* Fabric Files Table */}
-        <Typography component="h2" variant="h6" className={classes.headertext}>
+        <StyledTypography component="h2" variant="h6">
           Fabric Files
-        </Typography>
+        </StyledTypography>
         <FileTable
           files={fabricFiles}
           handleDelete={handleDelete}
           setFiles={setFabricFiles}
-          classes={classes}
           showSwitch={false}
           showDelete={true}
         />
 
         {/* Network Data Files Table */}
-        <Typography component="h2" variant="h6" className={classes.headertext}>
+        <StyledTypography component="h2" variant="h6">
           Network Data Files
-        </Typography>
+        </StyledTypography>
         <FileTable
           files={networkDataFiles}
           handleDelete={handleDelete}
           setFiles={setNetworkDataFiles}
-          classes={classes}
           showSwitch={true}
           showDelete={true}
         />
 
         {/* Manual Edit Files Table */}
-        <Typography component="h2" variant="h6" className={classes.headertext}>
+        <StyledTypography component="h2" variant="h6">
           Manual Edits
-        </Typography>
+        </StyledTypography>
         <ManualEditFilesTable
           files={manualEditFiles}
           handleLocateOnMap={handleLocateOnMap}
           handleDelete={handleDelete}
-          classes={classes}
         />
-      </Container>
+      </StyledContainer>
     </div>
   );
 };
@@ -290,7 +284,6 @@ const FileTable = ({
   files,
   handleDelete,
   setFiles,
-  classes,
   showSwitch,
   showDelete
 }) => {
@@ -319,7 +312,7 @@ const FileTable = ({
 
   return (
     <TableContainer component={Paper}>
-      <Table className={classes.table} aria-label="file table">
+      <StyledTable aria-label="file table">
         <TableHead>
           <TableRow>
             <TableCell>Filename</TableCell>
@@ -350,21 +343,20 @@ const FileTable = ({
               )}
               {showDelete && (
                 <TableCell align="right">
-                  <IconButton
-                    className={classes.deleteButton}
+                  <StyledIconButton
                     onClick={() => handleDelete(file.id, setFiles)}
                   >
                     <DeleteIcon />
                     <Typography sx={{ marginLeft: "10px" }}>
                       Delete File
                     </Typography>
-                  </IconButton>
+                  </StyledIconButton>
                 </TableCell>
               )}
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+      </StyledTable>
     </TableContainer>
   );
 };
@@ -373,7 +365,7 @@ const ManualEditFilesTable = ({
   files,
   handleLocateOnMap,
   handleDelete,
-  classes }) => {
+}) => {
   const [expandedRows, setExpandedRows] = React.useState([]);
 
   const toggleRowExpansion = (fileId) => {
@@ -414,15 +406,14 @@ const ManualEditFilesTable = ({
               </TableCell>
 
               <TableCell align="right">
-                <IconButton
-                  className={classes.deleteButton}
+                <StyledIconButton
                   onClick={() => handleDelete(file.id, setFiles)}
                 >
                   <DeleteIcon />
                   <Typography sx={{ marginLeft: "10px" }}>
                     Delete File
                   </Typography>
-                </IconButton>
+                </StyledIconButton>
               </TableCell>
 
             </TableRow>

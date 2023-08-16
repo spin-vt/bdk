@@ -1,35 +1,31 @@
 import React, { useEffect, useRef, useState, useContext } from "react";
-import { makeStyles } from '@material-ui/core/styles';
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Menu, IconButton, MenuItem } from '@material-ui/core';
+import { Menu, IconButton, MenuItem } from '@mui/material';
 import LayersIcon from "@mui/icons-material/Layers";
 import SelectedLocationContext from '../contexts/SelectedLocationContext'
 import { backend_url } from "../utils/settings";
+import { styled } from "@mui/material/styles";
 
-const useStyles = makeStyles({
-    baseMap: {
-        width: "33px",
-        height: "33px",
-        top: "33vh",
-        position: "relative",
-        left: "10px",
-        zIndex: 1000,
-        backgroundColor: "rgba(255, 255, 255, 1)", // lighter color theme
-        color: "#333", // dark icon for visibility against light background
-        "&:hover": {
-            backgroundColor: "rgba(255, 255, 255, 0.9)",
-        },
-        borderRadius: "4px", // added back borderRadius with a smaller value
-        padding: "10px", // decrease padding if it's too much
-        boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.3)", // subtle shadow as seen in MapLibre controls
+const StyledBaseMapIconButton = styled(IconButton)({
+    width: "33px",
+    height: "33px",
+    top: "30%",
+    position: "absolute",
+    left: "10px",
+    zIndex: 1000,
+    backgroundColor: "rgba(255, 255, 255, 1)",
+    color: "#333",
+    '&:hover': {
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
     },
+    borderRadius: "4px",
+    padding: "10px",
+    boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.3)",
 });
 
 
-
 function Minimap({ id }) {
-    const classes = useStyles();
     const mapContainer = useRef(null);
     const map = useRef(null);
     const baseMaps = {
@@ -231,64 +227,64 @@ function Minimap({ id }) {
     useEffect(() => {
         if (!map.current) return; // Wait for map to initialize
         // setTimeout(() => {
-            map.current.resize(); // Resize map when container size changes
+        map.current.resize(); // Resize map when container size changes
         //   }, 200);
-      }, [id]); // Depend on 'id', so this runs whenever 'id' changes
+    }, [id]); // Depend on 'id', so this runs whenever 'id' changes
 
-      useEffect(() => {
+    useEffect(() => {
         if (location && map.current) {
-          const { latitude, longitude, zoomlevel } = location;
-    
-          if (distinctMarkerRef.current) {
-            distinctMarkerRef.current.remove();
-          }
-    
-          distinctMarkerRef.current = new maplibregl.Marker({
-            color: "#FFFFFF",
-            draggable: false,
-          })
-            .setLngLat([longitude, latitude])
-            .addTo(map.current);
-    
-          map.current.flyTo({
-            center: [longitude, latitude],
-            zoom: zoomlevel,
-          });
+            const { latitude, longitude, zoomlevel } = location;
+
+            if (distinctMarkerRef.current) {
+                distinctMarkerRef.current.remove();
+            }
+
+            distinctMarkerRef.current = new maplibregl.Marker({
+                color: "#FFFFFF",
+                draggable: false,
+            })
+                .setLngLat([longitude, latitude])
+                .addTo(map.current);
+
+            map.current.flyTo({
+                center: [longitude, latitude],
+                zoom: zoomlevel,
+            });
         } else {
-          if (distinctMarkerRef.current) {
-            distinctMarkerRef.current.remove();
-            distinctMarkerRef.current = null;
-          }
+            if (distinctMarkerRef.current) {
+                distinctMarkerRef.current.remove();
+                distinctMarkerRef.current = null;
+            }
         }
-      }, [location]);
+    }, [location]);
 
     return (
         <div>
             <div>
-            <IconButton className={classes.baseMap} onClick={handleBasemapMenuOpen}>
-                <LayersIcon color="inherit" />
-            </IconButton>
-            <Menu
-                id="basemap-menu"
-                anchorEl={basemapAnchorEl}
-                keepMounted
-                open={Boolean(basemapAnchorEl)}
-                onClose={handleBasemapMenuClose}
-                anchorOrigin={{
-                    vertical: "top",
-                    horizontal: "right",
-                }}
-                transformOrigin={{
-                    vertical: "top",
-                    horizontal: "left",
-                }}
-            >
-                {Object.keys(baseMaps).map((key) => (
-                    <MenuItem key={key} onClick={() => handleBaseMapToggle(key)}>
-                        {key}
-                    </MenuItem>
-                ))}
-            </Menu>
+                <StyledBaseMapIconButton onClick={handleBasemapMenuOpen}>
+                    <LayersIcon color="inherit" />
+                </StyledBaseMapIconButton>
+                <Menu
+                    id="basemap-menu"
+                    anchorEl={basemapAnchorEl}
+                    keepMounted
+                    open={Boolean(basemapAnchorEl)}
+                    onClose={handleBasemapMenuClose}
+                    anchorOrigin={{
+                        vertical: "top",
+                        horizontal: "right",
+                    }}
+                    transformOrigin={{
+                        vertical: "top",
+                        horizontal: "left",
+                    }}
+                >
+                    {Object.keys(baseMaps).map((key) => (
+                        <MenuItem key={key} onClick={() => handleBaseMapToggle(key)}>
+                            {key}
+                        </MenuItem>
+                    ))}
+                </Menu>
             </div>
             <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />
         </div>

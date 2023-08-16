@@ -2,132 +2,42 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
-import { Toolbar, Switch, FormControlLabel, Button } from "@material-ui/core";
-import { makeStyles } from "@material-ui/core/styles";
-import KeyboardDoubleArrowUpIcon from "@mui/icons-material/KeyboardDoubleArrowUp";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import * as turf from "@turf/turf";
 import { styled } from "@mui/material/styles";
-import { saveAs } from "file-saver";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Select, MenuItem } from "@material-ui/core";
+import { MenuItem } from "@mui/material";
 import LayersIcon from "@mui/icons-material/Layers";
-import IconButton from "@material-ui/core/IconButton";
-import Menu from "@material-ui/core/Menu";
+import IconButton from "@mui/material";
+import Menu from "@mui/material";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import Swal from 'sweetalert2';
 import { backend_url } from "../utils/settings";
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
 
-const useStyles = makeStyles({
-  drawtoolbutton: {
-    margin: "8px",
-    borderRadius: "20px",
-    color: "#fff", // Change button text color
-    border: "none",
-    cursor: "pointer",
-    padding: "10px 20px", // Change as needed
-    transition: "background-color 0.3s ease", // For smooth color transition
+const StyledBaseMapIconButton = styled(IconButton)({
+  width: "33px",
+  height: "33px",
+  top: "30%",
+  position: "absolute",
+  left: "10px",
+  zIndex: 1000,
+  backgroundColor: "rgba(255, 255, 255, 1)",
+  color: "#333",
+  '&:hover': {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
-  buttonUnserve: {
-    backgroundColor: "#0ADB1F",
-    "&:hover": {
-      backgroundColor: "#0ab81e",
-    },
-  },
-  buttonUndo: {
-    backgroundColor: "#F44B14",
-    "&:hover": {
-      backgroundColor: "#e33c10",
-    },
-  },
-  buttonDone: {
-    backgroundColor: "#0691DA",
-    "&:hover": {
-      backgroundColor: "#0277bd",
-    },
-  },
-  expandToolbarButton: {
-    top: "50%",
-    position: "absolute",
-    minHeight: "5vh",
-    // maxHeight: '10vh',
-    left: "20px",
-    zIndex: 1000,
-    backgroundColor: "#0691DA",
-    border: "0px",
-    color: "#fff",
-    "&:hover": {
-      backgroundColor: "#73A5C6",
-    },
-    borderRadius: "30px",
-    paddingLeft: "20px",
-    paddingRight: "20px",
-    transform: `translateY(-50%)`,
-  },
-  wrapper: {
-    position: "absolute",
-    left: "10px",
-    top: "55%",
-    transform: `translateY(-50%)`,
-    zIndex: 1000,
-    display: "grid",
-    alignItems: "column", // this will align items vertically in the center
-    justifyContent: "center",
-    maxHeight: "50vh",
-    maxWidth: "20vw",
-  },
-  collapseToolbarContainer: {
-    display: "flex",
-    alignItems: "center", // this will align items vertically in the center
-    justifyContent: "center",
-    zIndex: 1000,
-    backgroundColor: "#3A7BD5",
-    color: "#fff",
-    "&:hover": {
-      backgroundColor: "#73A5C6",
-    },
-    border: "0px",
-    borderRadius: "10px",
-    paddingLeft: "10px",
-    paddingRight: "10px",
-  },
-  toolbar: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    // maxHeight: '10vh',
-    // maxWidth: "20vw", // reduce width
-    borderRadius: "20px",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    zIndex: 1000,
-  },
-  baseMap: {
-    width: "33px",
-    height: "33px",
-    top: "36%",
-    position: "absolute",
-    left: "10px",
-    zIndex: 1000,
-    backgroundColor: "rgba(255, 255, 255, 1)", // lighter color theme
-    color: "#333", // dark icon for visibility against light background
-    "&:hover": {
-      backgroundColor: "rgba(255, 255, 255, 0.9)",
-    },
-    borderRadius: "4px", // added back borderRadius with a smaller value
-    padding: "10px", // decrease padding if it's too much
-    boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.3)", // subtle shadow as seen in MapLibre controls
-  },
+  borderRadius: "4px",
+  padding: "10px",
+  boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.3)",
 });
 
 
 function Editmap() {
-  const classes = useStyles();
   const mapContainer = useRef(null);
   const map = useRef(null);
 
@@ -656,9 +566,9 @@ function Editmap() {
   return (
     <div>
       <div>
-        <IconButton className={classes.baseMap} onClick={handleBasemapMenuOpen}>
+        <StyledBaseMapIconButton onClick={handleBasemapMenuOpen}>
           <LayersIcon color="inherit" />
-        </IconButton>
+        </StyledBaseMapIconButton>
         <Menu
           id="basemap-menu"
           anchorEl={basemapAnchorEl}
@@ -685,7 +595,7 @@ function Editmap() {
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
       </div>
 
-      <div ref={mapContainer} style={{ height: "90vh", width: "100%" }} />
+      <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />
     </div>
   );
 }

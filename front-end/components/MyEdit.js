@@ -12,16 +12,12 @@ import {
     TableRow,
     Paper,
     IconButton,
-    Grid,
-    Collapse,
-    Button
-} from "@material-ui/core";
-import { makeStyles, useTheme } from "@material-ui/core/styles";
-import Swal from "sweetalert2";
+    Button,
+} from "@mui/material";
+import { styled } from "@mui/material/styles";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Box } from "@mui/system";
-import { Switch, FormControlLabel } from "@material-ui/core";
-import { styled } from "@mui/material/styles";
+import Swal from "sweetalert2";
 import LoadingEffect from "./LoadingEffect";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -29,32 +25,33 @@ import { backend_url } from "../utils/settings";
 import UndoIcon from '@mui/icons-material/Undo';
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
 
-const useStyles = makeStyles((theme) => ({
-    headertext: {
-        marginBottom: "20px",
-        marginTop: "20px",
+const HeaderText = styled(Typography)({
+    marginBottom: "20px",
+    marginTop: "20px",
+});
+
+
+const StyledTable = styled(Table)({
+    minWidth: 650,
+});
+
+const StyledContainer = styled(Container)({
+    zIndex: 1000,
+    position: "relative",
+    minWidth: "80%",
+    height: "90vh",
+    marginTop: "20px",
+});
+
+const StyledIconButton = styled(IconButton)({
+    color: "#f44336",
+    "&:hover": {
+        color: "#d32f2f",
     },
-    table: {
-        minWidth: 650,
-    },
-    container: {
-        zIndex: 1000,
-        position: "relative",
-        minWidth: "80%",
-        height: "90vh",
-        marginTop: "20px",
-    },
-    deleteButton: {
-        color: "#f44336", // Red color
-        "&:hover": {
-            color: "#d32f2f", // Darker red on hover
-        },
-    },
-}));
+});
 
 
 const MyEdit = () => {
-    const classes = useStyles();
 
     const router = useRouter();
 
@@ -98,6 +95,11 @@ const MyEdit = () => {
             .then((response) => {
                 if (response.status === 401) {
                     // Redirect the user to the login page or other unauthorized handling page
+                    Swal.fire({
+                        icon: "error",
+                        title: "Oops...",
+                        text: "Session expired, please log in again!",
+                    });
                     router.push("/login");
                 } else {
                     return response.json();
@@ -141,21 +143,16 @@ const MyEdit = () => {
                     />
                 )}
             </div>
-            <Container component="main" maxWidth="md" className={classes.container}>
-                <Typography component="h1" variant="h5" className={classes.headertext}>
+            <StyledContainer component="main" maxWidth="md">
+                <HeaderText component="h1" variant="h5">
                     Your Edits
-                </Typography>
-
-                <Typography component="h2" variant="h6" className={classes.headertext}>
-                    Single Point Edits
-                </Typography>
+                </HeaderText>
                 <FileTable
                     files={selectedPoints}
-                    classes={classes}
                     handleUndoSingleEdit={handleUndoSingleEdit}
                     handleLocateOnMap={handleLocateOnMap}
                 />
-            </Container>
+            </StyledContainer>
             <div style={{ marginTop: '20px', marginLeft: '20px' }}>
                 <Button
                     variant="contained"
@@ -171,11 +168,11 @@ const MyEdit = () => {
 };
 
 
-const FileTable = ({ files, classes, handleUndoSingleEdit, handleLocateOnMap }) => {
+const FileTable = ({ files, handleUndoSingleEdit, handleLocateOnMap }) => {
 
     return (
         <TableContainer component={Paper} style={{ marginBottom: "20px" }}>
-            <Table className={classes.table} aria-label="single point table">
+            <StyledTable aria-label="single point table">
                 <TableHead>
                     <TableRow>
                         <TableCell>Locate on Map</TableCell>
@@ -196,20 +193,19 @@ const FileTable = ({ files, classes, handleUndoSingleEdit, handleLocateOnMap }) 
                             </TableCell>
                             <TableCell>{file.address}</TableCell>
                             <TableCell align="right">
-                                <IconButton
-                                    className={classes.deleteButton}
+                                <StyledIconButton
                                     onClick={() => handleUndoSingleEdit(index)}
                                 >
                                     <UndoIcon />
                                     <Typography sx={{ marginLeft: "10px" }}>
                                         Undo Point
                                     </Typography>
-                                </IconButton>
+                                </StyledIconButton>
                             </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
-            </Table>
+            </StyledTable>
         </TableContainer>
     );
 };

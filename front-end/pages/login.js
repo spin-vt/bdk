@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { TextField, Button, Typography, Container } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
+import { TextField, Button, Typography, Container } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import Swal from 'sweetalert2';
 import { backend_url } from '../utils/settings';
 import { auth, GoogleAuthProvider, EmailAuthProvider } from "../firebase/firebaseConfig";
@@ -11,57 +11,47 @@ import Navbar from '../components/Navbar';
 
 let firebaseui;
 
-const useStyles = makeStyles((theme) => ({
-  loginContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginTop: theme.spacing(1),
-  },
-  loginForm: {
-    width: '100%',
-    marginTop: theme.spacing(1),
-  },
-  loginButtonContainer: {
-    marginTop: theme.spacing(2),
-    display: 'flex',
-    gap: theme.spacing(2),
-  },
-  registerButton: {
-    marginLeft: theme.spacing(2),
-  },
-  authContainer: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'center', // changed to center
-    alignItems: 'center',
-    width: '100%',
-    marginTop: '2%', // adjust the value as required to move higher
-  },
-  root: {
-    height: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f7f7f7',
-  },
-  mainContainer: {
-    boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-  },
-  divider: {
-    height: '400px',
-    width: '2px',
-    backgroundColor: '#d3d3d3',
-    margin: '0 20px',
-  }
-}));
+const LoginContainer = styled("div")({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  marginTop: "8px",
+});
+
+const LoginForm = styled("form")({
+  width: "100%",
+  marginTop: "8px",
+});
+
+const LoginButtonContainer = styled("div")({
+  marginTop: "16px",
+  display: "flex",
+  gap: "16px",
+});
+
+const RegisterButton = styled(Button)({
+  marginLeft: "16px",
+});
+
+const AuthContainer = styled("div")({
+  display: "flex",
+  flexDirection: "row",
+  justifyContent: "center",
+  alignItems: "center",
+  width: "100%",
+  marginTop: "2%",
+});
+
+
+const Divider = styled("div")({
+  height: "400px",
+  width: "2px",
+  backgroundColor: "#d3d3d3",
+  margin: "0 20px",
+});
 
 const Login = () => {
   const router = useRouter();
-  const classes = useStyles();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
@@ -135,66 +125,65 @@ const Login = () => {
     <div>
       <Navbar />
       <Container component="main">
-        <div className={classes.authContainer}>
-          <div className={classes.loginContainer}>
+        <AuthContainer>
+          <LoginContainer>
             <Typography component="h1" variant="h5">
               Sign in with Username and Password
             </Typography>
-            <form className={classes.loginForm} onSubmit={handleLogin} noValidate>
-            <TextField
-              variant="outlined"
-              margin="normal"
-              required
-              fullWidth
-              id="username"
-              label="Username"
-              name="username"
-              autoComplete="username"
-              autoFocus
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-            <TextField
-              variant="outlined"
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Password"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <div className={classes.loginButtonContainer}>
-              <Button
-                type="submit"
+            <LoginForm onSubmit={handleLogin} noValidate>
+              <TextField
+                variant="outlined"
+                margin="normal"
+                required
                 fullWidth
-                variant="contained"
-                color="primary"
-              >
-                Sign In
-              </Button>
-              <Button 
+                id="username"
+                label="Username"
+                name="username"
+                autoComplete="username"
+                autoFocus
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+              <TextField
+                variant="outlined"
+                margin="normal"
+                required
                 fullWidth
-                variant="contained"
-                color="secondary"
-                className={classes.registerButton}
-                onClick={handleRegisterClick}>
+                name="password"
+                label="Password"
+                type="password"
+                id="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <LoginButtonContainer>
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                >
+                  Sign In
+                </Button>
+                <RegisterButton
+                  fullWidth
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleRegisterClick}>
                   Register
-              </Button>
-            </div>
-          </form>
-          </div>
+                </RegisterButton>
+              </LoginButtonContainer>
+            </LoginForm>
+          </LoginContainer>
 
-          <div className={classes.divider}></div>
+          <Divider></Divider>
           <div id="firebaseui-auth-container"></div>
 
           <div className={styles.container}>
             <div id="firebaseui-auth-container"></div>
           </div>
-        </div>
+        </AuthContainer>
       </Container>
     </div>
   );
