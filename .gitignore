@@ -27,4 +27,5 @@ pushgateway-*/
 profiling_data/
 data/
 helpful.txt
-.env.local
+.env.*
+README.md
