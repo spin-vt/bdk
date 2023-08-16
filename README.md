@@ -12,10 +12,8 @@ This app run necessary shell scripts written in unix-style line-ending(LF). If y
 
 # Before you start building
 Run the following commands in the front-end directory
-1) `npm install --force`
+1) `npm install`
 2) `npm run build`
-
-Make sure the back-end/alembic/versions directory is empty
 
 # Building and running the docker container
 To build and run the docker container, simply goes to the "bdk" folder and run the following commands
