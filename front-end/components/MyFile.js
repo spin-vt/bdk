@@ -29,8 +29,9 @@ const StyledContainer = styled(Container)(({ }) => ({
   zIndex: 1000,
   position: "relative",
   minWidth: "80%",
-  height: "90vh",
+  maxHeight: "90vh",
   marginTop: "20px",
+  overflow: "auto"
 }));
 
 const StyledTypography = styled(Typography)(({ }) => ({
@@ -311,7 +312,6 @@ const FileTable = ({
   }
 
   return (
-    <TableContainer component={Paper}>
       <StyledTable aria-label="file table">
         <TableHead>
           <TableRow>
@@ -357,7 +357,6 @@ const FileTable = ({
           ))}
         </TableBody>
       </StyledTable>
-    </TableContainer>
   );
 };
 
@@ -379,7 +378,7 @@ const ManualEditFilesTable = ({
   };
 
   return (
-    <Table>
+    <StyledTable>
       <TableHead>
         <TableRow>
           <TableCell>Filename</TableCell>
@@ -439,7 +438,7 @@ const ManualEditFilesTable = ({
           </React.Fragment>
         ))}
       </TableBody>
-    </Table>
+    </StyledTable>
   );
 };
 

@@ -40,7 +40,7 @@ const StyledContainer = styled(Container)({
     position: "relative",
     minWidth: "80%",
     height: "90vh",
-    marginTop: "20px",
+    marginTop: "20px"
 });
 
 const StyledIconButton = styled(IconButton)({
@@ -171,7 +171,7 @@ const MyEdit = () => {
 const FileTable = ({ files, handleUndoSingleEdit, handleLocateOnMap }) => {
 
     return (
-        <TableContainer component={Paper} style={{ marginBottom: "20px" }}>
+        <TableContainer component={Paper} sx={{ marginBottom: "20px", maxHeight: "80vh", overflow: "auto" }}>
             <StyledTable aria-label="single point table">
                 <TableHead>
                     <TableRow>
