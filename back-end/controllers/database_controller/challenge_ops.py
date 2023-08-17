@@ -128,24 +128,30 @@ def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_
 
     # 5. Create geometry columns for CSVs
     sql_commands = [
-        "ALTER TABLE fcc_data1 ADD COLUMN geom geometry(Point, 4326);",
-        "UPDATE fcc_data1 SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);",
-        "ALTER TABLE fcc_data2 ADD COLUMN geom geometry(Point, 4326);",
-        "UPDATE fcc_data2 SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);"
+        ("fcc_data1", "ALTER TABLE fcc_data1 ADD COLUMN geom geometry(Point, 4326);"),
+        ("fcc_data1", "UPDATE fcc_data1 SET geom = ST_SetSRID(ST_MakePoint(CAST(longitude AS DOUBLE PRECISION), CAST(latitude AS DOUBLE PRECISION)), 4326);"),
+        ("fcc_data2", "ALTER TABLE fcc_data2 ADD COLUMN geom geometry(Point, 4326);"),
+        ("fcc_data2", "UPDATE fcc_data2 SET geom = ST_SetSRID(ST_MakePoint(CAST(longitude AS DOUBLE PRECISION), CAST(latitude AS DOUBLE PRECISION)), 4326);")
     ]
 
     # Check if table exists before altering it
     def table_exists(table_name):
         cur.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='{table_name}');")
         return cur.fetchone()[0]
+    
+        
+    def column_exists(table_name, column_name):
+        cur.execute(f"SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='{table_name}' AND column_name='{column_name}');")
+        return cur.fetchone()[0]
 
-    for command in sql_commands:
-        table_name = command.split(" ")[2]  # Extracting table name from command
+    for table_name, command in sql_commands:
         if table_exists(table_name):
-            cur.execute(command)
-            conn.commit()
-        else:
-            raise RuntimeError(f"Table {table_name} does not exist in the database.")
+            if "ALTER TABLE" in command and not column_exists(table_name, "geom"):
+                cur.execute(command)
+                conn.commit()
+            elif "UPDATE" in command:
+                cur.execute(command)
+                conn.commit()
 
     cur.close()
     conn.close()
