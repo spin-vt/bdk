@@ -47,6 +47,14 @@ app.config['JWT_ACCESS_COOKIE_NAME'] = os.getenv('JWT_ACCESS_COOKIE_NAME')
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 
+
+
+db_name = os.environ.get("POSTGRES_DB")
+db_user = os.environ.get("POSTGRES_USER")
+db_password = os.environ.get("POSTGRES_PASSWORD")
+db_host = os.getenv('DB_HOST')
+db_port = os.getenv('DB_PORT')
+
 @app.route("/served-data", methods=['GET'])
 @jwt_required()
 def get_number_records():
@@ -321,7 +329,7 @@ def submit_challenge():
 
 @app.route('/compute-challenge', methods=['GET'])
 def compute_challenge():
-    challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", "db", "user", "password")
+    challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", db_name, db_user, db_password, db_host)
     return jsonify({"message": "Data Computed!"}), 200
 
 # For docker

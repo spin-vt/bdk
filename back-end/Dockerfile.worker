@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /tippecanoe
 RUN git clone https://github.com/mapbox/tippecanoe.git && \
     cd tippecanoe && \
-    make -j && \
+    make -j 4 && \
     make install
 
 # Check if Tippecanoe is in PATH

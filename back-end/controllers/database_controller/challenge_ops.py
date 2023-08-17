@@ -96,7 +96,7 @@ def export():
     return output
 
 
-def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_user, db_password):
+def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_user, db_password, db_host):
     # Check if the paths exist
     for path in [geojson_path, kml_path, csv1_path, csv2_path]:
         if not os.path.exists(path):
@@ -111,7 +111,7 @@ def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_
 
     # Function to run ogr2ogr and check its status
     def run_ogr2ogr(filepath, table_name):
-        cmd = f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password}" "{filepath}" -nln {table_name}'
+        cmd = f'ogr2ogr -f "PostgreSQL" PG:"dbname={db_name} user={db_user} password={db_password} host={db_host}" "{filepath}" -nln {table_name}'
         ret = os.system(cmd)
         if ret != 0:
             raise RuntimeError(f"Failed to execute command {cmd} with return code {ret}")
