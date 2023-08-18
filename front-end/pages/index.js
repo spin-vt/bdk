@@ -1,22 +1,28 @@
-import styles from '../styles/Home.module.css';
-import Navbar from '../components/Navbar';
-import dynamic from 'next/dynamic';
-import { Drawer } from '@mui/material';
-import MyFile from '../components/MyFile';
-import Upload from '../components/Upload';
-import { useContext, useState } from 'react';
-import LayerVisibilityProvider from '../contexts/LayerVisibilityProvider';
-import SelectedLocationProvider from '../contexts/SelectedLocationProvider';
-import EditMapContext from '../contexts/EditMapContext';
-import MyEdit from '../components/MyEdit';
-import SelectedPointsProvider from '../contexts/SelectedPointsProvider';
+import styles from "../styles/Home.module.css";
+import Navbar from "../components/Navbar";
+import dynamic from "next/dynamic";
+import { Drawer } from "@mui/material";
+import MyFile from "../components/MyFile";
+import Upload from "../components/Upload";
+import { useContext, useState } from "react";
+import LayerVisibilityProvider from "../contexts/LayerVisibilityProvider";
+import SelectedLocationProvider from "../contexts/SelectedLocationProvider";
+import EditMapContext from "../contexts/EditMapContext";
+import MyEdit from "../components/MyEdit";
+import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
+import { styled } from '@mui/material/styles';
+import { Typography } from "@mui/material";
 
-const DynamicMap = dynamic(() => import('../components/Map'), { ssr: false });
-const Editmap = dynamic(() => import('../components/Editmap'), { ssr: false });
+const DynamicMap = dynamic(() => import("../components/Map"), { ssr: false });
+const Editmap = dynamic(() => import("../components/Editmap"), { ssr: false });
+
+const StyledTypography = styled(Typography)({
+  marginTop: "20px",
+  marginBottom: "20px",
+});
 
 
 const HomePage = () => {
-
   const [myFileOpen, setMyFileOpen] = useState(false);
   const [uploadOpen, setOpen] = useState(false);
   const { isEditingMap } = useContext(EditMapContext);
@@ -42,13 +48,25 @@ const HomePage = () => {
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
           <SelectedPointsProvider>
-            <Navbar sx={{ height: '10vh' }} handleMyFileOpen={handleDrawerOpen} handleUploadOpen={handleDrawerOpen2} />
+            <Navbar
+              sx={{ height: "10vh" }}
+              handleMyFileOpen={handleDrawerOpen}
+              handleUploadOpen={handleDrawerOpen2}
+              showOnHome={true}
+            />
             {isEditingMap ? <Editmap /> : <DynamicMap />}
             <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
               {isEditingMap ? <MyEdit /> : <MyFile />}
             </CustomDrawer>
 
-            <Drawer anchor='right' open={uploadOpen} onClose={handleDrawerClose2}>
+            <Drawer
+              anchor="right"
+              open={uploadOpen}
+              onClose={handleDrawerClose2}
+            >
+              <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
+                Upload Network Files Below:
+              </StyledTypography>
               <Upload />
             </Drawer>
           </SelectedPointsProvider>
@@ -59,34 +77,34 @@ const HomePage = () => {
 };
 
 const CustomDrawer = ({ isOpen, children, onClose }) => {
-  if (!isOpen) return null;  // Don't render the drawer at all if it's not open
+  if (!isOpen) return null; // Don't render the drawer at all if it's not open
 
   return (
     <div
       style={{
-        position: 'absolute',
+        position: "absolute",
         top: 0,
         right: 0,
-        width: '750px',
-        height: '100%',
-        backgroundColor: 'white',
-        overflowY: 'scroll',
+        width: "750px",
+        height: "100%",
+        backgroundColor: "white",
+        overflowY: "scroll",
       }}
     >
       <button
         onClick={onClose}
         style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          padding: '8px 16px',
-          background: 'red',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '16px',
-          zIndex: '11000'
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          padding: "8px 16px",
+          background: "red",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontSize: "16px",
+          zIndex: "11000",
         }}
       >
         Close
@@ -95,8 +113,5 @@ const CustomDrawer = ({ isOpen, children, onClose }) => {
     </div>
   );
 };
-
-
-
 
 export default HomePage;

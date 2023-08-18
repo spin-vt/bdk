@@ -30,23 +30,23 @@ import EditIcon from "@mui/icons-material/Edit";
 import EditMapContext from "../contexts/EditMapContext";
 import { backend_url } from "../utils/settings";
 
-
 const StyledAppBar = styled(AppBar)({
   backgroundImage: "linear-gradient(to right, #3A7BD5, #3A6073)",
   position: "sticky",
-  boxShadow: "0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)"
+  boxShadow:
+    "0px 2px 4px -1px rgb(0 0 0 / 20%), 0px 4px 5px 0px rgb(0 0 0 / 14%), 0px 1px 10px 0px rgb(0 0 0 / 12%)",
 });
 
 const StyledDrawer = styled(Drawer)({
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
   width: "240px",
   flexShrink: 0,
-  '.MuiDrawer-paper': {
+  ".MuiDrawer-paper": {
     width: "240px",
-    backgroundColor: "#EBF5FA"
-  }
+    backgroundColor: "#EBF5FA",
+  },
 });
 
 const StyledListItem = styled(ListItem)({
@@ -56,19 +56,23 @@ const StyledListItem = styled(ListItem)({
   padding: "4px",
   borderRadius: "4px",
   transition: "background-color 0.3s",
-  '&:hover': {
-    backgroundColor: "#E0F7FA"
-  }
+  "&:hover": {
+    backgroundColor: "#E0F7FA",
+  },
 });
 
 const TitleTypography = styled(Typography)({
   fontWeight: 700,
   color: "#FFFFFF",
-  flexGrow: 1
+  flexGrow: 1,
 });
 
-
-export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
+export default function Navbar({
+  handleMyFileOpen,
+  handleUploadOpen,
+  showOnHome,
+  uploadChallenge
+}) {
   const router = useRouter();
   const [anchorEl, setAnchorEl] = useState(null);
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
@@ -268,12 +272,12 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
 
   const menuItems = [
     {
-      text: "Home",
+      text: "Filing Tool",
       href: "/",
       icon: <HomeIcon />,
     },
     {
-      text: "Challenges",
+      text: "Challenge Tool",
       href: "/challenge",
       icon: <InfoIcon />,
     },
@@ -291,15 +295,21 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             sx={{ mr: 2 }}
             onClick={handleDrawerOpen}
           >
-            <MenuIcon sx={{
-              transition: "color 0.3s",
-              '&:hover': {
-                color: "#3A7BD5"
-              }
-            }} />
+            <MenuIcon
+              sx={{
+                transition: "color 0.3s",
+                "&:hover": {
+                  color: "#3A7BD5",
+                },
+              }}
+            />
           </IconButton>
 
-          <Link href="/" component="div" sx={{ fontWeight: "700", color: "#FFFFFF" }}>
+          <Link
+            href="/"
+            component="div"
+            sx={{ fontWeight: "700", color: "#FFFFFF" }}
+          >
             <Typography variant="h6" sx={{ marginRight: "4vw" }}>
               BDK Project
             </Typography>
@@ -307,45 +317,37 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
 
           <Searchbar />
 
-          <IconButton onClick={handleEditToolClick}>
-            <EditIcon sx={{ color: "white", marginRight: "5px" }} />
-            <TitleTypography
-              component="div"
-            >
-              {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
-            </TitleTypography>
-          </IconButton>
+          {showOnHome && (
+            <IconButton onClick={handleEditToolClick}>
+              <EditIcon
+                sx={{ fontWeight: "700", color: "white", marginRight: "5px" }}
+              />
+              <Typography sx={{ color: "white" }}>
+                {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
+              </Typography>
+            </IconButton>
+          )}
 
           {isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
-              <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
-              <TitleTypography
-                component="div"
-              >
-                Your Edits
-              </TitleTypography>
+              <FolderIcon
+                sx={{ fontWeight: "700", color: "white", marginRight: "5px" }}
+              />
+              <Typography sx={{ color: "white" }}>Your Edits</Typography>
             </IconButton>
           )}
 
           {!isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
               <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
-              <TitleTypography
-                component="div"
-              >
-                Your Files
-              </TitleTypography>
+              <Typography sx={{ color: "white" }}>Your Files</Typography>
             </IconButton>
           )}
 
           {!isEditingMap && (
             <IconButton onClick={handleUploadOpen}>
               <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
-              <TitleTypography
-                component="div"
-              >
-                Upload
-              </TitleTypography>
+              <Typography sx={{ color: "white" }}>Upload</Typography>
             </IconButton>
           )}
 
@@ -353,11 +355,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             {!isEditingMap && (
               <IconButton onClick={handleDownloadClick}>
                 <DownloadIcon sx={{ color: "white", marginRight: "5px" }} />
-                <TitleTypography
-                  component="div"
-                >
-                  Export
-                </TitleTypography>
+                <Typography sx={{ color: "white" }}>Export</Typography>
               </IconButton>
             )}
 
@@ -399,11 +397,7 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
             ) : (
               <IconButton onClick={() => router.push("/login")}>
                 <LoginIcon sx={{ color: "white", marginRight: "5px" }} />
-                <TitleTypography
-                  component="div"
-                >
-                  Login
-                </TitleTypography>
+                <Typography sx={{ color: "white" }}>Login</Typography>
               </IconButton>
             )}
           </Box>
@@ -416,18 +410,14 @@ export default function Navbar({ handleMyFileOpen, handleUploadOpen }) {
       >
         <List>
           <Link href={menuTopItem.href}>
-            <StyledListItem
-              onClick={handleDrawerClose}
-            >
+            <StyledListItem onClick={handleDrawerClose}>
               {menuTopItem.icon}
               <ListItemText primary={menuTopItem.text} />
             </StyledListItem>
           </Link>
           {menuItems.map((item, index) => (
             <Link href={item.href} key={item.text}>
-              <StyledListItem
-                onClick={handleDrawerClose}
-              >
+              <StyledListItem onClick={handleDrawerClose}>
                 {item.icon}
                 <ListItemText primary={item.text} />
               </StyledListItem>

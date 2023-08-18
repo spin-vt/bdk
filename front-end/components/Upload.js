@@ -19,8 +19,7 @@ import Swal from "sweetalert2";
 import { Typography } from "@mui/material";
 import { useRouter } from "next/router";
 import { backend_url } from "../utils/settings";
-import { styled } from '@mui/material/styles';
-
+import { styled } from "@mui/material/styles";
 
 const StyledFormControl = styled(FormControl)({
   margin: "4px",
@@ -38,13 +37,10 @@ const StyledSelect = styled(Select)({
   minWidth: "150px",
 });
 
-
 const StyledTypography = styled(Typography)({
   marginTop: "20px",
   marginBottom: "20px",
 });
-
-
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
@@ -66,40 +62,39 @@ const tech_types = {
   Other: 0,
 };
 
-function MapKey() {
-  return (
-    <div style={{ display: "flex", alignItems: "center" }}>
-      <span
-        style={{
-          height: "10px",
-          width: "10px",
-          backgroundColor: "Green",
-          display: "inline-block",
-          marginRight: "5px",
-        }}
-      ></span>
-      <span style={{ marginRight: "15px" }}>Served</span>
-      <span
-        style={{
-          height: "10px",
-          width: "10px",
-          backgroundColor: "Red",
-          display: "inline-block",
-          marginRight: "5px",
-        }}
-      ></span>
-      <span>Unserved</span>
-    </div>
-  );
-}
+// function MapKey() {
+//   return (
+//     <div style={{ display: "flex", alignItems: "center" }}>
+//       <span
+//         style={{
+//           height: "10px",
+//           width: "10px",
+//           backgroundColor: "Green",
+//           display: "inline-block",
+//           marginRight: "5px",
+//         }}
+//       ></span>
+//       <span style={{ marginRight: "15px" }}>Served</span>
+//       <span
+//         style={{
+//           height: "10px",
+//           width: "10px",
+//           backgroundColor: "Red",
+//           display: "inline-block",
+//           marginRight: "5px",
+//         }}
+//       ></span>
+//       <span>Unserved</span>
+//     </div>
+//   );
+// }
 
-export default function Upload({ fetchMarkers }) {
+export default function Upload({ generateChallenge }) {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [selectedFiles, setSelectedFiles] = React.useState([]
-  );
+  const [selectedFiles, setSelectedFiles] = React.useState([]);
   const [downloadSpeed, setDownloadSpeed] = React.useState("");
   const [networkType, setNetworkType] = React.useState("");
   const [uploadSpeed, setUploadSpeed] = React.useState("");
@@ -115,7 +110,69 @@ export default function Upload({ fetchMarkers }) {
   const loadingTimeInMs = 3.5 * 60 * 1000;
   const router = useRouter();
 
-  const handleExportClick = (event) => {
+  const handleChallengeClick = (event) => {
+    event.preventDefault();
+
+    const formData = new FormData();
+
+    storage2.forEach((file) => {
+      const fileObj = file[0];
+      const newFile = file[1];
+
+      formData.append("fileData", JSON.stringify(newFile));
+      formData.append("file", fileObj);
+    });
+
+    setIsLoading(true);
+
+    fetch(`${backend_url}/compute-challenge`, {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    })
+      .then((response) => {
+        if (response.status === 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Oops...",
+            text: "Session expired, please log in again!",
+          });
+          // Redirect to login page
+          router.push("/login");
+          // setIsLoading(false);
+          return;
+        } else if (response.status === 200) {
+          return response.json();
+        }
+      })
+      // .then((data) => {
+      //   if (data) {
+      //     const intervalId = setInterval(() => {
+      //       console.log(data.task_id);
+      //       fetch(`${backend_url}/status/${data.task_id}`)
+      //         .then((response) => response.json())
+      //         .then((status) => {
+      //           if (status.state !== "PENDING") {
+      //             clearInterval(intervalId);
+      //             setExportSuccess(true);
+      //             setIsDataReady(true);
+      //             setIsLoading(false);
+      //             setTimeout(() => {
+      //               setIsDataReady(false);
+      //               router.reload();
+      //             }, 5000);
+      //           }
+      //         });
+      //     }, 5000);
+      //   }
+      // })
+      .catch((error) => {
+        console.error("Error:", error);
+        // setIsLoading(false);
+      });
+  };
+
+  const handleFilingClick = (event) => {
     event.preventDefault();
 
     const formData = new FormData();
@@ -146,8 +203,7 @@ export default function Upload({ fetchMarkers }) {
           router.push("/login");
           setIsLoading(false);
           return;
-        }
-        else if (response.status === 200) {
+        } else if (response.status === 200) {
           return response.json();
         }
       })
@@ -222,7 +278,7 @@ export default function Upload({ fetchMarkers }) {
   const handleClick = () => {
     console.info(`You clicked ${options[selectedIndex]}`);
     anchorRef.current.click();
-    console.log(storage.length)
+    console.log(storage.length);
   };
 
   const handleMenuItemClick = (event, index) => {
@@ -317,7 +373,7 @@ export default function Upload({ fetchMarkers }) {
 
   return (
     <React.Fragment>
-      <div style={{ position: 'fixed', zIndex: 10000 }}>
+      <div style={{ position: "fixed", zIndex: 10000 }}>
         {(isLoading || isDataReady) && (
           <LoadingEffect
             isLoading={isLoading}
@@ -335,10 +391,6 @@ export default function Upload({ fetchMarkers }) {
           position: "relative",
         }}
       >
-        <StyledTypography component="h1" variant="h5">
-          Upload Network Files Below:
-        </StyledTypography>
-
         <ButtonGroup
           variant="contained"
           ref={buttonGroupRef}
@@ -479,10 +531,19 @@ export default function Upload({ fetchMarkers }) {
             checkboxSelection
           />
         </Box>
-        <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-          <ExportButton onClick={handleExportClick} />
-          <MapKey />
-        </Box>
+        {!generateChallenge && (
+          <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
+            <ExportButton onClick={handleFilingClick} />
+          </Box>
+        )}
+        {generateChallenge && (
+          <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
+            <ExportButton
+              onClick={handleChallengeClick}
+              challenge={generateChallenge}
+            />
+          </Box>
+        )}
       </Box>
     </React.Fragment>
   );

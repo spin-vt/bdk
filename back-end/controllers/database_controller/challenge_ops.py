@@ -95,7 +95,6 @@ def export():
     availability_csv.to_csv(output, index=False, encoding='utf-8')
     return output
 
-
 def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_user, db_password, db_host):
     # Check if the paths exist
     for path in [geojson_path, kml_path, csv1_path, csv2_path]:
@@ -105,9 +104,7 @@ def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_
     # 1. Create and set up PostGIS database
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
-    
     cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
-    conn.commit()
 
     # Function to run ogr2ogr and check its status
     def run_ogr2ogr(filepath, table_name):
@@ -116,37 +113,76 @@ def import_to_postgis(geojson_path, kml_path, csv1_path, csv2_path, db_name, db_
         if ret != 0:
             raise RuntimeError(f"Failed to execute command {cmd} with return code {ret}")
 
-    # 2. Import GeoJSON
+    # 2. Import GeoJSON and other files
     run_ogr2ogr(geojson_path, "buildings")
-
-    # 3. Import KML
     run_ogr2ogr(kml_path, "network")
-    
-    # 4. Import CSVs
     run_ogr2ogr(csv1_path, "fcc_data1")
     run_ogr2ogr(csv2_path, "fcc_data2")
 
-    # 5. Create geometry columns for CSVs
+    # 3. Add geometry columns and spatial indexes
     sql_commands = [
         "ALTER TABLE fcc_data1 ADD COLUMN geom geometry(Point, 4326);",
-        "UPDATE fcc_data1 SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);",
+        "UPDATE fcc_data1 SET geom = ST_SetSRID(ST_MakePoint(CAST(longitude AS float), CAST(latitude AS float)), 4326);",
+        "CREATE INDEX idx_fcc_data1_geom ON fcc_data1 USING GIST (geom);",
+        
         "ALTER TABLE fcc_data2 ADD COLUMN geom geometry(Point, 4326);",
-        "UPDATE fcc_data2 SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326);"
+        "UPDATE fcc_data2 SET geom = ST_SetSRID(ST_MakePoint(CAST(longitude AS float), CAST(latitude AS float)), 4326);",
+        "CREATE INDEX idx_fcc_data2_geom ON fcc_data2 USING GIST (geom);",
+
+        "CREATE INDEX idx_buildings_geom ON buildings USING GIST (wkb_geometry);",
+        "CREATE INDEX idx_network_geom ON network USING GIST (wkb_geometry);"
     ]
 
-    # Check if table exists before altering it
-    def table_exists(table_name):
-        cur.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name='{table_name}');")
-        return cur.fetchone()[0]
-
     for command in sql_commands:
-        table_name = command.split(" ")[2]  # Extracting table name from command
-        if table_exists(table_name):
-            cur.execute(command)
-            conn.commit()
-        else:
-            raise RuntimeError(f"Table {table_name} does not exist in the database.")
+        cur.execute(command)
 
+    conn.commit()
     cur.close()
     conn.close()
+
     print("Data imported successfully!")
+    compute_remaining_buildings_near_network(50)
+    print("Challenge locations computed!")
+
+def compute_remaining_buildings_near_network(proximity_distance_meters):
+    # Connect to PostGIS database
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+
+    # Vacuum and analyze the tables for optimization
+    cur.execute("VACUUM ANALYZE buildings;")
+    cur.execute("VACUUM ANALYZE network;")
+    cur.execute("VACUUM ANALYZE fcc_data1;")
+    cur.execute("VACUUM ANALYZE fcc_data2;")
+    conn.commit()
+
+    # Step 1: Identify buildings not in fcc_data1 or fcc_data2
+    sql_not_in_fcc = """
+    CREATE TEMP TABLE temp_buildings AS 
+    SELECT b.*
+    FROM buildings b
+    LEFT JOIN fcc_data1 f1 ON ST_DWithin(b.wkb_geometry, f1.geom, 0.0001) 
+    LEFT JOIN fcc_data2 f2 ON ST_DWithin(b.wkb_geometry, f2.geom, 0.0001)
+    WHERE f1.ogc_fid IS NULL AND f2.ogc_fid IS NULL;
+    """
+
+    # Step 2: Identify the buildings from the above set that are within a specified proximity of the network
+    sql_near_network = f"""
+    CREATE TABLE buildings_near_network AS 
+    SELECT tb.*
+    FROM temp_buildings tb, network n
+    WHERE ST_DWithin(tb.wkb_geometry, n.wkb_geometry, {proximity_distance_meters})
+    GROUP BY tb.id; 
+    """
+
+    # Execute commands
+    cur.execute(sql_not_in_fcc)
+    cur.execute(sql_near_network)
+
+    # Commit and close
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    print("Computation completed successfully!")
+
