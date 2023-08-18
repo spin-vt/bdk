@@ -230,7 +230,7 @@ function Editmap() {
       for (let property in featureProperties) {
         content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
       }
-      content += '<button id="setUnserved">Set to Unserve</button>';
+      content += '<button id="setUnserved">Change to Unserve</button>';
 
       if (currentPopup) {
         currentPopup.remove();
