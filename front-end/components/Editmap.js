@@ -23,6 +23,7 @@ const StyledBaseMapIconButton = styled(IconButton)({
   top: "30%",
   position: "absolute",
   left: "10px",
+  marginTop: '40px',
   zIndex: 1000,
   backgroundColor: "rgba(255, 255, 255, 1)",
   color: "#333",
