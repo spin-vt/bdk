@@ -1,0 +1,10 @@
+FROM nginx:latest
+
+# Install expect
+RUN apt-get update && apt-get install -y expect
+
+# Copy over the startup script
+COPY start-nginx.sh /start-nginx.sh
+RUN chmod +x /start-nginx.sh
+
+CMD ["/start-nginx.sh"]
