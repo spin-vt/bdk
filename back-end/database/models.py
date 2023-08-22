@@ -10,6 +10,8 @@ class user(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True)
     password = Column(String(256))
+    provider_id = Column(Integer)
+    brand_name = Column(String(50))
     folders = relationship('folder', back_populates='user', cascade='all, delete')
 
 class folder(Base):

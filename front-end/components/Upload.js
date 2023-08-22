@@ -533,7 +533,7 @@ export default function Upload({ generateChallenge }) {
         </Box>
         {!generateChallenge && (
           <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-            <ExportButton onClick={handleFilingClick} />
+            <ExportButton onClick={handleFilingClick} challenge={generateChallenge}/>
           </Box>
         )}
         {generateChallenge && (

@@ -67,7 +67,7 @@ const HomePage = () => {
               <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
                 Upload Network Files Below:
               </StyledTypography>
-              <Upload />
+              <Upload generateChallenge={false}/> {/*Set it to always false for now to upload files for filling*/}
             </Drawer>
           </SelectedPointsProvider>
         </SelectedLocationProvider>

@@ -1,32 +1,18 @@
 import { Box } from "@mui/material";
 import Button from "@mui/material/Button";
 
-export default function ExportButton({ onClick, filing, challenge }) {
+export default function ExportButton({ onClick, challenge }) {
   return (
     <Box>
-      {filing && (
-        <div>
-          <Button
-            variant="contained"
-            onClick={onClick}
-            style={{ marginRight: "10px" }}
-          >
-            Submit
-          </Button>
-        </div>
-      )}
-
-      {challenge && (
-        <div>
-          <Button
-            variant="contained"
-            onClick={onClick}
-            style={{ marginRight: "10px" }}
-          >
-            Compute Challenges
-          </Button>
-        </div>
-      )}
+      <div>
+        <Button
+          variant="contained"
+          onClick={onClick}
+          style={{ marginRight: "10px" }}
+        >
+          {challenge ? "Compute Challenges" : "Submit"}
+        </Button>
+      </div>
     </Box>
   );
 }

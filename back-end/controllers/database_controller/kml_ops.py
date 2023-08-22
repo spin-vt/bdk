@@ -202,9 +202,9 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
 
     return True
 
-def export(): 
-    PROVIDER_ID = 000 
-    BRAND_NAME = 'Test' 
+def export(providerid, brandname): 
+    PROVIDER_ID = providerid
+    BRAND_NAME = brandname
     LATENCY = 0 
     BUSINESS_CODE = 0
 
