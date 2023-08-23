@@ -118,9 +118,9 @@ function Searchbar() {
           setIsLoading(false);
         }, 0);
       } else {
-        const response = await fetch(
-          `${backend_url}/api/search?query=${nextValue}`
-        );
+        const response = await fetch(`${backend_url}/api/search?query=${nextValue}`, {
+          credentials: 'include'
+        });
         const data = await response.json();
         setTimeout(() => {
           setOptions(data);

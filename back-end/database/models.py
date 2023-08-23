@@ -40,7 +40,7 @@ class file(Base):
 
 class fabric_data(Base):
     __tablename__ = 'fabric_data'
-    location_id = Column(Integer, primary_key=True)
+    location_id = Column(Integer)
     address_primary = Column(String)
     city = Column(String)
     state = Column(String)

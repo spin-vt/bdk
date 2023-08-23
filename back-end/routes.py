@@ -154,10 +154,25 @@ def home():
 
 
 @app.route('/api/search', methods=['GET'])
+@jwt_required()
 def search_location():
     query = request.args.get('query').upper()
-    results_dict = fabric_ops.address_query(query)
-    return jsonify(results_dict)
+    try:
+        identity = get_jwt_identity()
+        session = Session()
+        try:
+            userVal = user_ops.get_user_with_id(identity['id'], session)
+            folderVal = folder_ops.get_folder(userVal.id, None, session)
+            results_dict = fabric_ops.address_query(folderVal.id, query, session)
+            return jsonify(results_dict)
+        except Exception as e:
+                session.rollback()
+                return {"error": str(e)}
+        finally:
+            session.close()
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+
 
 
 @app.route('/api/register', methods=['POST'])

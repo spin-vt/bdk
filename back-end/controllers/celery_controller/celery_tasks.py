@@ -40,7 +40,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             session.commit() #commit the change 
 
             file_data = json.loads(file_data_str)
-
+            
             #i don't think we need to do this here, fix later 
             downloadSpeed = file_data.get('downloadSpeed', '')
             uploadSpeed = file_data.get('uploadSpeed', '')
@@ -106,8 +106,10 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             uploadSpeed = file_data.get('uploadSpeed', '')
             techType = file_data.get('techType', '')
             networkType = file_data.get('networkType', '')
+            latency = file_data.get('latency', '')
+            category = file_data.get('categoryCode', '')
 
-            kml_ops.compute_lte(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, userid)
+            kml_ops.compute_lte(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, userid, latency, category)
         
         # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()

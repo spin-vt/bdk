@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, and_
 from utils.settings import DATABASE_URL
 from io import StringIO
 import psycopg2
@@ -7,6 +7,7 @@ from utils.facts import states
 from database.models import fabric_data, file
 from psycopg2.errors import UniqueViolation
 from threading import Lock
+from .file_ops import get_files_with_postfix
 
 db_lock = Lock()
 
@@ -62,85 +63,68 @@ def write_to_db(fileid):
     finally:
         connection.close()
 
-def address_query(query):
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
+def address_query(folderid, query, session):
+    all_fabric = get_files_with_postfix(folderid, '.csv', session)
+    all_kml = get_files_with_postfix(folderid, '.kml', session)
+    all_geojson = get_files_with_postfix(folderid, '.geojson', session)
+    all_files_ids = [file.id for file in all_fabric + all_kml + all_geojson]
     
     results = []
 
     if query:
         query_split = query.split()
 
-        if len(query_split) >= 3:
-            primary_address = " ".join(query_split[:-2]).upper()
-            city = query_split[-2].upper().strip()
-            state = query_split[-1].upper().strip()
+        primary_address_query = fabric_data.address_primary.ilike('%' + ' '.join(query_split[:-1]) + '%')
+        city_query = fabric_data.city.ilike(query_split[-1])
+        state_query = fabric_data.state.ilike(query_split[-1])
 
-            cursor.execute(
-                """
-                SELECT address_primary, city, state, zip_code, latitude, longitude
-                FROM "fabric_data"
-                WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s AND UPPER(state) = %s
-                LIMIT 1
-                """,
-                ('%' + primary_address + '%', city, state,)
+        if len(query_split) >= 3:
+            city_state_query = and_(
+                fabric_data.city.ilike(query_split[-2]),
+                fabric_data.state.ilike(query_split[-1])
             )
 
-            results.extend(cursor.fetchall())
+            results.extend(
+                session.query(fabric_data)
+                .filter(primary_address_query, city_state_query, fabric_data.file_id.in_(all_files_ids))
+                .limit(1)
+                .all()
+            )
 
         if len(query_split) >= 2:
-            primary_address = " ".join(query_split[:-1]).upper()
-            city_or_state = query_split[-1].upper().strip()
-
-            if city_or_state in states:  
-                cursor.execute(
-                    """
-                    SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM "fabric_data"
-                    WHERE UPPER(address_primary) LIKE %s AND UPPER(state) = %s
-                    LIMIT 3
-                    """,
-                    ('%' + primary_address + '%', city_or_state,)
+            if query_split[-1].upper() in states:
+                results.extend(
+                    session.query(fabric_data)
+                    .filter(primary_address_query, state_query, fabric_data.file_id.in_(all_files_ids))
+                    .limit(3)
+                    .all()
+                )
+            else:
+                results.extend(
+                    session.query(fabric_data)
+                    .filter(primary_address_query, city_query, fabric_data.file_id.in_(all_files_ids))
+                    .limit(3)
+                    .all()
                 )
 
-            else:  
-                cursor.execute(
-                    """
-                    SELECT address_primary, city, state, zip_code, latitude, longitude
-                    FROM "fabric_data" 
-                    WHERE UPPER(address_primary) LIKE %s AND UPPER(city) = %s
-                    LIMIT 3
-                    """,
-                    ('%' + primary_address + '%', city_or_state,)
-                )
-
-            results.extend(cursor.fetchall())
-
-        cursor.execute(
-            """
-            SELECT address_primary, city, state, zip_code, latitude, longitude
-            FROM "fabric_data" 
-            WHERE UPPER(address_primary) LIKE %s 
-            LIMIT 5
-            """,
-            ('%' + query.upper() + '%',)
+        simple_query = fabric_data.address_primary.ilike('%' + query + '%')
+        results.extend(
+            session.query(fabric_data)
+            .filter(simple_query, fabric_data.file_id.in_(all_files_ids))
+            .limit(5)
+            .all()
         )
-
-        results.extend(cursor.fetchall())
 
     results_dict = [
         {
-            "address": result[0],
-            "city": result[1],
-            "state": result[2],
-            "zipcode": result[3],
-            "latitude": result[4],
-            "longitude": result[5]
+            "address": result.address_primary,
+            "city": result.city,
+            "state": result.state,
+            "zipcode": result.zip_code,
+            "latitude": result.latitude,
+            "longitude": result.longitude
         } for result in results
     ]
-
-    cursor.close()
-    conn.close()
 
     return results_dict
 

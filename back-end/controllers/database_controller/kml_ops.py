@@ -210,8 +210,6 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
 def export(folderid, providerid, brandname, boollte, session): 
     PROVIDER_ID = providerid
     BRAND_NAME = brandname
-    LATENCY = 0 
-    BUSINESS_CODE = 0
 
     if boollte:
         all_files = get_files_with_postfix(folderid, '.geojson', session)
@@ -230,8 +228,8 @@ def export(folderid, providerid, brandname, boollte, session):
     availability_csv['technology'] = [row.techType for row in result]  # Adjusted
     availability_csv['max_advertised_download_speed'] = [row.maxDownloadSpeed for row in result]  # Adjusted
     availability_csv['max_advertised_upload_speed'] = [row.maxUploadSpeed for row in result]  # Adjusted
-    availability_csv['low_latency'] = LATENCY
-    availability_csv['business_residential_code'] = BUSINESS_CODE
+    availability_csv['low_latency'] = [row.latency for row in result]
+    availability_csv['business_residential_code'] = [row.category for row in result]
 
     availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
                                         'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
@@ -240,7 +238,7 @@ def export(folderid, providerid, brandname, boollte, session):
     availability_csv.to_csv(output, index=False, encoding='utf-8')
     return output
 
-def compute_lte(folderid, geojsonid, download, upload, tech, userid):
+def compute_lte(folderid, geojsonid, download, upload, tech, userid, latency, category):
     kml_files = get_files_with_postfix(folderid, '.kml')
     kml_file_ids = [file.id for file in kml_files]
 
@@ -273,6 +271,8 @@ def compute_lte(folderid, geojsonid, download, upload, tech, userid):
             point.maxUploadSpeed = upload
             point.techType = tech
             point.coveredLocations = geojson_file.name
+            point.latency = latency
+            point.category = category
 
     session.commit()
     session.close()
