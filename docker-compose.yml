@@ -11,7 +11,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:latest
+    image: postgres:latest
     volumes:
       - ./postgres-init-scripts:/docker-entrypoint-initdb.d/
     environment:

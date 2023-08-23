@@ -102,6 +102,8 @@ class kml_data(Base):
     address_primary = Column(String)
     longitude = Column(Float)
     latitude = Column(Float)
+    latency = Column(Integer)
+    category = Column(String)
 
 class mbtiles(Base):
     __tablename__ = 'mbtiles'
