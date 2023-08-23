@@ -169,7 +169,7 @@ const MyFile = () => {
         };
         if (file.name.endsWith(".csv")) {
           setFabricFiles((prevFiles) => [...prevFiles, formattedFile]);
-        } else if (file.name.endsWith(".kml")) {
+        } else if (file.name.endsWith(".kml") || file.name.endsWith(".geojson")) {
           setNetworkDataFiles((prevFiles) => [...prevFiles, formattedFile]);
           setLayers((prevLayers) => ({
             ...prevLayers,

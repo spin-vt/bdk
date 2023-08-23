@@ -16,13 +16,15 @@ def process_data(self, file_names, file_data_list, userid, folderid):
 
         csv_file_data = []
         kml_file_data = []
-
+        geojson_file_data = []
         # Separate file data into csv and kml
         for file_name, file_data_str in zip(file_names, file_data_list):
             if file_name.endswith('.csv'):
                 csv_file_data.append((file_name, file_data_str))
-            elif file_name.endswith('.kml'):
+            elif (file_name.endswith('.kml')):
                 kml_file_data.append((file_name, file_data_str))
+            elif file_name.endswith('.geojson'):
+                geojson_file_data.append((file_name, file_data_str))
 
         for file_name, file_data_str in csv_file_data:
             # Check if file name already exists in the database for this user
@@ -38,7 +40,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             session.commit() #commit the change 
 
             file_data = json.loads(file_data_str)
-
+            
             #i don't think we need to do this here, fix later 
             downloadSpeed = file_data.get('downloadSpeed', '')
             uploadSpeed = file_data.get('uploadSpeed', '')
@@ -84,11 +86,39 @@ def process_data(self, file_names, file_data_list, userid, folderid):
 
             task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
             tasks.append(task)
+
+        for file_name, file_data_str in geojson_file_data:
+
+            existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
+            print(existing_file)
+            # If file name exists, skip to the next iteration
+            if existing_file and existing_file.computed:
+                print("skip")
+                continue
+            
+            # names.append(file_name)
+            existing_file.computed = True 
+            session.commit() #commit the change 
+
+            file_data = json.loads(file_data_str)
+
+            downloadSpeed = file_data.get('downloadSpeed', '')
+            uploadSpeed = file_data.get('uploadSpeed', '')
+            techType = file_data.get('techType', '')
+            networkType = file_data.get('networkType', '')
+            latency = file_data.get('latency', '')
+            category = file_data.get('categoryCode', '')
+
+            kml_ops.compute_lte(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, userid, latency, category)
         
         # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()
         for kml_f in all_kmls:
             geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+        
+        all_geojsons = session.query(file).filter(file.folder_id == folderid, file.name.endswith('geojson')).all()
+        for geojson_f in all_geojsons:
+            geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
         
         mbtiles_ops.delete_mbtiles(folderid, session)
         print("finished kml processing, now creating tiles")
@@ -159,6 +189,10 @@ def deleteFiles(self, fileid, userid, session):
         all_kmls = file_ops.get_files_with_postfix(folderid, '.kml', session)
         for kml_f in all_kmls:
             geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+
+        all_geojsons = file_ops.get_files_with_postfix(folderid, '.geojson', session)
+        for geojson_f in all_geojsons:
+            geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
         vt_ops.create_tiles(geojson_array, userid, folderid, session)
         return jsonify({'message': 'mbtiles successfully deleted'}), 200
     except Exception as e:

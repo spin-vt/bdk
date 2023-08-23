@@ -388,7 +388,7 @@ to support why this location is being challenged. This can be done in a variety 
         })
         .then((data) => {
           const newLayers = data.reduce((layers, file) => {
-            if (file.name.endsWith(".kml")) {
+            if (file.name.endsWith(".kml") || file.name.endsWith(".geojson")) {
               return {
                 ...layers,
                 [file.name]: [file.type, true], // Set the visibility of the layer to true
