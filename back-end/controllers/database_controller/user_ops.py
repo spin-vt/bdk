@@ -45,7 +45,7 @@ def get_user_with_username(user_name, session=None):
         if owns_session:
             session.close()
 
-def create_user_in_db(username, password):
+def create_user_in_db(username, password, providerid, brandname):
     session = Session()
     try:
         existing_user = get_user_with_username(username, session)
@@ -53,7 +53,7 @@ def create_user_in_db(username, password):
             return {"error": "Username already exists"}
 
         hashed_password = generate_password_hash(password, method='sha256')
-        new_user = user(username=username, password=hashed_password)
+        new_user = user(username=username, password=hashed_password, provider_id=providerid, brand_name=brandname)
         session.add(new_user)
     
         session.commit()

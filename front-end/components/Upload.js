@@ -62,32 +62,16 @@ const tech_types = {
   Other: 0,
 };
 
-// function MapKey() {
-//   return (
-//     <div style={{ display: "flex", alignItems: "center" }}>
-//       <span
-//         style={{
-//           height: "10px",
-//           width: "10px",
-//           backgroundColor: "Green",
-//           display: "inline-block",
-//           marginRight: "5px",
-//         }}
-//       ></span>
-//       <span style={{ marginRight: "15px" }}>Served</span>
-//       <span
-//         style={{
-//           height: "10px",
-//           width: "10px",
-//           backgroundColor: "Red",
-//           display: "inline-block",
-//           marginRight: "5px",
-//         }}
-//       ></span>
-//       <span>Unserved</span>
-//     </div>
-//   );
-// }
+const latency_type = {
+  "<= 100 ms": 1, 
+  "> 100 ms": 0,
+}
+
+const bus_codes = {
+  "Business": "B", 
+  "Residential": "R", 
+  "Both": "X"
+}
 
 export default function Upload({ generateChallenge }) {
   const [open, setOpen] = React.useState(false);
@@ -99,6 +83,8 @@ export default function Upload({ generateChallenge }) {
   const [networkType, setNetworkType] = React.useState("");
   const [uploadSpeed, setUploadSpeed] = React.useState("");
   const [techType, setTechType] = React.useState("");
+  const [latency, setLatency] = React.useState("");
+  const [categoryCode, setCategoryCode] = React.useState("");
   const idCounterRef = React.useRef(1); // Counter for generating unique IDs
   const [exportSuccess, setExportSuccess] = React.useState(
     localStorage.getItem("exportSuccess") === "true" || false
@@ -256,6 +242,8 @@ export default function Upload({ generateChallenge }) {
       uploadSpeed: options[selectedIndex] === "Network" ? uploadSpeed : "",
       techType: options[selectedIndex] === "Network" ? techType : "",
       networkType: options[selectedIndex] === "Network" ? networkType : "",
+      latency: options[selectedIndex] === "Network" ? latency : "",
+      categoryCode: options[selectedIndex] === "Network" ? categoryCode : "",
     }));
 
     const newFile = {
@@ -266,6 +254,8 @@ export default function Upload({ generateChallenge }) {
       uploadSpeed: options[selectedIndex] === "Network" ? uploadSpeed : "",
       techType: options[selectedIndex] === "Network" ? techType : "",
       networkType: options[selectedIndex] === "Network" ? networkType : "",
+      latency: options[selectedIndex] === "Network" ? latency : "",
+      categoryCode: options[selectedIndex] === "Network" ? categoryCode : "",
     };
     storage2.push([event.target.files[0], newFile]);
     storage.push([event.target.files[0], newFiles]);
@@ -348,6 +338,16 @@ export default function Upload({ generateChallenge }) {
     {
       field: "networkType",
       headerName: "Network Type",
+      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+    },
+    {
+      field: "latency",
+      headerName: "Latency",
+      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+    },
+    {
+      field: "categoryCode",
+      headerName: "Category",
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
     },
     {
@@ -448,7 +448,7 @@ export default function Upload({ generateChallenge }) {
           <Box sx={{ marginTop: "1rem" }}>
             <Grid container spacing={1}>
               <Grid item xs={12} sm={2}>
-                <label htmlFor="downloadSpeed">Download Speed (MBps): </label>
+                <label style={{display: 'block'}} htmlFor="downloadSpeed">Download Speed: </label>
                 <input
                   type="text"
                   id="downloadSpeed"
@@ -457,7 +457,7 @@ export default function Upload({ generateChallenge }) {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label htmlFor="uploadSpeed">Upload Speed (MBps): </label>
+                <label style={{display: 'block'}} htmlFor="uploadSpeed">Upload Speed: </label>
                 <input
                   type="text"
                   id="uploadSpeed"
@@ -466,7 +466,7 @@ export default function Upload({ generateChallenge }) {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label htmlFor="techType">Technology Type: </label>
+                <label style={{display: 'block'}} htmlFor="techType">Technology Type: </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -494,7 +494,7 @@ export default function Upload({ generateChallenge }) {
                 </StyledFormControl>
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label htmlFor="wiredWireless">Network Type: </label>
+                <label style={{display: 'block'}} htmlFor="wiredWireless">Network Type: </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -509,6 +509,61 @@ export default function Upload({ generateChallenge }) {
                         </MenuItem>
                       )
                     )}
+                  </StyledSelect>
+                </StyledFormControl>
+              </Grid>              <Grid item xs={12} sm={2}>
+                <label style={{display: 'block'}} htmlFor="techType">Latency: </label>
+                <StyledFormControl variant="outlined">
+                  <StyledSelect
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={latency}
+                    onChange={(e) => setLatency(e.target.value)}
+                  >
+                    {Object.entries(latency_type).map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        <div
+                          style={{
+                            maxWidth: techType === value ? "100px" : "none",
+                            textOverflow:
+                              techType === value ? "ellipsis" : "initial",
+                            overflow: techType === value ? "hidden" : "initial",
+                            whiteSpace:
+                              techType === value ? "nowrap" : "initial",
+                          }}
+                        >
+                          {key}
+                        </div>
+                      </MenuItem>
+                    ))}
+                  </StyledSelect>
+                </StyledFormControl>
+              </Grid>
+              <Grid item xs={12} sm={2}>
+                <label style={{display: 'block'}} htmlFor="techType">Category: </label>
+                <StyledFormControl variant="outlined">
+                  <StyledSelect
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={categoryCode}
+                    onChange={(e) => setCategoryCode(e.target.value)}
+                  >
+                    {Object.entries(bus_codes).map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        <div
+                          style={{
+                            maxWidth: techType === value ? "100px" : "none",
+                            textOverflow:
+                              techType === value ? "ellipsis" : "initial",
+                            overflow: techType === value ? "hidden" : "initial",
+                            whiteSpace:
+                              techType === value ? "nowrap" : "initial",
+                          }}
+                        >
+                          {key}
+                        </div>
+                      </MenuItem>
+                    ))}
                   </StyledSelect>
                 </StyledFormControl>
               </Grid>
@@ -533,7 +588,7 @@ export default function Upload({ generateChallenge }) {
         </Box>
         {!generateChallenge && (
           <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-            <ExportButton onClick={handleFilingClick} />
+            <ExportButton onClick={handleFilingClick} challenge={generateChallenge}/>
           </Box>
         )}
         {generateChallenge && (

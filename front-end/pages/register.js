@@ -30,6 +30,8 @@ const Register = () => {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [providerId, setProviderId] = useState('');
+  const [brandName, setBrandName] = useState('');  
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -40,8 +42,8 @@ const Register = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
-        credentials: 'include', // Add this line
+        body: JSON.stringify({ username, password, providerId, brandName }),  
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -96,6 +98,30 @@ const Register = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               key="password-input"
+            />
+            <TextField
+              variant="outlined"
+              margin="normal"
+              required
+              fullWidth
+              id="providerId"
+              label="Provider ID"
+              name="providerId"
+              value={providerId}
+              onChange={(e) => setProviderId(e.target.value)}
+              key="providerId-input"
+            />
+            <TextField
+              variant="outlined"
+              margin="normal"
+              required
+              fullWidth
+              id="brandName"
+              label="Brand Name"
+              name="brandName"
+              value={brandName}
+              onChange={(e) => setBrandName(e.target.value)}
+              key="brandName-input"
             />
             <RegisterButtonContainer>
               <Button

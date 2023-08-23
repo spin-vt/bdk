@@ -164,8 +164,10 @@ def register():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    providerid = data.get('providerId')
+    brandname = data.get('brandName')
 
-    response = user_ops.create_user_in_db(username, password)
+    response = user_ops.create_user_in_db(username, password, providerid, brandname)
 
     if 'error' in response:
         return jsonify({'status': 'error', 'message': response["error"]}), 400
@@ -214,16 +216,23 @@ def get_user_info():
 
 
 @app.route('/exportFiling', methods=['GET'])
+@jwt_required()
 def exportFiling():
-    csv_output = kml_ops.export()
-    if csv_output:
-        csv_output.seek(0)  # rewind the stream back to the start
-        current_time = datetime.now()
-        formatted_time = current_time.strftime('%Y_%B')
-        download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
-        return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
-    else:
-        return jsonify({'Status': 'Failure'})
+    try:
+        identity = get_jwt_identity()
+
+        userVal = user_ops.get_user_with_id(identity['id'])
+        csv_output = kml_ops.export(userVal.provider_id, userVal.brand_name)
+        if csv_output:
+            csv_output.seek(0)  # rewind the stream back to the start
+            current_time = datetime.now()
+            formatted_time = current_time.strftime('%Y_%B')
+            download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
+            return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
+        else:
+            return jsonify({'Status': 'Failure'})
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
     
 @app.route('/exportChallenge', methods=['GET'])
 def exportChallenge():

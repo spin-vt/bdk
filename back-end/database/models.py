@@ -10,6 +10,8 @@ class user(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True)
     password = Column(String(256))
+    provider_id = Column(Integer)
+    brand_name = Column(String(50))
     folders = relationship('folder', back_populates='user', cascade='all, delete')
 
 class folder(Base):
@@ -38,7 +40,7 @@ class file(Base):
 
 class fabric_data(Base):
     __tablename__ = 'fabric_data'
-    location_id = Column(Integer)
+    location_id = Column(Integer, primary_key=True)
     address_primary = Column(String)
     city = Column(String)
     state = Column(String)
@@ -54,6 +56,7 @@ class fabric_data(Base):
     h3_9 = Column(String)
     latitude = Column(Float)
     longitude = Column(Float)
+    fcc_rel = Column(String)
     file_id = Column(Integer, ForeignKey('file.id', ondelete='CASCADE'))
     id = Column(Integer, primary_key=True, autoincrement=True)  # Unique primary key
     file = relationship('file', back_populates='fabric_data')
@@ -78,6 +81,7 @@ class fabric_data_temp(Base):
     h3_9 = Column(String)
     latitude = Column(Float)
     longitude = Column(Float)
+    fcc_rel = Column(String)
 
 class kml_data(Base):
     __tablename__ = 'kml_data'
@@ -98,6 +102,8 @@ class kml_data(Base):
     address_primary = Column(String)
     longitude = Column(Float)
     latitude = Column(Float)
+    latency = Column(Integer)
+    category = Column(String)
 
 class mbtiles(Base):
     __tablename__ = 'mbtiles'

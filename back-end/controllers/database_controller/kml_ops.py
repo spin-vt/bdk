@@ -144,7 +144,7 @@ def get_kml_data(userid, folderid, session=None):
 
         return data
 
-def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
+def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category):
     batch = [] 
     session = Session()
 
@@ -174,6 +174,8 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
                 address_primary = row.address_primary,
                 longitude = row.longitude,
                 latitude = row.latitude,
+                latency = latency, 
+                category = category
             )
             batch.append(newData)
 
@@ -202,18 +204,16 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
 
     return True
 
-def export(): 
-    PROVIDER_ID = 000 
-    BRAND_NAME = 'Test' 
-    LATENCY = 0 
-    BUSINESS_CODE = 0
+def export(providerid, brandname): 
+    PROVIDER_ID = providerid
+    BRAND_NAME = brandname
 
     availability_csv = pandas.DataFrame()
 
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
-    cursor.execute('SELECT location_id, "maxDownloadSpeed", "maxUploadSpeed", "techType" FROM kml_data WHERE served = true')
+    cursor.execute('SELECT location_id, "maxDownloadSpeed", "maxUploadSpeed", "techType", "latency", "category" FROM kml_data WHERE served = true')
     result = cursor.fetchall()
 
     cursor.close()
@@ -225,8 +225,8 @@ def export():
     availability_csv['technology'] = [row[3] for row in result]
     availability_csv['max_advertised_download_speed'] = [row[1] for row in result]
     availability_csv['max_advertised_upload_speed'] = [row[2] for row in result]
-    availability_csv['low_latency'] = LATENCY
-    availability_csv['business_residential_code'] = BUSINESS_CODE
+    availability_csv['low_latency'] = [row[4] for row in result]
+    availability_csv['business_residential_code'] = [row[5] for row in result]
 
     availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
                                         'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
@@ -236,7 +236,7 @@ def export():
     return output
 
 #might need to add lte data in the future
-def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):
+def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
     
     fabric_files = get_files_with_postfix(folderid, '.csv')
     coverage_file = get_file_with_id(kmlid)
@@ -268,10 +268,10 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid)
+    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category)
     return res
 
-def compute_wired_locations(folderid, kmlid, download, upload, tech, userid):
+def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
     
 
     # Fetch Fabric file from database
@@ -322,15 +322,15 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid):
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid)
+    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category)
     return res 
 
-def add_network_data(folderid, kmlid ,download, upload, tech, type, userid):
+def add_network_data(folderid, kmlid ,download, upload, tech, type, userid, latency, category):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid)
+        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category)
     elif type == 1: 
-        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid)
+        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category)
     return res 
 
 
