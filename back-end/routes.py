@@ -12,7 +12,7 @@ from flask_jwt_extended import (
     get_jwt_identity,
     decode_token
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 import shortuuid
 from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
@@ -46,6 +46,7 @@ app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET').encode()
 app.config["JWT_TOKEN_LOCATION"] = [os.getenv('JWT_TOKEN_LOCATION')]
 app.config['JWT_ACCESS_COOKIE_NAME'] = os.getenv('JWT_ACCESS_COOKIE_NAME')
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = COOKIE_EXP_TIME
 jwt = JWTManager(app)
 
 
