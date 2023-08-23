@@ -20,8 +20,13 @@ RUN echo "Node version:" \
 
 # Install application packages
 COPY package*.json ./
-RUN npm install
+RUN npm install --only=production
 
+# Copy the rest of the application files
 COPY . .
 
-CMD ["npm", "run", "dev"]
+# Build the Next.js app for production
+RUN npm run build
+
+# Command to start the production server
+CMD ["npm", "run", "start"]

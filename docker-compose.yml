@@ -51,7 +51,7 @@ services:
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
-    command: gunicorn routes:app -b 0.0.0.0:5000 -w 4
+    command: gunicorn routes:app -b 0.0.0.0:5000 -w 4 --log-level debug --reload
     environment: 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
