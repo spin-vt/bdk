@@ -4,6 +4,9 @@ import sqlite3
 from controllers.database_controller.kml_ops import get_kml_data
 import json
 import subprocess
+import geopandas
+from shapely.geometry import shape
+from io import StringIO
 from psycopg2.extensions import adapt, register_adapter, AsIs
 from psycopg2 import Binary
 from psycopg2.extras import execute_values
@@ -68,6 +71,43 @@ def read_kml(fileid, session):
     update_file_type(fileid, network_type)
 
     return geojson_features
+
+def read_geojson(fileid, session):
+    file_record = get_file_with_id(fileid, session)
+
+    if not file_record:
+        raise ValueError(f"No file found with name {file_record.name}")
+
+    # Read the GeoJSON data using GeoPandas
+    geojson_data = geopandas.read_file(StringIO(file_record.data.decode()))
+
+    # Filter only polygons and linestrings
+    desired_geometries = geojson_data[geojson_data.geometry.geom_type.isin(['Polygon', 'LineString'])]
+
+    # Determine the network type
+    if 'Polygon' in desired_geometries.geometry.geom_type.tolist():
+        network_type = "wireless"
+    else:
+        network_type = "wired"
+
+    # Update the file type in the database
+    update_file_type(fileid, network_type)
+
+    # Convert the GeoDataFrame with desired geometries to a similar format as in read_kml
+    geojson_features = []
+    for _, row in desired_geometries.iterrows():
+        geojson_feature = {
+            "type": "Feature",
+            "geometry": shape(row['geometry']).__geo_interface__,
+            "properties": {
+                "feature_type": row['geometry'].geom_type,
+                'network_coverages': file_record.name,
+            }
+        }
+        geojson_features.append(geojson_feature)
+
+    return geojson_features
+
 
 
 def add_values_to_VT(mbtiles_file_path, folderid):

@@ -11,6 +11,7 @@ from utils.settings import DATABASE_URL
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix
+from zipfile import ZipFile
 
 
 db_lock = Lock()
@@ -26,6 +27,8 @@ def get_kml_data(userid, folderid, session=None):
         # Query the File records related to the folder_id
         fabric_files = get_files_with_postfix(folderid, ".csv", session)
         kml_files = get_files_with_postfix(folderid, ".kml", session)
+        geojson_files = get_files_with_postfix(folderid, ".geojson", session)
+        coverage_files = kml_files + geojson_files
 
         # Query all locations in fabric_data
         all_data = {}
@@ -52,7 +55,7 @@ def get_kml_data(userid, folderid, session=None):
                 'maxDownloadSpeed': -1
             }
 
-            for kml_file in kml_files:
+            for kml_file in coverage_files:
                 # Query all locations that are served
                 resultsServed = session.query(
                     kml_data.location_id, 
@@ -93,7 +96,7 @@ def get_kml_data(userid, folderid, session=None):
                 for key, value in default_data.items():
                     loc.setdefault(key, value)
         else:
-            for kml_file in kml_files:
+            for kml_file in coverage_files:
                 print(kml_file.name)
                 # Query all locations that are served
                 resultsServed = session.query(
@@ -202,29 +205,29 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
 
     return True
 
-def export(providerid, brandname): 
+def export(folderid, providerid, brandname, boollte, session): 
     PROVIDER_ID = providerid
     BRAND_NAME = brandname
     LATENCY = 0 
     BUSINESS_CODE = 0
 
+    if boollte:
+        all_files = get_files_with_postfix(folderid, '.geojson', session)
+    else:
+        all_files = get_files_with_postfix(folderid, '.kml', session)
+
+    all_file_ids = [file.id for file in all_files]
+
+    result = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids), kml_data.lte == boollte).all()
+
     availability_csv = pandas.DataFrame()
 
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    cursor.execute('SELECT location_id, "maxDownloadSpeed", "maxUploadSpeed", "techType" FROM kml_data WHERE served = true')
-    result = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-
-    availability_csv['location_id'] = [row[0] for row in result]
+    availability_csv['location_id'] = [row.location_id for row in result]  # Adjusted
     availability_csv['provider_id'] = PROVIDER_ID
     availability_csv['brand_name'] = BRAND_NAME
-    availability_csv['technology'] = [row[3] for row in result]
-    availability_csv['max_advertised_download_speed'] = [row[1] for row in result]
-    availability_csv['max_advertised_upload_speed'] = [row[2] for row in result]
+    availability_csv['technology'] = [row.techType for row in result]  # Adjusted
+    availability_csv['max_advertised_download_speed'] = [row.maxDownloadSpeed for row in result]  # Adjusted
+    availability_csv['max_advertised_upload_speed'] = [row.maxUploadSpeed for row in result]  # Adjusted
     availability_csv['low_latency'] = LATENCY
     availability_csv['business_residential_code'] = BUSINESS_CODE
 
@@ -234,6 +237,44 @@ def export(providerid, brandname):
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding='utf-8')
     return output
+
+def compute_lte(folderid, geojsonid, download, upload, tech, userid):
+    kml_files = get_files_with_postfix(folderid, '.kml')
+    kml_file_ids = [file.id for file in kml_files]
+
+    geojson_file = get_file_with_id(geojsonid)
+    geojson_content = BytesIO(geojson_file.data)
+
+    session = ScopedSession()
+    
+    # Load the required points from the kml_data table
+    kml_data_points = session.query(kml_data).filter(kml_data.file_id.in_(kml_file_ids), kml_data.wireless == True).all()
+    
+    # Convert those points to a GeoDataFrame
+    df = pandas.DataFrame([(point.id, point.longitude, point.latitude) for point in kml_data_points], columns=['id', 'longitude', 'latitude'])
+    gdf_points = geopandas.GeoDataFrame(df, crs="EPSG:4326", geometry=geopandas.points_from_xy(df.longitude, df.latitude))
+    
+    # Load geoJSON polygon data
+    lte_coverage = geopandas.read_file(geojson_content)
+    lte_coverage = lte_coverage.to_crs("EPSG:4326")
+    
+    # Perform a spatial join to determine which points are within the polygon
+    points_in_coverage = geopandas.sjoin(gdf_points, lte_coverage, predicate='within')
+    
+    # Update the lte column based on results
+    covered_ids = points_in_coverage['id'].to_list()
+    for point in kml_data_points:
+        if point.id in covered_ids:
+            point.lte = True
+            point.file_id = geojsonid
+            point.maxDownloadNetwork = download
+            point.maxUploadSpeed = upload
+            point.techType = tech
+            point.coveredLocations = geojson_file.name
+
+    session.commit()
+    session.close()
+
 
 #might need to add lte data in the future
 def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):

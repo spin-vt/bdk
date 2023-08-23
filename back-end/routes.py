@@ -1,4 +1,5 @@
-import logging, os, base64, uuid
+import logging, os, base64, uuid, io
+from zipfile import ZipFile
 from logging.handlers import RotatingFileHandler
 from logging import getLogger
 from werkzeug.security import check_password_hash
@@ -103,7 +104,7 @@ def submit_data():
                 data = f.read()
                 if (f.filename.endswith('.csv')):
                     file_ops.create_file(f.filename, data, folderVal.id, 'fabric', session=session)
-                elif (f.filename.endswith('.kml')):
+                elif (f.filename.endswith('.kml') or f.filename.endswith('.geojson')):
                     file_ops.create_file(f.filename, data, folderVal.id, None, session=session)
                 file_names.append(f.filename)
                 session.commit()
@@ -221,16 +222,38 @@ def exportFiling():
     try:
         identity = get_jwt_identity()
 
-        userVal = user_ops.get_user_with_id(identity['id'])
-        csv_output = kml_ops.export(userVal.provider_id, userVal.brand_name)
-        if csv_output:
-            csv_output.seek(0)  # rewind the stream back to the start
-            current_time = datetime.now()
-            formatted_time = current_time.strftime('%Y_%B')
-            download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
-            return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
-        else:
-            return jsonify({'Status': 'Failure'})
+        session = Session()
+        try:
+            userVal = user_ops.get_user_with_id(identity['id'], session)
+            folderVal = folder_ops.get_folder(userVal.id, None, session)
+            
+            csv_output_true = kml_ops.export(folderVal.id, userVal.provider_id, userVal.brand_name, True, session)
+            csv_output_false = kml_ops.export(folderVal.id, userVal.provider_id, userVal.brand_name, False, session)
+
+            if csv_output_true and csv_output_false:
+                current_time = datetime.now()
+                formatted_time = current_time.strftime('%Y_%B')
+                
+                memory_zip = io.BytesIO()
+
+                with ZipFile(memory_zip, 'a') as zipfile:
+                    csv_output_true.seek(0)
+                    zipfile.writestr(f"BDC_Report_LTE_True_{formatted_time}.csv", csv_output_true.getvalue())
+                    
+                    csv_output_false.seek(0)
+                    zipfile.writestr(f"BDC_Report_LTE_False_{formatted_time}.csv", csv_output_false.getvalue())
+
+                memory_zip.seek(0)
+                download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.zip'
+
+                return send_file(memory_zip, as_attachment=True, download_name=download_name, mimetype="application/zip")
+            else:
+                return jsonify({'Status': 'Failure'})
+        except Exception as e:
+            session.rollback()
+            return {"error": str(e)}
+        finally:
+            session.close()
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
     
