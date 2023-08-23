@@ -293,6 +293,7 @@ export default function Upload({ generateChallenge }) {
     for (let i = 0; i < storage.length; i++) {
       if (storage[i][1] === id) {
         storage.splice(i, 1);
+        storage2.splice(i, 1);
         // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
         break;
       }
