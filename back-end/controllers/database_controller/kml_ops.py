@@ -147,7 +147,7 @@ def get_kml_data(userid, folderid, session=None):
 
         return data
 
-def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
+def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category):
     batch = [] 
     session = Session()
 
@@ -177,6 +177,8 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid):
                 address_primary = row.address_primary,
                 longitude = row.longitude,
                 latitude = row.latitude,
+                latency = latency, 
+                category = category
             )
             batch.append(newData)
 
@@ -277,7 +279,7 @@ def compute_lte(folderid, geojsonid, download, upload, tech, userid):
 
 
 #might need to add lte data in the future
-def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):
+def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
     
     fabric_files = get_files_with_postfix(folderid, '.csv')
     coverage_file = get_file_with_id(kmlid)
@@ -309,10 +311,10 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid):
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid)
+    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category)
     return res
 
-def compute_wired_locations(folderid, kmlid, download, upload, tech, userid):
+def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
     
 
     # Fetch Fabric file from database
@@ -363,15 +365,15 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid):
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid)
+    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category)
     return res 
 
-def add_network_data(folderid, kmlid ,download, upload, tech, type, userid):
+def add_network_data(folderid, kmlid ,download, upload, tech, type, userid, latency, category):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid)
+        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category)
     elif type == 1: 
-        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid)
+        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category)
     return res 
 
 

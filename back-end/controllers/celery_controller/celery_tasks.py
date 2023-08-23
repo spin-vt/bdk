@@ -38,7 +38,16 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             # names.append(file_name)
             existing_file.computed = True 
             session.commit() #commit the change 
-            
+
+            file_data = json.loads(file_data_str)
+
+            #i don't think we need to do this here, fix later 
+            downloadSpeed = file_data.get('downloadSpeed', '')
+            uploadSpeed = file_data.get('uploadSpeed', '')
+            techType = file_data.get('techType', '')
+            networkType = file_data.get('networkType', '')
+            latency = file_data.get('latency', '')
+            categoryCode = file_data.get('categoryCode', '')
             
             fabricid = existing_file.id
 
@@ -65,7 +74,9 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             uploadSpeed = file_data.get('uploadSpeed', '')
             techType = file_data.get('techType', '')
             networkType = file_data.get('networkType', '')
-
+            latency = file_data.get('latency', '')
+            category = file_data.get('categoryCode', '')
+            
             task_id = str(uuid.uuid4())
 
             if networkType == "Wired": 
@@ -73,7 +84,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             else: 
                 networkType = 1
 
-            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid)
+            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
             tasks.append(task)
 
         for file_name, file_data_str in geojson_file_data:
