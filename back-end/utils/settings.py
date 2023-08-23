@@ -9,7 +9,7 @@ db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
 DATABASE_URL = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
 BATCH_SIZE = 50000
-COOKIE_EXP_TIME = datetime.now() + timedelta(days=7)  # Cookie will expire in 7 days
+COOKIE_EXP_TIME = timedelta(days=7)  # Cookie will expire in 7 days
 
 
 # For local testing
