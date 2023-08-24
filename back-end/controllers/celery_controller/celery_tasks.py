@@ -109,7 +109,13 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             latency = file_data.get('latency', '')
             category = file_data.get('categoryCode', '')
 
-            kml_ops.compute_lte(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, userid, latency, category)
+            if networkType == "Wired": 
+                networkType = 0
+            else: 
+                networkType = 1
+
+            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
+            tasks.append(task)
         
         # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()
