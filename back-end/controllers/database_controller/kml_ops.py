@@ -7,11 +7,9 @@ from database.sessions import ScopedSession, Session
 import logging, uuid, psycopg2, io, pandas, geopandas, shapely
 from shapely.geometry import Point
 import fiona
-from utils.settings import DATABASE_URL
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix
-from zipfile import ZipFile
 
 
 db_lock = Lock()

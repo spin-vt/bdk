@@ -1,9 +1,5 @@
 from database.models import user
-from sqlalchemy.exc import IntegrityError
-from utils.settings import DATABASE_URL
-from multiprocessing import Lock
-from database.sessions import ScopedSession, Session
-import psycopg2
+from database.sessions import Session
 from werkzeug.security import generate_password_hash
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
