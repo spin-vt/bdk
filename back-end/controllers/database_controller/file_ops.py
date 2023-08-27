@@ -7,6 +7,7 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
 import re
+import os
 
 db_lock = Lock()
 
@@ -174,7 +175,6 @@ def get_filesinfo_in_folder(folderid, session=None):
         if owns_session:
             session.close()
 
-
 def delete_file(fileid, session=None):
     owns_session = False
     if session is None:
@@ -184,23 +184,26 @@ def delete_file(fileid, session=None):
     try:
         file_to_del = get_file_with_id(fileid, session)
         if file_to_del:
-            if re.match(".+\.edit\d*/$", file_to_del.name):
+            # Split name and extension
+            base_name, ext = os.path.splitext(file_to_del.name)
+            
+            # Check if the file is an edit file with the new naming scheme
+            if re.match(".+-edit\d*/$", ext):
+                orig_file_ext = ext.split('-edit')[0]
                 kml_entries = session.query(kml_data).filter(kml_data.file_id == fileid).all()
                 for kml_entry in kml_entries:
-                    # retrieve the original file id by getting the name before the .edit part and querying it
-                    orig_file_name = file_to_del.name.split('.edit')[0] + '.kml'
-                    orig_file = get_file_with_name(orig_file_name, file_to_del.folder_id, session)
-                    
-                    # revert the changes
+                    orig_file = get_file_with_name(base_name + orig_file_ext, file_to_del.folder_id, session)
                     if orig_file:
                         kml_entry.file_id = orig_file.id
                         kml_entry.served = True
                         kml_entry.coveredLocations = orig_file.name
                         session.flush()
-            elif file_to_del.name.endswith('.kml'):
-                kml_edits = get_files_with_postfix(file_to_del.folder_id, '/', session)
-                for kml_edit in kml_edits:
-                    session.delete(kml_edit)
+            # If not an edit file, check for related edits
+            elif ext in ['.kml', '.geojson']:
+                related_edits = get_files_with_prefix(file_to_del.folder_id, f"{base_name + ext}-edit", session)
+                for edit in related_edits:
+                    session.delete(edit)
+            
             session.delete(file_to_del)
             if owns_session:
                 session.commit()
@@ -213,4 +216,3 @@ def delete_file(fileid, session=None):
     finally:
         if owns_session:
             session.close()
-

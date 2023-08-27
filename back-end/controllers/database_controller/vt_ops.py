@@ -321,16 +321,15 @@ def toggle_tiles(markers, userid):
                 kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
                 for kml_data_entry in kml_data_entries:
                     kml_file = get_file_with_id(kml_data_entry.file_id, session)
-                    kml_file_name_without_ext = kml_file.name.replace(".kml", "")
                     # Count files with .edit prefix in the folder
-                    edit_count = len(get_files_with_prefix(user_last_folder.id, f"{kml_file_name_without_ext}.edit", session))
+                    edit_count = len(get_files_with_prefix(user_last_folder.id, f"{kml_file.name}-edit", session))
                     if kml_data_entry.file_id not in kml_set:
-                        new_file = create_file(f"{kml_file_name_without_ext}.edit{edit_count+1}/", None, user_last_folder.id, 'edit', session)
+                        new_file = create_file(f"{kml_file.name}-edit{edit_count+1}/", None, user_last_folder.id, 'edit', session)
                         session.add(new_file)
                         session.commit()
                         kml_set.add(kml_file.id)
                     else:
-                        new_file = get_file_with_name(f"{kml_file_name_without_ext}.edit{edit_count}/", user_last_folder.id, session)
+                        new_file = get_file_with_name(f"{kml_file.name}-edit{edit_count}/", user_last_folder.id, session)
                     
                     # Update each entry
                     kml_data_entry.file_id = new_file.id
