@@ -7,11 +7,9 @@ from database.sessions import ScopedSession, Session
 import logging, uuid, psycopg2, io, pandas, geopandas, shapely
 from shapely.geometry import Point
 import fiona
-from utils.settings import DATABASE_URL
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix
-from zipfile import ZipFile
 
 
 db_lock = Lock()
@@ -277,7 +275,6 @@ def compute_lte(folderid, geojsonid, download, upload, tech, userid, latency, ca
     session.commit()
     session.close()
 
-
 #might need to add lte data in the future
 def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
     
@@ -300,11 +297,14 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, 
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
     
-    fiona.drvsupport.supported_drivers['kml'] = 'rw'
-    fiona.drvsupport.supported_drivers['KML'] = 'rw'
-    
     coverage_data = BytesIO(coverage_file.data)
-    wireless_coverage = geopandas.read_file(coverage_data, driver='KML')
+    if (coverage_file.name.endswith('.kml')):
+        fiona.drvsupport.supported_drivers['kml'] = 'rw'
+        fiona.drvsupport.supported_drivers['KML'] = 'rw'
+        wireless_coverage = geopandas.read_file(coverage_data, driver='KML')
+    else:
+        wireless_coverage = geopandas.read_file(coverage_data)
+
     wireless_coverage = wireless_coverage.to_crs("EPSG:4326")
     fabric_in_wireless = geopandas.sjoin(fabric,wireless_coverage,how="inner")
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
@@ -345,11 +345,14 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, lat
         crs="EPSG:4326",
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
 
-    fiona.drvsupport.supported_drivers['kml'] = 'rw'
-    fiona.drvsupport.supported_drivers['KML'] = 'rw'
-
     buffer_meters = 100 
-    gdf_fiber = geopandas.read_file(fiber_data, driver='KML', encoding='utf-8')
+    if fiber_file_record.name.endswith('kml'):
+        fiona.drvsupport.supported_drivers['kml'] = 'rw'
+        fiona.drvsupport.supported_drivers['KML'] = 'rw'
+        gdf_fiber = geopandas.read_file(fiber_data, driver='KML', encoding='utf-8')
+    else:
+        gdf_fiber = geopandas.read_file(fiber_data)
+
     fiber_paths = gdf_fiber[gdf_fiber.geom_type == 'LineString']
 
     fiber_paths = fiber_paths.to_crs('epsg:4326')

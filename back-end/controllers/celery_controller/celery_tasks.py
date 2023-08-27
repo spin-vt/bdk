@@ -41,14 +41,6 @@ def process_data(self, file_names, file_data_list, userid, folderid):
 
             file_data = json.loads(file_data_str)
             
-            #i don't think we need to do this here, fix later 
-            downloadSpeed = file_data.get('downloadSpeed', '')
-            uploadSpeed = file_data.get('uploadSpeed', '')
-            techType = file_data.get('techType', '')
-            networkType = file_data.get('networkType', '')
-            latency = file_data.get('latency', '')
-            categoryCode = file_data.get('categoryCode', '')
-            
             fabricid = existing_file.id
 
             task_id = str(uuid.uuid4())
@@ -109,7 +101,13 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             latency = file_data.get('latency', '')
             category = file_data.get('categoryCode', '')
 
-            kml_ops.compute_lte(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, userid, latency, category)
+            if networkType == "Wired": 
+                networkType = 0
+            else: 
+                networkType = 1
+
+            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
+            tasks.append(task)
         
         # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()

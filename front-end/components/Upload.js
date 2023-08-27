@@ -47,8 +47,6 @@ const wiredWirelessOptions = {
   Wired: "Wired",
   Wireless: "Wireless",
 };
-let storage = [];
-let storage2 = [];
 
 const tech_types = {
   "Copper Wire": 10,
@@ -78,7 +76,6 @@ export default function Upload({ generateChallenge }) {
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [selectedFiles, setSelectedFiles] = React.useState([]);
   const [downloadSpeed, setDownloadSpeed] = React.useState("");
   const [networkType, setNetworkType] = React.useState("");
   const [uploadSpeed, setUploadSpeed] = React.useState("");
@@ -91,6 +88,8 @@ export default function Upload({ generateChallenge }) {
   );
   const [buttonGroupWidth, setButtonGroupWidth] = React.useState(null);
 
+  const [files, setFiles] = React.useState([]);
+
   const [isLoading, setIsLoading] = React.useState(false);
   const [isDataReady, setIsDataReady] = React.useState(false);
   const loadingTimeInMs = 3.5 * 60 * 1000;
@@ -101,12 +100,9 @@ export default function Upload({ generateChallenge }) {
 
     const formData = new FormData();
 
-    storage2.forEach((file) => {
-      const fileObj = file[0];
-      const newFile = file[1];
-
-      formData.append("fileData", JSON.stringify(newFile));
-      formData.append("file", fileObj);
+    files.forEach(fileDetails => {
+      formData.append("fileData", JSON.stringify(fileDetails));
+      formData.append("file", fileDetails.file);
     });
 
     setIsLoading(true);
@@ -131,27 +127,6 @@ export default function Upload({ generateChallenge }) {
           return response.json();
         }
       })
-      // .then((data) => {
-      //   if (data) {
-      //     const intervalId = setInterval(() => {
-      //       console.log(data.task_id);
-      //       fetch(`${backend_url}/status/${data.task_id}`)
-      //         .then((response) => response.json())
-      //         .then((status) => {
-      //           if (status.state !== "PENDING") {
-      //             clearInterval(intervalId);
-      //             setExportSuccess(true);
-      //             setIsDataReady(true);
-      //             setIsLoading(false);
-      //             setTimeout(() => {
-      //               setIsDataReady(false);
-      //               router.reload();
-      //             }, 5000);
-      //           }
-      //         });
-      //     }, 5000);
-      //   }
-      // })
       .catch((error) => {
         console.error("Error:", error);
         // setIsLoading(false);
@@ -163,12 +138,9 @@ export default function Upload({ generateChallenge }) {
 
     const formData = new FormData();
 
-    storage2.forEach((file) => {
-      const fileObj = file[0];
-      const newFile = file[1];
-
-      formData.append("fileData", JSON.stringify(newFile));
-      formData.append("file", fileObj);
+    files.forEach(fileDetails => {
+      formData.append("fileData", JSON.stringify(fileDetails));
+      formData.append("file", fileDetails.file);
     });
 
     setIsLoading(true);
@@ -234,21 +206,9 @@ export default function Upload({ generateChallenge }) {
   }, [exportSuccess, buttonGroupRef]);
 
   const handleFileChange = (event) => {
-    const newFiles = Object.values(event.target.files).map((file) => ({
+    const newFileDetails = Object.values(event.target.files).map((file) => ({
       id: idCounterRef.current++,
       name: file.name,
-      option: options[selectedIndex], // Track the selected option for each file
-      downloadSpeed: options[selectedIndex] === "Network" ? downloadSpeed : "",
-      uploadSpeed: options[selectedIndex] === "Network" ? uploadSpeed : "",
-      techType: options[selectedIndex] === "Network" ? techType : "",
-      networkType: options[selectedIndex] === "Network" ? networkType : "",
-      latency: options[selectedIndex] === "Network" ? latency : "",
-      categoryCode: options[selectedIndex] === "Network" ? categoryCode : "",
-    }));
-
-    const newFile = {
-      id: idCounterRef.current,
-      name: event.target.files[0].name,
       option: options[selectedIndex],
       downloadSpeed: options[selectedIndex] === "Network" ? downloadSpeed : "",
       uploadSpeed: options[selectedIndex] === "Network" ? uploadSpeed : "",
@@ -256,19 +216,14 @@ export default function Upload({ generateChallenge }) {
       networkType: options[selectedIndex] === "Network" ? networkType : "",
       latency: options[selectedIndex] === "Network" ? latency : "",
       categoryCode: options[selectedIndex] === "Network" ? categoryCode : "",
-    };
-    storage2.push([event.target.files[0], newFile]);
-    storage.push([event.target.files[0], newFiles]);
-
-    const updatedFiles = [...selectedFiles, ...newFiles];
-    setSelectedFiles(updatedFiles);
-    // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
+      file: file
+    }));
+  
+    setFiles(prevFiles => [...prevFiles, ...newFileDetails]);
   };
 
   const handleClick = () => {
-    console.info(`You clicked ${options[selectedIndex]}`);
     anchorRef.current.click();
-    console.log(storage.length);
   };
 
   const handleMenuItemClick = (event, index) => {
@@ -290,16 +245,7 @@ export default function Upload({ generateChallenge }) {
 
   const handleDelete = (id) => {
     // Iterate through the 'storage' array and remove the matching file
-    for (let i = 0; i < storage.length; i++) {
-      if (storage[i][1] === id) {
-        storage.splice(i, 1);
-        // localStorage.setItem("storage", JSON.stringify(storage)); // update local storage for storage array
-        break;
-      }
-    }
-
-    // Update selectedFiles state
-    setSelectedFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
+    setFiles(prevFiles => prevFiles.filter(fileDetails => fileDetails.id !== id));
     setExportSuccess(false); // Set the export success state to true
 
     // Reset the file input element
@@ -580,7 +526,7 @@ export default function Upload({ generateChallenge }) {
         {/* Display the uploaded files in a DataGrid */}
         <Box sx={{ height: 400 }} style={{ marginTop: "3vh" }}>
           <DataGrid
-            rows={selectedFiles}
+            rows={files}
             columns={columns}
             pageSize={5}
             checkboxSelection

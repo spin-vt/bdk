@@ -12,13 +12,12 @@ from flask_jwt_extended import (
     get_jwt_identity,
     decode_token
 )
-from datetime import datetime, timedelta
+from datetime import datetime
 import shortuuid
 from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
-from database.models import file, user, folder
-from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops
+from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles
 
@@ -94,23 +93,46 @@ def submit_data():
                 folderVal = folder_ops.create_folder("user-1", userVal.id, session=session)
                 session.commit()
             file_names = []
+            matching_file_data_list = []
 
-            for f in files:
+            for index, f in enumerate(files):
                 existing_file = file_ops.get_file_with_name(f.filename, folderVal.id, session=session)
                 if existing_file is not None:
                     # If file already exists, append its name to file_names and skip to next file
-                    file_names.append(existing_file.name)
+                    continue
+                existing_file = kmz_ops.get_kmz_with_name(f.filename, folderVal.id, session=session)
+                if existing_file is not None:
+                    # If file already exists, append its name to file_names and skip to next file
                     continue
                 
                 data = f.read()
                 if (f.filename.endswith('.csv')):
-                    file_ops.create_file(f.filename, data, folderVal.id, 'fabric', session=session)
+                    file_ops.create_file(f.filename, data, folderVal.id, None, 'fabric', session=session)
+                    file_names.append(f.filename)
+                    matching_file_data_list.append(file_data_list[index])
                 elif (f.filename.endswith('.kml') or f.filename.endswith('.geojson')):
-                    file_ops.create_file(f.filename, data, folderVal.id, None, session=session)
-                file_names.append(f.filename)
+                    file_ops.create_file(f.filename, data, folderVal.id, None, None, session=session)
+                    file_names.append(f.filename)
+                    matching_file_data_list.append(file_data_list[index])
+                elif f.filename.endswith('.kmz'):
+                    kmz_entry = kmz_ops.create_kmz(f.filename, folderVal.id, session)
+                    session.commit()
+                    kml_entries = kmz_ops.extract_kml_from_kmz(data)
+                    prefix = f.filename.rsplit('.', 1)[0]  # This will give you the filename without the .kmz extension
+                    
+                    for entry in kml_entries:
+                        kml_data = entry['data']
+                        kml_filename = entry['filename']
+                        new_kml_name = prefix + '-' + kml_filename
+                        file_ops.create_file(new_kml_name, kml_data, folderVal.id, kmz_entry.id, None, session=session)
+                        file_names.append(new_kml_name)
+                        # Reuse the KMZ's associated data for each extracted KML
+                        matching_file_data_list.append(file_data_list[index])
+                    
+
                 session.commit()
 
-            task = process_data.apply_async(args=[file_names, file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
+            task = process_data.apply_async(args=[file_names, matching_file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
             return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
         
         except Exception as e:

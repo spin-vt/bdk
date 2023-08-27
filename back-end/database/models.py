@@ -23,6 +23,16 @@ class folder(Base):
     user = relationship('user', back_populates='folders')
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
+    kmzs = relationship('kmz', back_populates='folder', cascade='all, delete')
+
+class kmz(Base):
+    __tablename__ = 'kmz'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
+    kml_files = relationship('file', back_populates='kmz', cascade='all, delete')  # Assuming kml_data is your KML model
+    folder = relationship('folder', back_populates='kmzs')  # Add this new back_populates to your Folder model
 
 class file(Base):
     __tablename__ = 'file'
@@ -31,9 +41,11 @@ class file(Base):
     name = Column(String, nullable=False)
     data = Column(LargeBinary)
     folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
+    kmz_id = Column(Integer, ForeignKey('kmz.id', ondelete='CASCADE'), nullable=True)
     timestamp = Column(DateTime)  # this will add a timestamp column
     type = Column(String)
     computed = Column(Boolean, default=False)
+    kmz = relationship('kmz', back_populates='kml_files')
     folder = relationship('folder', back_populates='files')
     fabric_data = relationship('fabric_data', back_populates='file', cascade='all, delete')  # Use fabric_data instead of data_entries
     kml_data = relationship('kml_data', back_populates='file', cascade='all, delete')
