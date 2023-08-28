@@ -51,7 +51,7 @@ function Editmap() {
 
   const router = useRouter();
 
-  let currentPopup;
+  const currentPopup = useRef(null);
 
   const baseMaps = {
     STREETS:
@@ -233,8 +233,9 @@ function Editmap() {
       }
       content += '<button id="setUnserved">Change to Unserve</button>';
 
-      if (currentPopup) {
-        currentPopup.remove();
+      if (currentPopup.current) {
+        currentPopup.current.remove();
+        currentPopup.current = null;
       }
 
 
@@ -287,7 +288,7 @@ function Editmap() {
         popup.setHTML(updatedContent);
       });
 
-      currentPopup = popup;
+      currentPopup.current = popup;
     });
 
   };

@@ -265,26 +265,16 @@ def exportFiling():
             userVal = user_ops.get_user_with_id(identity['id'], session)
             folderVal = folder_ops.get_folder(userVal.id, None, session)
             
-            csv_output_true = kml_ops.export(folderVal.id, userVal.provider_id, userVal.brand_name, True, session)
-            csv_output_false = kml_ops.export(folderVal.id, userVal.provider_id, userVal.brand_name, False, session)
+            csv_output = kml_ops.export(folderVal.id, userVal.provider_id, userVal.brand_name, session)
 
-            if csv_output_true and csv_output_false:
+            if csv_output:
                 current_time = datetime.now()
                 formatted_time = current_time.strftime('%Y_%B')
                 
-                memory_zip = io.BytesIO()
-
-                with ZipFile(memory_zip, 'a') as zipfile:
-                    csv_output_true.seek(0)
-                    zipfile.writestr(f"BDC_Report_LTE_True_{formatted_time}.csv", csv_output_true.getvalue())
-                    
-                    csv_output_false.seek(0)
-                    zipfile.writestr(f"BDC_Report_LTE_False_{formatted_time}.csv", csv_output_false.getvalue())
-
-                memory_zip.seek(0)
-                download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.zip'
-
-                return send_file(memory_zip, as_attachment=True, download_name=download_name, mimetype="application/zip")
+                download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
+                
+                csv_output.seek(0)
+                return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
             else:
                 return jsonify({'Status': 'Failure'})
         except Exception as e:
