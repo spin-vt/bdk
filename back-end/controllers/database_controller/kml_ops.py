@@ -205,18 +205,16 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
 
     return True
 
-def export(folderid, providerid, brandname, boollte, session): 
+def export(folderid, providerid, brandname, session): 
     PROVIDER_ID = providerid
     BRAND_NAME = brandname
 
-    if boollte:
-        all_files = get_files_with_postfix(folderid, '.geojson', session)
-    else:
-        all_files = get_files_with_postfix(folderid, '.kml', session)
+    
+    all_files = get_files_with_postfix(folderid, '.kml', session) + get_files_with_postfix(folderid, '.geojson', session)
 
     all_file_ids = [file.id for file in all_files]
 
-    result = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids), kml_data.lte == boollte).all()
+    result = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
 
     availability_csv = pandas.DataFrame()
 

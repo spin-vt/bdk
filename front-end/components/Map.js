@@ -49,36 +49,6 @@ function Map() {
 
   const router = useRouter();
 
-  const [popupInfo, setPopupInfo] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-
-  const createPopupContent = (featureProperties) => {
-    const container = document.createElement("div");
-
-    const header = document.createElement("h1");
-    header.textContent = "Marker Information";
-    container.appendChild(header);
-
-    const toggleBtn = document.createElement("button");
-    toggleBtn.textContent = "Challenge";
-    toggleBtn.addEventListener("click", () => {
-      details.style.display =
-        details.style.display === "none" ? "block" : "none";
-    });
-    container.appendChild(toggleBtn);
-
-    const details = document.createElement("div");
-    details.style.display = "none";
-    Object.entries(featureProperties).map(([key, value]) => {
-      const detailLine = document.createElement("p");
-      detailLine.innerHTML = `<strong>${key}:</strong> ${value}`;
-      details.appendChild(detailLine);
-    });
-
-    container.appendChild(details);
-
-    return container;
-  };
   const baseMaps = {
     STREETS:
       "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
@@ -141,70 +111,6 @@ function Map() {
         fillColor = "#42004F";
     }
 
-    const createPopupContent = (featureProperties) => {
-      const container = document.createElement("div");
-
-      const header = document.createElement("h1");
-      header.textContent = "Marker Information";
-      container.appendChild(header);
-
-      const locationBtn = document.createElement("button");
-      locationBtn.textContent = "Location Info";
-      locationBtn.addEventListener("click", () => {
-        locationDetails.style.display = "block";
-        challengeDetails.style.display = "none";
-      });
-      container.appendChild(locationBtn);
-
-      const challengeBtn = document.createElement("button");
-      challengeBtn.textContent = "Challenge Info";
-      challengeBtn.addEventListener("click", () => {
-        challengeDetails.style.display = "block";
-        locationDetails.style.display = "none";
-      });
-      container.appendChild(challengeBtn);
-
-      const locationDetails = document.createElement("div");
-      locationDetails.style.display = "none";
-      // Here you can modify what details you want for location info
-      Object.entries(featureProperties).map(([key, value]) => {
-        const detailLine = document.createElement("p");
-        detailLine.innerHTML = `<strong>${key}:</strong> ${value}`;
-        locationDetails.appendChild(detailLine);
-      });
-      container.appendChild(locationDetails);
-
-      const challengeDetails = document.createElement("div");
-      challengeDetails.style.display = "none";
-
-      const customInfo = document.createElement("p");
-      customInfo.innerHTML = `
-If you would like to challenge only this location, 
-please submit your challenge directly on the <a href="https://broadbandmap.fcc.gov/home?version=jun2022" target="_blank" style="color: blue;">FCC Website</a>.
-However, if you would like to submit a bulk challenge please click the button below to add this location to your list of challenged locations. 
-<br><br>
-Note: By exporting the bulk-challenge from our website, you only have 50% of the required paperwork to submit your challenge. You must also provide evidence 
-to support why this location is being challenged. This can be done in a variety of ways, please refer to these links for more information: <br><br>
-<ol>
-  <li> <a href="https://help.bdc.fcc.gov/hc/en-us/articles/9200359586971-Bulk-Fabric-Challenge-FAQs" target="_blank" style="color: blue;">Fabric Challenge FAQ</a></li>
-  <li> <a href="https://help.bdc.fcc.gov/hc/en-us/articles/13308560752155-How-to-Submit-a-Successful-Bulk-Fabric-Challenge-" target="_blank" style="color: blue;">Guide on how to submit a successful challenge</a></li>
-</ol>
-`;
-
-      challengeDetails.appendChild(customInfo);
-      container.appendChild(challengeDetails);
-
-      const addButton = document.createElement("button");
-      addButton.textContent = "Add to Bulk Challenge";
-      addButton.addEventListener("click", function () {
-        router.push('/challenge');
-      });
-
-      challengeDetails.appendChild(customInfo);
-      challengeDetails.appendChild(addButton);
-
-      return container;
-    };
 
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
       console.log(layer);
@@ -280,11 +186,15 @@ to support why this location is being challenged. This can be done in a variety 
         currentPopup.current = null;
       }
 
-      const content = createPopupContent(e.features[0].properties);
+      let featureProperties = e.features[0].properties;
+      let content = "<h1>Marker Information</h1>";
+      for (let property in featureProperties) {
+        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+      }
 
       let popup = new maplibregl.Popup({ closeOnClick: false })
         .setLngLat(e.lngLat)
-        .setDOMContent(content)
+        .setHTML(content)
         .addTo(map.current);
 
       currentPopup.current = popup;
@@ -324,11 +234,15 @@ to support why this location is being challenged. This can be done in a variety 
           currentPopup.current = null;
         }
 
-        const content = createPopupContent(e.features[0].properties);
-
+        let featureProperties = e.features[0].properties;
+        let content = "<h1>Marker Information</h1>";
+        for (let property in featureProperties) {
+          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+        }
+  
         let popup = new maplibregl.Popup({ closeOnClick: false })
           .setLngLat(e.lngLat)
-          .setDOMContent(content)
+          .setHTML(content)
           .addTo(map.current);
 
         currentPopup.current = popup;
