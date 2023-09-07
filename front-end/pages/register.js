@@ -30,8 +30,8 @@ const Register = () => {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [providerId, setProviderId] = useState('');
-  const [brandName, setBrandName] = useState('');  
+  // const [providerId, setProviderId] = useState('');
+  // const [brandName, setBrandName] = useState('');  
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -42,7 +42,8 @@ const Register = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password, providerId, brandName }),  
+        // body: JSON.stringify({ username, password, providerId, brandName }),  
+        body: JSON.stringify({ username, password}),
         credentials: 'include',
       });
 
@@ -99,7 +100,7 @@ const Register = () => {
               onChange={(e) => setPassword(e.target.value)}
               key="password-input"
             />
-            <TextField
+            {/* <TextField
               variant="outlined"
               margin="normal"
               required
@@ -122,7 +123,7 @@ const Register = () => {
               value={brandName}
               onChange={(e) => setBrandName(e.target.value)}
               key="brandName-input"
-            />
+            /> */}
             <RegisterButtonContainer>
               <Button
                 type="submit"
