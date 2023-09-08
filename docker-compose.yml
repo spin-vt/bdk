@@ -11,9 +11,7 @@ services:
       - db
 
   db:
-    image: postgis/postgis:latest
-    volumes:
-      - ./postgres-init-scripts:/docker-entrypoint-initdb.d/
+    image: postgres:latest 
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}

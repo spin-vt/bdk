@@ -29,14 +29,14 @@ def get_folder(userid, folderid=None, session=None):
             session.close()
 
 
-def create_folder(foldername, userid, session=None):
+def create_folder(foldername, userid, foldertype, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        new_folder = folder(name=foldername, user_id=userid)
+        new_folder = folder(name=foldername, user_id=userid, type=foldertype)
         session.add(new_folder)
         if owns_session:
             session.commit()
@@ -45,6 +45,38 @@ def create_folder(foldername, userid, session=None):
         if owns_session:
             session.rollback()
         return "An error occurred while creating the folder: " + str(e)
+    finally:
+        if owns_session:
+            session.close()
+
+def get_number_of_folders_for_user(userid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+    try:
+        count = session.query(folder).filter(folder.user_id == userid).count()
+        return count
+    except Exception as e:
+        return -1
+    finally:
+        if owns_session:
+            session.close()
+
+def get_folders_by_type_for_user(userid, foldertype, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
+    try:
+        folders = session.query(folder).filter(folder.user_id == userid, folder.type == foldertype).all()
+        return folders
+
+    except NoResultFound:
+        return None
+    except Exception as e:
+        return str(e)
     finally:
         if owns_session:
             session.close()

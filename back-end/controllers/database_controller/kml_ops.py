@@ -227,9 +227,10 @@ def export(folderid, providerid, brandname, session):
     availability_csv['low_latency'] = [row.latency for row in result]
     availability_csv['business_residential_code'] = [row.category for row in result]
 
+    availability_csv.drop_duplicates(subset=['location_id', 'technology'], keep='first', inplace=True)
     availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
                                         'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
-
+    
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding='utf-8')
     return output
@@ -273,6 +274,15 @@ def compute_lte(folderid, geojsonid, download, upload, tech, userid, latency, ca
     session.commit()
     session.close()
 
+def rename_conflicting_columns(gdf):
+    """Rename 'index_left' and 'index_right' columns if they exist in a GeoDataFrame."""
+    rename_dict = {}
+    if 'index_left' in gdf.columns:
+        rename_dict['index_left'] = 'index_left_original'
+    if 'index_right' in gdf.columns:
+        rename_dict['index_right'] = 'index_right_original'
+    return gdf.rename(columns=rename_dict)
+
 #might need to add lte data in the future
 def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
     
@@ -304,9 +314,11 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, 
         wireless_coverage = geopandas.read_file(coverage_data)
 
     wireless_coverage = wireless_coverage.to_crs("EPSG:4326")
+    fabric = rename_conflicting_columns(fabric)
+    wireless_coverage = rename_conflicting_columns(wireless_coverage)
     fabric_in_wireless = geopandas.sjoin(fabric,wireless_coverage,how="inner")
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
-    bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates()
+    bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates(subset='location_id', keep='first')
 
     session.close()
     res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category)
@@ -363,7 +375,8 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, lat
 
     bsl_fabric_near_fiber = fabric_near_fiber[fabric_near_fiber['bsl_flag']] 
 
-    bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates() 
+    bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates(subset='location_id', keep='first')
+    # bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates()  
 
     session.close()
     res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category)
