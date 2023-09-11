@@ -6,6 +6,8 @@ from multiprocessing import Lock
 from database.sessions import ScopedSession, Session
 import logging, uuid, psycopg2, io, pandas, geopandas, shapely
 from shapely.geometry import Point
+import geopandas as gpd
+import pandas as pd
 import fiona
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
@@ -142,10 +144,9 @@ def get_kml_data(userid, folderid, session=None):
     finally:
         if owns_session:
             session.close()
-
         return data
 
-def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category):
+def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category, served):
     batch = [] 
     session = Session()
 
@@ -162,7 +163,7 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
                 
             newData = kml_data(
                 location_id = int(row.location_id),
-                served = True,
+                served = served,
                 wireless = wireless,
                 lte = False,
                 username = userVal.username,
@@ -321,12 +322,11 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, 
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates(subset='location_id', keep='first')
 
     session.close()
-    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category)
-    return res
+    return (bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category, True)
+    #res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category, True)
+    #return res
 
 def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
-    
-
     # Fetch Fabric file from database
     fabric_files = get_files_with_postfix(folderid, '.csv')
     if not fabric_files:
@@ -379,9 +379,40 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, lat
     # bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates()  
 
     session.close()
-    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category)
-    return res 
+    return (bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category, True)
+    #res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category, True)
+    #return res 
 
+def compute_geo_from_kml(folderid, kmlid):
+    coverage_file = get_file_with_id(kmlid)
+    
+    if coverage_file is None:
+        raise FileNotFoundError("Coverage file not found in the database")
+
+    coverage_data = BytesIO(coverage_file.data)
+    if (coverage_file.name.endswith('.kml')):
+        fiona.drvsupport.supported_drivers['kml'] = 'rw'
+        fiona.drvsupport.supported_drivers['KML'] = 'rw'
+        coverage = gpd.read_file(coverage_data, driver='KML')
+    else:
+        coverage = gpd.read_file(coverage_data)
+
+    coverage = coverage.to_crs("EPSG:4326")
+    coverage = rename_conflicting_columns(coverage)
+
+    return coverage
+
+def filter(serviceZones, nonServiceZones):
+    # Obtain a unified geopandas dataframe of all nonServiceZones
+    all_non_service_zones = gpd.GeoDataFrame(pd.concat([compute_geo_from_kml(folderid, kmlid) for folderid, kmlid in nonServiceZones], ignore_index=True))
+
+    # Iterate through serviceZones, filter out overlapping regions and make a call to add_to_db
+    for bsl_fabric_near_fiber, kmlid, download, upload, tech, _, userid, latency, category, _ in serviceZones:
+        fabric = bsl_fabric_near_fiber
+        # Overlap check and filtering
+        non_overlapping_fabric = gpd.overlay(fabric, all_non_service_zones, how="difference")
+        add_to_db(non_overlapping_fabric, kmlid, download, upload, tech, False, userid, latency, category, True)
+    
 def add_network_data(folderid, kmlid ,download, upload, tech, type, userid, latency, category):
     res = False 
     if type == 0: 

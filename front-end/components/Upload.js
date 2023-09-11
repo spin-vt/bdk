@@ -43,9 +43,9 @@ const StyledTypography = styled(Typography)({
 });
 
 const options = ["Fabric", "Network"];
-const wiredWirelessOptions = {
-  Wired: "Wired",
-  Wireless: "Wireless",
+const serviceType = {
+  "Servicable Area": 0,
+  "Non-Servicable Area": 1,
 };
 
 const tech_types = {
@@ -448,7 +448,7 @@ export default function Upload({ generateChallenge }) {
                     value={networkType}
                     onChange={(e) => setNetworkType(e.target.value)}
                   >
-                    {Object.entries(wiredWirelessOptions).map(
+                    {Object.entries(serviceType).map(
                       ([key, value]) => (
                         <MenuItem key={value} value={value}>
                           {key}

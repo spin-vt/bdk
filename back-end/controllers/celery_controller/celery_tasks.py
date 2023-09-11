@@ -11,12 +11,14 @@ def process_data(self, file_names, file_data_list, userid, folderid):
     print(file_names)
     try:
         geojson_array = []
-        tasks = []  
+        serviceZones = []  
         session = Session()
 
         csv_file_data = []
         kml_file_data = []
         geojson_file_data = []
+        nonServiceZones = [] 
+        
         # Separate file data into csv and kml
         for file_name, file_data_str in zip(file_names, file_data_list):
             if file_name.endswith('.csv'):
@@ -44,8 +46,8 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             fabricid = existing_file.id
 
             task_id = str(uuid.uuid4())
-            task = fabric_ops.write_to_db(fabricid)
-            tasks.append(task)
+            zone = fabric_ops.write_to_db(fabricid)
+            #serviceZones.append(task)
 
         for file_name, file_data_str in kml_file_data:
 
@@ -70,14 +72,24 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             category = file_data.get('categoryCode', '')
             
             task_id = str(uuid.uuid4())
-
-            if networkType == "Wired": 
+            serviceType = networkType
+            
+            wiredTypes = set({10, 40, 50,})
+            wirelessTypes = set({60, 61, 70, 71, 72})
+            
+            if techType in wiredTypes: 
                 networkType = 0
-            else: 
+            elif techType in wirelessTypes: 
                 networkType = 1
-
-            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
-            tasks.append(task)
+            else: 
+                networkType = -1 #we want to throw an error on this 
+            
+            if serviceType == 1: 
+                nonServiceZones.append((folderid, existing_file.id)) 
+                continue   
+            
+            zone = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
+            serviceZones.append(zone)
 
         for file_name, file_data_str in geojson_file_data:
 
@@ -101,13 +113,27 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             latency = file_data.get('latency', '')
             category = file_data.get('categoryCode', '')
 
-            if networkType == "Wired": 
+            task_id = str(uuid.uuid4())
+            serviceType = networkType
+            
+            wiredTypes = set({10, 40, 50,})
+            wirelessTypes = set({60, 61, 70, 71, 72})
+            
+            if techType in wiredTypes: 
                 networkType = 0
-            else: 
+            elif techType in wirelessTypes: 
                 networkType = 1
+            else: 
+                networkType = -1 #we want to throw an error on this 
+            
+            if serviceType == 1: 
+                nonServiceZones.append((folderid, existing_file.id)) 
+                continue   
 
-            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
-            tasks.append(task)
+            zone = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
+            serviceZones.append(zone)
+        
+        kml_ops.filter(serviceZones, nonServiceZones)
         
         # This is a temporary solution, we should try optimize to use tile-join
         all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()
@@ -122,7 +148,6 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         print("finished kml processing, now creating tiles")
         
         vt_ops.create_tiles(geojson_array, userid, folderid, session)
-        
         
         session.close()
         return {'Status': "Ok"}
