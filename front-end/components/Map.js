@@ -113,7 +113,6 @@ function Map() {
 
 
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
-      console.log(layer);
       if (allKmlLayerRef.current[layer][0] === "wired") {
         map.current.addLayer({
           id: `wired-${layer}`,
@@ -134,7 +133,12 @@ function Map() {
           ],
           "source-layer": "data",
         });
-      } else {
+      }
+    });
+
+    // Now add all wireless layers
+    Object.keys(allKmlLayerRef.current).forEach((layer) => {
+      if (allKmlLayerRef.current[layer][0] !== "wired") {
         map.current.addLayer({
           id: `wireless-${layer}`,
           type: "fill",
@@ -239,7 +243,7 @@ function Map() {
         for (let property in featureProperties) {
           content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
         }
-  
+
         let popup = new maplibregl.Popup({ closeOnClick: false })
           .setLngLat(e.lngLat)
           .setHTML(content)
