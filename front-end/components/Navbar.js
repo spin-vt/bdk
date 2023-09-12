@@ -18,8 +18,6 @@ import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import HomeIcon from "@mui/icons-material/Home";
 import InfoIcon from "@mui/icons-material/Info";
-import BusinessIcon from "@mui/icons-material/Business";
-import ContactMailIcon from "@mui/icons-material/ContactMail";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import LoginIcon from "@mui/icons-material/Login";
 import UploadIcon from "@mui/icons-material/Upload";
@@ -29,6 +27,7 @@ import FolderIcon from "@mui/icons-material/Folder";
 import EditIcon from "@mui/icons-material/Edit";
 import EditMapContext from "../contexts/EditMapContext";
 import { backend_url } from "../utils/settings";
+import HistoryIcon from '@mui/icons-material/History';
 
 const StyledAppBar = styled(AppBar)({
   backgroundImage: "linear-gradient(to right, #3A7BD5, #3A6073)",
@@ -275,6 +274,11 @@ export default function Navbar({
       text: "Filing Tool",
       href: "/",
       icon: <HomeIcon />,
+    },
+    {
+      text: "Export History",
+      href: "/previousexport",
+      icon: <HistoryIcon />,
     },
     {
       text: "Challenge Tool",

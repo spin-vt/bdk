@@ -16,6 +16,7 @@ import { useRouter } from "next/router";
 import Swal from 'sweetalert2';
 import { backend_url } from "../utils/settings";
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
+import MbtilesContext from "../contexts/MbtilesContext";
 
 const StyledBaseMapIconButton = styled(IconButton)({
   width: "33px",
@@ -48,6 +49,8 @@ function Editmap() {
   const selectedSingleMarkersRef = useRef([]);
 
   const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
+
+  const { mbtid } = useContext(MbtilesContext);
 
   const router = useRouter();
 
@@ -86,7 +89,9 @@ function Editmap() {
     }
 
     const user = localStorage.getItem("username");
-    const tilesURL = `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = mbtid
+    ? `${backend_url}/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
+    : `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -476,7 +481,7 @@ function Editmap() {
       addVectorTiles();
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap]);
+  }, [selectedBaseMap, mbtid]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
