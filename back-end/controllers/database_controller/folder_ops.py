@@ -28,6 +28,31 @@ def get_folder(userid, folderid=None, session=None):
         if owns_session:
             session.close()
 
+def get_upload_folder(userid, folderid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+    try:
+        # Query to retrieve the last folder of type 'upload' for the given user
+        if not folderid:
+            folderVal = (session.query(folder)
+                        .filter(folder.user_id == userid, folder.type == "upload")
+                        .order_by(folder.id.desc())
+                        .first())
+        else:
+            folderVal = session.query(folder).filter(folder.id == folderid, folder.user_id == userid).one()
+        return folderVal
+
+    except NoResultFound:
+        return None
+    except MultipleResultsFound:
+        return "Multiple results found for the given user ID"
+    except Exception as e:
+        return str(e)
+    finally:
+        if owns_session:
+            session.close()
 
 def create_folder(foldername, userid, foldertype, session=None):
     owns_session = False

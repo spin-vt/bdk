@@ -21,7 +21,7 @@ from controllers.celery_controller.celery_config import celery
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import desc
 from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
-from .folder_ops import get_folder
+from .folder_ops import get_upload_folder
 from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles
 
 db_lock = Lock()
@@ -311,7 +311,7 @@ def toggle_tiles(markers, userid):
     session = Session()
     try:
         # Get the last folder of the user
-        user_last_folder = get_folder(userid, None, session)
+        user_last_folder = get_upload_folder(userid, None, session)
         geojson_data = []
         if user_last_folder:
             
