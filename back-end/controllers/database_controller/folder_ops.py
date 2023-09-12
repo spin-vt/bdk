@@ -28,7 +28,7 @@ def get_folder(userid, folderid=None, session=None):
         if owns_session:
             session.close()
 
-def get_upload_folder(userid, folderid, session=None):
+def get_upload_folder(userid, folderid=None, session=None):
     owns_session = False
     if session is None:
         session = Session()

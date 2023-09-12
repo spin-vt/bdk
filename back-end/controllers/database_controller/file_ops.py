@@ -42,6 +42,20 @@ def get_files_with_postfix(folderid, postfix, session=None):
         if owns_session:
             session.close()
 
+def get_files_by_type(folderid, filetype, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
+    try:
+        files_with_type = session.query(file).filter(file.folder_id == folderid, file.type == filetype).all()
+        return files_with_type
+    finally:
+        if owns_session:
+            session.close()
+
+
 def get_files_with_prefix(folderid, prefix, session=None):
     owns_session = False
     if session is None:

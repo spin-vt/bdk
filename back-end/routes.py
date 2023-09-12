@@ -74,77 +74,80 @@ def submit_data():
     session = Session()
     try:
         identity = get_jwt_identity()
-        try:
-            
-            if 'file' not in request.files:
-                return jsonify({'Status': "Failed, no file uploaded"}), 400
-
-            files = request.files.getlist('file')
-
-            if len(files) <= 0:
-                return jsonify({'Status': "Failed, no file uploaded"}), 400
-
-            file_data_list = request.form.getlist('fileData')
-
-            userVal = user_ops.get_user_with_id(identity['id'], session=session)
-            # Retrieve the last folder of the user, if any, otherwise create a new one
-            folderVal = folder_ops.get_upload_folder(userVal.id, session=session)
-            if folderVal is None:
-                num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
-                folder_name = f"{userVal.username}-{num_folders + 1}"
-                folderVal = folder_ops.create_folder(folder_name, userVal.id, 'upload', session=session)
-                session.commit()
-            file_names = []
-            matching_file_data_list = []
-
-            for index, f in enumerate(files):
-                existing_file = file_ops.get_file_with_name(f.filename, folderVal.id, session=session)
-                if existing_file is not None:
-                    # If file already exists, append its name to file_names and skip to next file
-                    continue
-                existing_file = kmz_ops.get_kmz_with_name(f.filename, folderVal.id, session=session)
-                if existing_file is not None:
-                    # If file already exists, append its name to file_names and skip to next file
-                    continue
-                
-                data = f.read()
-                if (f.filename.endswith('.csv')):
-                    file_ops.create_file(f.filename, data, folderVal.id, None, 'fabric', session=session)
-                    file_names.append(f.filename)
-                    matching_file_data_list.append(file_data_list[index])
-                elif (f.filename.endswith('.kml') or f.filename.endswith('.geojson')):
-                    file_ops.create_file(f.filename, data, folderVal.id, None, None, session=session)
-                    file_names.append(f.filename)
-                    matching_file_data_list.append(file_data_list[index])
-                elif f.filename.endswith('.kmz'):
-                    kmz_entry = kmz_ops.create_kmz(f.filename, folderVal.id, session)
-                    session.commit()
-                    kml_entries = kmz_ops.extract_kml_from_kmz(data)
-                    prefix = f.filename.rsplit('.', 1)[0]  # This will give you the filename without the .kmz extension
-                    
-                    for entry in kml_entries:
-                        kml_data = entry['data']
-                        kml_filename = entry['filename']
-                        new_kml_name = prefix + '-' + kml_filename
-                        file_ops.create_file(new_kml_name, kml_data, folderVal.id, kmz_entry.id, None, session=session)
-                        file_names.append(new_kml_name)
-                        # Reuse the KMZ's associated data for each extracted KML
-                        matching_file_data_list.append(file_data_list[index])
-                    
-
-                session.commit()
-
-            task = process_data.apply_async(args=[file_names, matching_file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
-            return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
         
-        except Exception as e:
-            session.rollback()  # Rollback the session in case of error
-            return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+            
+        if 'file' not in request.files:
+            return jsonify({'Status': "Failed, no file uploaded"}), 400
 
-        finally:
-            session.close()  # Always close the session at the end
+        files = request.files.getlist('file')
+        if len(files) <= 0:
+            return jsonify({'Status': "Failed, no file uploaded"}), 400
+
+        file_data_list = request.form.getlist('fileData')
+
+        userVal = user_ops.get_user_with_id(identity['id'], session=session)
+        # Retrieve the last folder of the user, if any, otherwise create a new one
+        folderVal = folder_ops.get_upload_folder(userVal.id, session=session)
+        if folderVal is None:
+            num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
+            folder_name = f"{userVal.username}-{num_folders + 1}"
+            folderVal = folder_ops.create_folder(folder_name, userVal.id, 'upload', session=session)
+            session.commit()
+        file_names = []
+        matching_file_data_list = []
+
+        for index, f in enumerate(files):
+            existing_file = file_ops.get_file_with_name(f.filename, folderVal.id, session=session)
+            if existing_file is not None:
+                # If file already exists, append its name to file_names and skip to next file
+                continue
+            existing_file = kmz_ops.get_kmz_with_name(f.filename, folderVal.id, session=session)
+            if existing_file is not None:
+                # If file already exists, append its name to file_names and skip to next file
+                continue
+            
+            data = f.read()
+            if (f.filename.endswith('.csv')):
+                file_ops.create_file(f.filename, data, folderVal.id, None, 'fabric', session=session)
+                file_names.append(f.filename)
+                matching_file_data_list.append(file_data_list[index])
+            elif (f.filename.endswith('.kml') or f.filename.endswith('.geojson')):
+                file_ops.create_file(f.filename, data, folderVal.id, None, None, session=session)
+                file_names.append(f.filename)
+                matching_file_data_list.append(file_data_list[index])
+            elif f.filename.endswith('.kmz'):
+                kmz_entry = kmz_ops.create_kmz(f.filename, folderVal.id, session)
+                session.commit()
+                kml_entries = kmz_ops.extract_kml_from_kmz(data)
+                prefix = f.filename.rsplit('.', 1)[0]  # This will give you the filename without the .kmz extension
+                
+                for entry in kml_entries:
+                    kml_data = entry['data']
+                    kml_filename = entry['filename']
+                    new_kml_name = prefix + '-' + kml_filename
+                    file_ops.create_file(new_kml_name, kml_data, folderVal.id, kmz_entry.id, None, session=session)
+                    file_names.append(new_kml_name)
+                    # Reuse the KMZ's associated data for each extracted KML
+                    matching_file_data_list.append(file_data_list[index])
+                
+
+            session.commit()
+
+        task = process_data.apply_async(args=[file_names, matching_file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
+        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+    
+        
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
+    except ValueError as ve:
+    # Handle specific errors, e.g., value errors
+        return jsonify({'Status': "Failed due to bad value", 'error': str(ve)}), 400
+    except Exception as e:
+        # General catch-all for other exceptions
+        session.rollback()  # Rollback the session in case of error
+        return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+    finally:
+        session.close()  # Always close the session at the end
 
 
 @app.route('/status/<task_id>')
@@ -384,26 +387,30 @@ def delete_files(fileid):
         return jsonify({'error': 'Token is invalid or expired'}), 401
     
 @app.route('/api/export', methods=['GET'])
-@jwt_required()  # Assuming you're using JWT for authentication
+@jwt_required()
 def get_exported_folders():
     session = Session()
     try:
-        identity = get_jwt_identity()  # Fetch the identity from the JWT
-        # Fetch export folders for the authenticated user
+        identity = get_jwt_identity()
         folders = folder_ops.get_folders_by_type_for_user(identity['id'], 'export', session)
-        
-        response_data = {}
+
+        response_data = []
         for fldr in folders:
-            folder_data = {
-                "id": fldr.id,
-                "name": fldr.name,
-                "timestamp": fldr.timestamp,
-                "files": file_ops.get_filesinfo_in_folder(fldr.id, session)
-            }
-            response_data.append(folder_data)
-        
+            files_in_folder = file_ops.get_files_in_folder(fldr.id, session)
+            mbt_in_folder = mbtiles_ops.get_latest_mbtiles(fldr.id, session)
+            
+            for f in files_in_folder:
+                file_data = {
+                    "id": f.id,
+                    "name": f.name,
+                    "timestamp": f.timestamp,
+                    "type": f.type,
+                    "mbt_id": mbt_in_folder.id
+                }
+                response_data.append(file_data)
+
         return jsonify(response_data), 200
-    
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
