@@ -1,16 +1,17 @@
-from database.models import kml_data, fabric_data, file, user
+from database.models import kml_data, fabric_data, file, user, vector_tiles, mbtiles
 from sqlalchemy.exc import IntegrityError
 from utils.settings import BATCH_SIZE, DATABASE_URL
 from sqlalchemy.exc import SQLAlchemyError
 from multiprocessing import Lock
 from database.sessions import ScopedSession, Session
+from datetime import datetime
 import logging, uuid, psycopg2, io, pandas, geopandas, shapely
 from shapely.geometry import Point
 import fiona
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
-from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix
-
+from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file
+from .folder_ops import create_folder
 
 db_lock = Lock()
 
@@ -205,7 +206,7 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
 
     return True
 
-def export(folderid, providerid, brandname, session): 
+def export(userid, folderid, providerid, brandname, session): 
     PROVIDER_ID = providerid
     BRAND_NAME = brandname
 
@@ -231,8 +232,42 @@ def export(folderid, providerid, brandname, session):
     availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
                                         'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
     
+
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding='utf-8')
+
+    current_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    folder_name = f"export-{current_datetime}"
+    csv_name = f"availability-{current_datetime}.csv"
+
+    # Step 1: Create a new 'folder' entry in the database
+    new_folder = create_folder(folder_name, userid, 'export', session=session)
+    session.add(new_folder)
+    session.flush()
+
+    csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
+    csv_file = create_file(filename="availability.csv", content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
+    # Step 2: Save the availability CSV to a new 'file' entry linked to the new folder
+    session.add(csv_file)
+
+    # Step 3: Copy the mbtiles data for the current folder to a new entry linked to the new folder
+    current_mbtile = session.query(mbtiles).filter_by(folder_id=folderid).one()
+    new_mbtile = mbtiles(tile_data=current_mbtile.tile_data, filename=current_mbtile.filename, folder_id=new_folder.id)
+    session.add(new_mbtile)
+    session.flush()
+
+    # Copy the vector tiles linked to the current mbtiles to new entries linked to the new mbtile
+    vector_tiles_data = session.query(vector_tiles).filter_by(mbtiles_id=current_mbtile.id).all()
+    for vt in vector_tiles_data:
+        new_vt = vector_tiles(zoom_level=vt.zoom_level, tile_column=vt.tile_column, tile_row=vt.tile_row, 
+                                tile_data=vt.tile_data, mbtiles_id=new_mbtile.id)
+        session.add(new_vt)
+    
+
+    session.commit()
+
+
+
     return output
 
 def compute_lte(folderid, geojsonid, download, upload, tech, userid, latency, category):

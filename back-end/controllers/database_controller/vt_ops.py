@@ -21,7 +21,7 @@ from controllers.celery_controller.celery_config import celery
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import desc
 from .file_ops import get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
-from .folder_ops import get_folder
+from .folder_ops import get_upload_folder
 from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles
 
 db_lock = Lock()
@@ -303,3 +303,62 @@ def retrieve_tiles(zoom, x, y, username, mbtileid=None):
     conn.close()
     return tile
 
+def toggle_tiles(markers, userid):
+
+    
+    message = ''
+    status_code = 0
+    session = Session()
+    try:
+        # Get the last folder of the user
+        user_last_folder = get_upload_folder(userid, None, session)
+        geojson_data = []
+        if user_last_folder:
+            
+            kml_set = set()
+            for marker in markers:
+                # Retrieve all kml_data entries where location_id equals to marker['id']
+                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
+                for kml_data_entry in kml_data_entries:
+                    kml_file = get_file_with_id(kml_data_entry.file_id, session)
+                    # Count files with .edit prefix in the folder
+                    edit_count = len(get_files_with_prefix(user_last_folder.id, f"{kml_file.name}-edit", session))
+                    if kml_data_entry.file_id not in kml_set:
+                        new_file = create_file(f"{kml_file.name}-edit{edit_count+1}/", None, user_last_folder.id, 'edit', session)
+                        session.add(new_file)
+                        session.commit()
+                        kml_set.add(kml_file.id)
+                    else:
+                        new_file = get_file_with_name(f"{kml_file.name}-edit{edit_count}/", user_last_folder.id, session)
+                    
+                    # Update each entry
+                    kml_data_entry.file_id = new_file.id
+                    kml_data_entry.served = marker['served']
+                    kml_data_entry.coveredLocations = new_file.name
+                    session.add(kml_data_entry)
+                    session.flush()
+
+        else:
+            raise Exception('No last folder for the user')
+        
+        all_kmls = get_files_with_postfix(user_last_folder.id, '.kml', session)
+        for kml_f in all_kmls:
+            geojson_data.append(read_kml(kml_f.id, session))
+        
+        delete_mbtiles(user_last_folder.id, session)
+        create_tiles(geojson_data, userid, user_last_folder.id, session)
+        message = 'Markers toggled successfully'
+        status_code = 200
+        
+        
+
+    except Exception as e:
+        session.rollback()  # rollback transaction on error
+        message = str(e)  # send the error message to client
+        status_code = 500
+
+    finally:
+        session.commit()
+        session.close()
+
+    return (message, status_code)

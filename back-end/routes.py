@@ -63,7 +63,7 @@ def get_number_records():
     try:
         identity = get_jwt_identity()
         userVal = user_ops.get_user_with_id(identity['id'])
-        folderVal = folder_ops.get_folder(userVal.id)
+        folderVal = folder_ops.get_upload_folder(userVal.id)
         return jsonify(kml_ops.get_kml_data(userVal.id, folderVal.id)), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
@@ -88,7 +88,7 @@ def submit_data():
 
             userVal = user_ops.get_user_with_id(identity['id'], session=session)
             # Retrieve the last folder of the user, if any, otherwise create a new one
-            folderVal = folder_ops.get_folder(userVal.id, session=session)
+            folderVal = folder_ops.get_upload_folder(userVal.id, session=session)
             if folderVal is None:
                 num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
                 folder_name = f"{userVal.username}-{num_folders + 1}"
@@ -187,7 +187,7 @@ def search_location():
         session = Session()
         try:
             userVal = user_ops.get_user_with_id(identity['id'], session)
-            folderVal = folder_ops.get_folder(userVal.id, None, session)
+            folderVal = folder_ops.get_upload_folder(userVal.id, None, session)
             results_dict = fabric_ops.address_query(folderVal.id, query, session)
             return jsonify(results_dict)
         except Exception as e:
@@ -265,9 +265,9 @@ def exportFiling():
         session = Session()
         try:
             userVal = user_ops.get_user_with_id(identity['id'], session)
-            folderVal = folder_ops.get_folder(userVal.id, None, session)
+            folderVal = folder_ops.get_upload_folder(userVal.id, None, session)
             
-            csv_output = kml_ops.export(folderVal.id, userVal.provider_id, userVal.brand_name, session)
+            csv_output = kml_ops.export(userVal.id, folderVal.id, userVal.provider_id, userVal.brand_name, session)
 
             if csv_output:
                 current_time = datetime.now()
@@ -359,7 +359,7 @@ def get_files():
     try:
         identity = get_jwt_identity()
         session = Session()
-        folderVal = folder_ops.get_folder(identity['id'], None, session=session)
+        folderVal = folder_ops.get_upload_folder(identity['id'], None, session=session)
         if folderVal:
             filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id, session=session)
             if not filesinfo:
