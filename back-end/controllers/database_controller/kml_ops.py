@@ -10,7 +10,7 @@ from shapely.geometry import Point
 import fiona
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
-from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file
+from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file, get_files_by_type
 from .folder_ops import create_folder
 
 db_lock = Lock()
@@ -24,7 +24,7 @@ def get_kml_data(userid, folderid, session=None):
 
     try:
         # Query the File records related to the folder_id
-        fabric_files = get_files_with_postfix(folderid, ".csv", session)
+        fabric_files = get_files_by_type(folderid, "fabric", session)
         kml_files = get_files_with_postfix(folderid, ".kml", session)
         geojson_files = get_files_with_postfix(folderid, ".geojson", session)
         coverage_files = kml_files + geojson_files
@@ -246,13 +246,13 @@ def export(userid, folderid, providerid, brandname, session):
     session.flush()
 
     csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
-    csv_file = create_file(filename="availability.csv", content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
+    csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
     # Step 2: Save the availability CSV to a new 'file' entry linked to the new folder
     session.add(csv_file)
 
     # Step 3: Copy the mbtiles data for the current folder to a new entry linked to the new folder
     current_mbtile = session.query(mbtiles).filter_by(folder_id=folderid).one()
-    new_mbtile = mbtiles(tile_data=current_mbtile.tile_data, filename=current_mbtile.filename, folder_id=new_folder.id)
+    new_mbtile = mbtiles(tile_data=current_mbtile.tile_data, filename=current_mbtile.filename, timestamp=datetime.now(), folder_id=new_folder.id)
     session.add(new_mbtile)
     session.flush()
 
