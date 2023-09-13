@@ -19,6 +19,7 @@ class folder(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    type = Column(String, default='upload') # Currently upload or export
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user = relationship('user', back_populates='folders')
     files = relationship('file', back_populates='folder', cascade='all, delete')

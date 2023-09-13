@@ -90,7 +90,9 @@ def submit_data():
             # Retrieve the last folder of the user, if any, otherwise create a new one
             folderVal = folder_ops.get_folder(userVal.id, session=session)
             if folderVal is None:
-                folderVal = folder_ops.create_folder("user-1", userVal.id, session=session)
+                num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
+                folder_name = f"{userVal.username}-{num_folders + 1}"
+                folderVal = folder_ops.create_folder(folder_name, userVal.id, 'upload', session=session)
                 session.commit()
             file_names = []
             matching_file_data_list = []
@@ -379,6 +381,32 @@ def delete_files(fileid):
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
+    
+@app.route('/api/export', methods=['GET'])
+@jwt_required()  # Assuming you're using JWT for authentication
+def get_exported_folders():
+    session = Session()
+    try:
+        identity = get_jwt_identity()  # Fetch the identity from the JWT
+        # Fetch export folders for the authenticated user
+        folders = folder_ops.get_folders_by_type_for_user(identity['id'], 'export', session)
+        
+        response_data = {}
+        for fldr in folders:
+            folder_data = {
+                "id": fldr.id,
+                "name": fldr.name,
+                "timestamp": fldr.timestamp,
+                "files": file_ops.get_filesinfo_in_folder(fldr.id, session)
+            }
+            response_data.append(folder_data)
+        
+        return jsonify(response_data), 200
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
     
 @app.route('/submit-challenge', methods=['POST'])
 def submit_challenge():
