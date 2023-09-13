@@ -288,6 +288,7 @@ const MyFile = () => {
           files={manualEditFiles}
           handleLocateOnMap={handleLocateOnMap}
           handleDelete={handleDelete}
+          setFiles={manualEditFiles}
         />
       </StyledContainer>
     </div>
@@ -377,6 +378,7 @@ const ManualEditFilesTable = ({
   files,
   handleLocateOnMap,
   handleDelete,
+  setFiles
 }) => {
   const [expandedRows, setExpandedRows] = React.useState([]);
 
