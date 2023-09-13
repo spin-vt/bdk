@@ -19,7 +19,7 @@ from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
 from controllers.celery_controller.celery_config import app, celery 
-from controllers.celery_controller.celery_tasks import process_data, deleteFiles
+from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -345,9 +345,10 @@ def toggle_markers():
     try:
         markers = request.json
         identity = get_jwt_identity()
-        response = vt_ops.toggle_tiles(markers, identity['id'])
+        
+        task = toggle_tiles.apply_async(args=[markers, identity['id']])
 
-        return jsonify(message=response[0]), response[1]
+        return jsonify({'Status': "OK", 'task_id': task.id}), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 

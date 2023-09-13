@@ -1,7 +1,7 @@
 import logging, subprocess, os, json, uuid, cProfile
 from controllers.celery_controller.celery_config import celery
 from controllers.database_controller import fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
-from database.models import file, user, folder
+from database.models import file, kml_data
 from database.sessions import Session
 from flask import jsonify
 
@@ -199,3 +199,66 @@ def deleteFiles(self, fileid, userid):
         return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
     finally:
         session.close()
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def toggle_tiles(self, markers, userid):
+
+    
+    message = ''
+    status_code = 0
+    session = Session()
+    try:
+        # Get the last folder of the user
+        user_last_folder = folder_ops.get_folder(userid=userid, folderid=None, session=session)
+        geojson_data = []
+        if user_last_folder:
+            
+            kml_set = set()
+            for marker in markers:
+                # Retrieve all kml_data entries where location_id equals to marker['id']
+                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
+                for kml_data_entry in kml_data_entries:
+                    kml_file = file_ops.get_file_with_id(fileid=kml_data_entry.file_id, session=session)
+                    # Count files with .edit prefix in the folder
+                    edit_count = len(file_ops.get_files_with_prefix(folderid=user_last_folder.id, prefix=f"{kml_file.name}-edit", session=session))
+                    if kml_data_entry.file_id not in kml_set:
+                        new_file = file_ops.create_file(filename=f"{kml_file.name}-edit{edit_count+1}/", content=None, folderid=user_last_folder.id, filetype='edit', session=session)
+                        session.add(new_file)
+                        session.commit()
+                        kml_set.add(kml_file.id)
+                    else:
+                        new_file = file_ops.get_file_with_name(filename=f"{kml_file.name}-edit{edit_count}/", folderid=user_last_folder.id, session=session)
+                    
+                    # Update each entry
+                    kml_data_entry.file_id = new_file.id
+                    kml_data_entry.served = marker['served']
+                    kml_data_entry.coveredLocations = new_file.name
+                    session.add(kml_data_entry)
+                    session.flush()
+
+        else:
+            raise Exception('No last folder for the user')
+        
+        all_kmls = file_ops.get_files_with_postfix(folderid=user_last_folder.id, postfix='.kml', session=session)
+        for kml_f in all_kmls:
+            geojson_data.append(vt_ops.read_kml(kml_f.id, session))
+        all_geojsons = file_ops.get_files_with_postfix(folderid=user_last_folder.id, postfix='.geojson', session=session)
+        for geojson_f in all_geojsons:
+            geojson_data.append(vt_ops.read_geojson(geojson_f.id, session))
+        mbtiles_ops.delete_mbtiles(user_last_folder.id, session)
+        vt_ops.create_tiles(geojson_data, userid, user_last_folder.id, session)
+        message = 'Markers toggled successfully'
+        status_code = 200
+        
+        
+
+    except Exception as e:
+        session.rollback()  # rollback transaction on error
+        message = str(e)  # send the error message to client
+        status_code = 500
+
+    finally:
+        session.commit()
+        session.close()
+
+    return (message, status_code)
