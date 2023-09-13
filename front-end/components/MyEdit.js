@@ -83,58 +83,85 @@ const MyEdit = () => {
         setSelectedPoints(updatedPoints);
     };
 
-    const toggleMarkers = (markers) => {
-        return fetch(`${backend_url}/toggle-markers`, {
-            method: "POST",
-            credentials: "include", // Include cookies in the request
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(markers),
-        })
-            .then((response) => {
-                if (response.status === 401) {
-                    // Redirect the user to the login page or other unauthorized handling page
-                    Swal.fire({
-                        icon: "error",
-                        title: "Oops...",
-                        text: "Session expired, please log in again!",
-                    });
-                    router.push("/login");
-                } else {
-                    return response.json();
-                }
-            })
-            .then((data) => {
-                if (data) { // to make sure data is not undefined when status is 401
-                    console.log(data.message);
-                }
-            })
-            .catch((error) => {
-                console.log(error);
-            });
-    };
-
-    const doneWithChanges = () => {
+    const toggleMarkers = async () => {
         setIsLoading(true);
-        const selectedMarkerIds = [];
-        selectedPoints.forEach((marker) => {
-            selectedMarkerIds.push({ id: marker.id, served: marker.served });
-        });
+        try {
+            const selectedMarkerIds = [];
+            selectedPoints.forEach((marker) => {
+                selectedMarkerIds.push({ id: marker.id, served: marker.served });
+            });
+            const response = await fetch(`${backend_url}/toggle-markers`, {
+                method: "POST",
+                credentials: "include", // Include cookies in the request
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(selectedMarkerIds),
+            })
 
-        // Send request to server to change the selected markers to served
-        toggleMarkers(selectedMarkerIds).finally(() => {
-
-            setIsDataReady(true);
+            if (response.status === 401) {
+                setIsLoading(false);
+                // Redirect the user to the login page or other unauthorized handling page
+                Swal.fire({
+                    icon: "error",
+                    title: "Oops...",
+                    text: "Session expired, please log in again!",
+                });
+                router.push("/login");
+            }
+            if (!response.ok) {
+                setIsLoading(false);
+                // If the response status is not ok (not 200)
+                throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
+            }
+            const data = await response.json();
+            if (data) {
+                const intervalId = setInterval(() => {
+                    console.log(data.task_id);
+                    fetch(`${backend_url}/status/${data.task_id}`)
+                        .then((response) => response.json())
+                        .then((status) => {
+                            if (status.state !== "PENDING") {
+                                clearInterval(intervalId);
+                                setIsDataReady(true);
+                                setIsLoading(false);
+                                setTimeout(() => {
+                                    setIsDataReady(false);
+                                    router.reload();
+                                }, 5000);
+                            }
+                        });
+                }, 5000);
+            }
+        } catch (error) {
+            console.error("Error:", error);
             setIsLoading(false);
-
-            setTimeout(() => {
-                setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
-            }, 5000);
-            setSelectedPoints([]);
-            router.reload();
-        });
+        }
     };
+
+
+
+
+    // const doneWithChanges = () => {
+    //     setIsLoading(true);
+    //     const selectedMarkerIds = [];
+    //     selectedPoints.forEach((marker) => {
+    //         selectedMarkerIds.push({ id: marker.id, served: marker.served });
+    //     });
+
+    //     // Send request to server to change the selected markers to served
+    //     toggleMarkers(selectedMarkerIds).finally(() => {
+
+    //         setIsDataReady(true);
+    //         setIsLoading(false);
+
+    //         setTimeout(() => {
+    //             setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
+    //         }, 5000);
+    //         setSelectedPoints([]);
+    //         router.reload();
+    //     });
+    // };
 
 
     return (
@@ -161,7 +188,7 @@ const MyEdit = () => {
                 <Button
                     variant="contained"
                     color="primary"
-                    onClick={doneWithChanges}
+                    onClick={toggleMarkers}
                 >
                     Submit Changes
                 </Button>
