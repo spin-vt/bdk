@@ -357,6 +357,31 @@ function Editmap() {
     }
   };
 
+  const doneWithChanges = () => {
+    setIsLoadingForTimedEffect(true);
+    const selectedMarkerIds = [];
+    selectedMarkersRef.current.forEach((list) => {
+      list.forEach((marker) => {
+        selectedMarkerIds.push({ id: marker.id, served: marker.served });
+      });
+    });
+    console.log(selectedMarkerIds);
+    // Send request to server to change the selected markers to served
+    toggleMarkers(selectedMarkerIds).finally(() => {
+
+      removeVectorTiles();
+      addVectorTiles();
+
+      setIsDataReady(true);
+      setIsLoadingForTimedEffect(false);
+
+      setTimeout(() => {
+        setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
+      }, 8000);
+    });
+
+    selectedMarkersRef.current = [];
+  };
 
   const setFeatureStateForMarkers = (markers) => {
     markers.forEach((marker) => {
