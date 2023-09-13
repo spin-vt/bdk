@@ -13,8 +13,13 @@
   position: absolute;
   top: 10px;
   left: 10px;
-  /* z-index: 1000; */
+  z-index: 1;
 }
+
+.my-swal {
+  z-index: 1000003044333;
+}
+
 
 .button-container button {
   padding: 10px;
@@ -34,7 +39,10 @@
   justify-content: center;
   align-items: center;
   background-color: rgba(255, 255, 255, 0.7); /* Adjust the background color and opacity as needed */
-  /* z-index: 9999; */
+  z-index: 10;
+}
+.swal2-container {
+  z-index: 1000000000;
 }
 
 .loading-spinner {

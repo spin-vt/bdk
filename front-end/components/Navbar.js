@@ -28,6 +28,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import EditMapContext from "../contexts/EditMapContext";
 import { backend_url } from "../utils/settings";
 import HistoryIcon from '@mui/icons-material/History';
+import Swal from "sweetalert2";
+
 
 const StyledAppBar = styled(AppBar)({
   backgroundImage: "linear-gradient(to right, #3A7BD5, #3A6073)",
@@ -94,6 +96,9 @@ export default function Navbar({
         }
       } catch (error) {
         console.error(error);
+        Swal.fire('Error', 'Oops, looks like we hit an error on our end, please try again later', 'error');
+
+        
         return initialValue;
       }
     });
@@ -113,6 +118,8 @@ export default function Navbar({
         }
       } catch (error) {
         console.error(error);
+        Swal.fire('Error', 'Oops, looks like we hit an error on our end, please try again later', 'error');
+
       }
     };
 
@@ -204,6 +211,8 @@ export default function Navbar({
       }
     } catch (error) {
       console.error("Logout error:", error);
+      Swal.fire('Error', 'Error logging out', 'error');
+
     }
   };
 
@@ -235,6 +244,8 @@ export default function Navbar({
       console.error("Fetching user info error:", error);
       setUsername(null); // Clear the username state variable
       localStorage.removeItem("username");
+      Swal.fire('Error', 'Error fetching profile info', 'error');
+
     }
   };
 
