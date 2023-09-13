@@ -378,9 +378,8 @@ def delete_files(fileid):
     fileid = int(fileid)
     try:
         identity = get_jwt_identity()
-        session = Session()
-        deleteFiles(fileid, identity['id'], session)
-        return jsonify({'Status': "OK"}), 200 # return task id to the client
+        task = deleteFiles.apply_async(args=[fileid, identity['id']])
+        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
     

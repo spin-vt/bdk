@@ -8,6 +8,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
 import re
 import os
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 db_lock = Lock()
 
@@ -185,19 +188,20 @@ def delete_file(fileid, session=None):
         file_to_del = get_file_with_id(fileid, session)
         if file_to_del:
             # Split name and extension
-            base_name, ext = os.path.splitext(file_to_del.name)
+            base_name, ext = file_to_del.name.rsplit('.', 1)
             
             # Check if the file is an edit file with the new naming scheme
-            if re.match(".+-edit\d*/$", ext):
+            if re.match(".*-edit\d*/$", ext):
                 orig_file_ext = ext.split('-edit')[0]
                 kml_entries = session.query(kml_data).filter(kml_data.file_id == fileid).all()
-                for kml_entry in kml_entries:
-                    orig_file = get_file_with_name(base_name + orig_file_ext, file_to_del.folder_id, session)
-                    if orig_file:
+                orig_file = get_file_with_name(base_name + '.' + orig_file_ext, file_to_del.folder_id, session)
+                if orig_file:
+                    for kml_entry in kml_entries:
                         kml_entry.file_id = orig_file.id
                         kml_entry.served = True
                         kml_entry.coveredLocations = orig_file.name
-                        session.flush()
+                        session.add(kml_entry)
+                        session.commit()
             # If not an edit file, check for related edits
             elif ext in ['.kml', '.geojson']:
                 related_edits = get_files_with_prefix(file_to_del.folder_id, f"{base_name + ext}-edit", session)

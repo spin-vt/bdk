@@ -175,11 +175,12 @@ def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
     return result2.returncode
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def deleteFiles(self, fileid, userid, session):
+def deleteFiles(self, fileid, userid):
     try:
-        file_to_del = file_ops.get_file_with_id(fileid)
+        session = Session()
+        file_to_del = file_ops.get_file_with_id(fileid, session)
         folderid = file_to_del.folder_id
-        file_ops.delete_file(fileid, session)
+        file_ops.delete_file(file_to_del.id, session)
         mbtiles_ops.delete_mbtiles(folderid, session)
         session.commit()
         
@@ -192,7 +193,7 @@ def deleteFiles(self, fileid, userid, session):
         for geojson_f in all_geojsons:
             geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
         vt_ops.create_tiles(geojson_array, userid, folderid, session)
-        return jsonify({'message': 'mbtiles successfully deleted'}), 200
+        return {'message': 'mbtiles successfully deleted'}  # Returning a dictionary
     except Exception as e:
         session.rollback()  # Rollback the session in case of error
         return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
@@ -233,7 +234,7 @@ def toggle_tiles(self, markers, userid):
                     kml_data_entry.served = marker['served']
                     kml_data_entry.coveredLocations = new_file.name
                     session.add(kml_data_entry)
-                    session.flush()
+                    session.commit()
 
         else:
             raise Exception('No last folder for the user')
