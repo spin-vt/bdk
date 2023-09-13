@@ -311,7 +311,7 @@ def toggle_tiles(markers, userid):
     session = Session()
     try:
         # Get the last folder of the user
-        user_last_folder = get_folder(userid, None, session)
+        user_last_folder = get_folder(userid=userid, folderid=None, session=session)
         geojson_data = []
         if user_last_folder:
             
@@ -320,16 +320,16 @@ def toggle_tiles(markers, userid):
                 # Retrieve all kml_data entries where location_id equals to marker['id']
                 kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
                 for kml_data_entry in kml_data_entries:
-                    kml_file = get_file_with_id(kml_data_entry.file_id, session)
+                    kml_file = get_file_with_id(fileid=kml_data_entry.file_id, session=session)
                     # Count files with .edit prefix in the folder
-                    edit_count = len(get_files_with_prefix(user_last_folder.id, f"{kml_file.name}-edit", session))
+                    edit_count = len(get_files_with_prefix(folderid=user_last_folder.id, prefix=f"{kml_file.name}-edit", session=session))
                     if kml_data_entry.file_id not in kml_set:
-                        new_file = create_file(f"{kml_file.name}-edit{edit_count+1}/", None, user_last_folder.id, 'edit', session)
+                        new_file = create_file(filename=f"{kml_file.name}-edit{edit_count+1}/", content=None, folderid=user_last_folder.id, filetype='edit', session=session)
                         session.add(new_file)
                         session.commit()
                         kml_set.add(kml_file.id)
                     else:
-                        new_file = get_file_with_name(f"{kml_file.name}-edit{edit_count}/", user_last_folder.id, session)
+                        new_file = get_file_with_name(filename=f"{kml_file.name}-edit{edit_count}/", folderid=user_last_folder.id, session=session)
                     
                     # Update each entry
                     kml_data_entry.file_id = new_file.id
@@ -341,10 +341,12 @@ def toggle_tiles(markers, userid):
         else:
             raise Exception('No last folder for the user')
         
-        all_kmls = get_files_with_postfix(user_last_folder.id, '.kml', session)
+        all_kmls = get_files_with_postfix(folderid=user_last_folder.id, postfix='.kml', session=session)
         for kml_f in all_kmls:
             geojson_data.append(read_kml(kml_f.id, session))
-        
+        all_geojsons = get_files_with_postfix(folderid=user_last_folder.id, postfix='.geojson', session=session)
+        for geojson_f in all_geojsons:
+            geojson_data.append(read_geojson(geojson_f.id, session))
         delete_mbtiles(user_last_folder.id, session)
         create_tiles(geojson_data, userid, user_last_folder.id, session)
         message = 'Markers toggled successfully'

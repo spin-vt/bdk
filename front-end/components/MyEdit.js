@@ -117,9 +117,13 @@ const MyEdit = () => {
 
     const doneWithChanges = () => {
         setIsLoading(true);
-        console.log(selectedPoints);
+        const selectedMarkerIds = [];
+        selectedPoints.forEach((marker) => {
+            selectedMarkerIds.push({ id: marker.id, served: marker.served });
+        });
+
         // Send request to server to change the selected markers to served
-        toggleMarkers(selectedPoints).finally(() => {
+        toggleMarkers(selectedMarkerIds).finally(() => {
 
             setIsDataReady(true);
             setIsLoading(false);
