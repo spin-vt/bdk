@@ -152,11 +152,21 @@ const MyFile = () => {
     const data = await response.json();
     if (!Array.isArray(data)) {
       console.error("Error: Expected data to be an array, but received:", data);
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Error on our end, please try again later",
+      });
       return;
     }
 
     if (!data || data.length === 0) {
       console.log("Error: Empty response received from server");
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Error on our end, please try again later",
+      });
     } else {
       data.forEach((file) => {
         console.log(file);
@@ -211,7 +221,14 @@ const MyFile = () => {
 
       if (!response.ok) {
         // If the response status is not ok (not 200)
-        throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "Error on our end, please try again later!",
+        });
+        throw new Error(
+          `HTTP error! status: ${response.status}, ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -237,6 +254,8 @@ const MyFile = () => {
     } catch (error) {
       console.error("Error:", error);
       setIsLoading(false);
+      Swal.fire('Error', 'Error uploading file', 'error');
+
     }
   };
 
@@ -321,6 +340,7 @@ const FileTable = ({
   };
 
   if (checked.length !== files.length) {
+    console.log("Checked lenght not true")
     return null; // or return a loading spinner
   }
 

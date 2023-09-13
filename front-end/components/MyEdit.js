@@ -88,11 +88,10 @@ const MyEdit = () => {
     const toggleMarkers = async () => {
         setIsLoading(true);
         try {
-            const requestBody = {
-                marker: selectedPoints,
-                mbtid: mbtid ? mbtid : -1
-            };
-            console.log(requestBody);
+            const selectedMarkerIds = [];
+            selectedPoints.forEach((marker) => {
+                selectedMarkerIds.push({ id: marker.id, served: marker.served });
+            });
             const response = await fetch(`${backend_url}/toggle-markers`, {
                 method: "POST",
                 credentials: "include", // Include cookies in the request
