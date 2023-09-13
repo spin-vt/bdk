@@ -78,9 +78,11 @@ const Login = () => {
           }
         }
       } else {
+        console.log("Login failed")
         Swal.fire('Error', 'Incorrect credentials', 'error');
       }
     } catch (error) {
+      console.log("Login error ", error)
       Swal.fire('Error', 'Incorrect credentials', 'error');
     }
   };
