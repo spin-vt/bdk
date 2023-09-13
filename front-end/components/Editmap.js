@@ -398,7 +398,7 @@ function Editmap() {
 
       setTimeout(() => {
         setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
-      }, 5000);
+      }, 8000);
     });
 
     selectedMarkersRef.current = [];

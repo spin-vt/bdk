@@ -20,6 +20,13 @@ import { Typography } from "@mui/material";
 import { useRouter } from "next/router";
 import { backend_url } from "../utils/settings";
 import { styled } from "@mui/material/styles";
+import styles from "../styles/Map.module.css";
+
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+
+
 
 const StyledFormControl = styled(FormControl)({
   margin: "4px",
@@ -61,15 +68,16 @@ const tech_types = {
 };
 
 const latency_type = {
-  "<= 100 ms": 1, 
+  "<= 100 ms": 1,
   "> 100 ms": 0,
-}
+};
 
 const bus_codes = {
-  "Business": "B", 
-  "Residential": "R", 
-  "Both": "X"
-}
+  Business: "B",
+  Residential: "R",
+  Both: "X",
+};
+
 
 export default function Upload({ generateChallenge }) {
   const [open, setOpen] = React.useState(false);
@@ -100,12 +108,13 @@ export default function Upload({ generateChallenge }) {
 
     const formData = new FormData();
 
-    files.forEach(fileDetails => {
+    files.forEach((fileDetails) => {
       formData.append("fileData", JSON.stringify(fileDetails));
       formData.append("file", fileDetails.file);
     });
 
     setIsLoading(true);
+
 
     fetch(`${backend_url}/compute-challenge`, {
       method: "POST",
@@ -128,8 +137,12 @@ export default function Upload({ generateChallenge }) {
         }
       })
       .catch((error) => {
-        console.error("Error:", error);
-        // setIsLoading(false);
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "There is an error on our end, please try again later",
+        });
+        setIsLoading(false);
       });
   };
 
@@ -138,12 +151,22 @@ export default function Upload({ generateChallenge }) {
 
     const formData = new FormData();
 
-    files.forEach(fileDetails => {
+    files.forEach((fileDetails) => {
       formData.append("fileData", JSON.stringify(fileDetails));
       formData.append("file", fileDetails.file);
     });
 
     setIsLoading(true);
+
+
+    if (formData.entries.length === 0) {
+      setIsLoading(false)
+      toast.error("Make sure to upload a file!", {
+        position: toast.POSITION.TOP_RIGHT, 
+        autoClose: 10000,
+      });
+      return 
+    }
 
     fetch(`${backend_url}/submit-data`, {
       method: "POST",
@@ -163,6 +186,13 @@ export default function Upload({ generateChallenge }) {
           return;
         } else if (response.status === 200) {
           return response.json();
+        } else if (response.status === 500 || response.status === 400) {
+
+          setIsLoading(false)
+          toast.error("Invalid File Format, please upload file with supported format", {
+            position: toast.POSITION.TOP_RIGHT, 
+            autoClose: 10000,
+          });
         }
       })
       .then((data) => {
@@ -172,6 +202,7 @@ export default function Upload({ generateChallenge }) {
             fetch(`${backend_url}/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
+                
                 if (status.state !== "PENDING") {
                   clearInterval(intervalId);
                   setExportSuccess(true);
@@ -180,14 +211,20 @@ export default function Upload({ generateChallenge }) {
                   setTimeout(() => {
                     setIsDataReady(false);
                     router.reload();
-                  }, 5000);
+                  }, 8000);
                 }
               });
-          }, 5000);
+          }, 8000);
         }
       })
       .catch((error) => {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "There is an error on our end, please try again later",
+        });
         console.error("Error:", error);
+
         setIsLoading(false);
       });
   };
@@ -216,10 +253,10 @@ export default function Upload({ generateChallenge }) {
       networkType: options[selectedIndex] === "Network" ? networkType : "",
       latency: options[selectedIndex] === "Network" ? latency : "",
       categoryCode: options[selectedIndex] === "Network" ? categoryCode : "",
-      file: file
+      file: file,
     }));
-  
-    setFiles(prevFiles => [...prevFiles, ...newFileDetails]);
+
+    setFiles((prevFiles) => [...prevFiles, ...newFileDetails]);
   };
 
   const handleClick = () => {
@@ -245,7 +282,9 @@ export default function Upload({ generateChallenge }) {
 
   const handleDelete = (id) => {
     // Iterate through the 'storage' array and remove the matching file
-    setFiles(prevFiles => prevFiles.filter(fileDetails => fileDetails.id !== id));
+    setFiles((prevFiles) =>
+      prevFiles.filter((fileDetails) => fileDetails.id !== id)
+    );
     setExportSuccess(false); // Set the export success state to true
 
     // Reset the file input element
@@ -319,7 +358,8 @@ export default function Upload({ generateChallenge }) {
 
   return (
     <React.Fragment>
-      <div style={{ position: "fixed", zIndex: 10000 }}>
+      <ToastContainer />
+      <div style={{ position: "fixed", zIndex: 10 }}>
         {(isLoading || isDataReady) && (
           <LoadingEffect
             isLoading={isLoading}
@@ -333,7 +373,7 @@ export default function Upload({ generateChallenge }) {
           flexDirection: "column",
           justifyContent: "flex-end", // This line
           marginLeft: "20px",
-          zIndex: 1000,
+          zIndex: 1,
           position: "relative",
         }}
       >
@@ -394,7 +434,9 @@ export default function Upload({ generateChallenge }) {
           <Box sx={{ marginTop: "1rem" }}>
             <Grid container spacing={1}>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="downloadSpeed">Download Speed: </label>
+                <label style={{ display: "block" }} htmlFor="downloadSpeed">
+                  Download Speed:{" "}
+                </label>
                 <input
                   type="text"
                   id="downloadSpeed"
@@ -403,7 +445,9 @@ export default function Upload({ generateChallenge }) {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="uploadSpeed">Upload Speed: </label>
+                <label style={{ display: "block" }} htmlFor="uploadSpeed">
+                  Upload Speed:{" "}
+                </label>
                 <input
                   type="text"
                   id="uploadSpeed"
@@ -412,7 +456,9 @@ export default function Upload({ generateChallenge }) {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="techType">Technology Type: </label>
+                <label style={{ display: "block" }} htmlFor="techType">
+                  Technology Type:{" "}
+                </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -440,7 +486,9 @@ export default function Upload({ generateChallenge }) {
                 </StyledFormControl>
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="wiredWireless">Network Type: </label>
+                <label style={{ display: "block" }} htmlFor="wiredWireless">
+                  Network Type:{" "}
+                </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -457,8 +505,11 @@ export default function Upload({ generateChallenge }) {
                     )}
                   </StyledSelect>
                 </StyledFormControl>
-              </Grid>              <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="techType">Latency: </label>
+              </Grid>{" "}
+              <Grid item xs={12} sm={2}>
+                <label style={{ display: "block" }} htmlFor="techType">
+                  Latency:{" "}
+                </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -486,7 +537,9 @@ export default function Upload({ generateChallenge }) {
                 </StyledFormControl>
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="techType">Category: </label>
+                <label style={{ display: "block" }} htmlFor="techType">
+                  Category:{" "}
+                </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -534,7 +587,10 @@ export default function Upload({ generateChallenge }) {
         </Box>
         {!generateChallenge && (
           <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-            <ExportButton onClick={handleFilingClick} challenge={generateChallenge}/>
+            <ExportButton
+              onClick={handleFilingClick}
+              challenge={generateChallenge}
+            />
           </Box>
         )}
         {generateChallenge && (

@@ -104,7 +104,7 @@ const CustomDrawer = ({ isOpen, children, onClose }) => {
           borderRadius: "4px",
           cursor: "pointer",
           fontSize: "16px",
-          zIndex: "11000",
+          zIndex: "1000",
           position: 'absolute',
           top: '10px',
           right: '10px',

@@ -5,6 +5,8 @@ import UploadChallenge from '../components/UploadChallenge';
 import { Drawer } from '@mui/material';
 import MyFile from '../components/MyFile';
 import dynamic from 'next/dynamic';
+import Swal from 'sweetalert2';
+
 
 const DynamicMap = dynamic(() => import('../components/Map'), { ssr: false });
 
@@ -35,7 +37,8 @@ function ChallengePage() {
       const jsonData = await response.json();
       setData(jsonData);
     } catch (error) {
-      console.error("Error fetching data: ", error);
+      Swal.fire('Error', 'Oops, something went wrong on our end, try again later', 'error');
+
     }
   }
 
@@ -83,7 +86,7 @@ const CustomDrawer = ({ isOpen, children, onClose }) => {
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '16px',
-          zIndex: '11000'
+          zIndex: '1000'
         }}
       >
         Close
