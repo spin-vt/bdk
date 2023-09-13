@@ -158,16 +158,6 @@ export default function Upload({ generateChallenge }) {
 
     setIsLoading(true);
 
-
-    if (formData.entries.length === 0) {
-      setIsLoading(false)
-      toast.error("Make sure to upload a file!", {
-        position: toast.POSITION.TOP_RIGHT, 
-        autoClose: 10000,
-      });
-      return 
-    }
-
     fetch(`${backend_url}/submit-data`, {
       method: "POST",
       body: formData,
@@ -373,7 +363,7 @@ export default function Upload({ generateChallenge }) {
           flexDirection: "column",
           justifyContent: "flex-end", // This line
           marginLeft: "20px",
-          zIndex: 1,
+          zIndex: 1000,
           position: "relative",
         }}
       >
