@@ -211,23 +211,36 @@ const MyFile = () => {
 
       if (!response.ok) {
         // If the response status is not ok (not 200)
-        throw new Error(
-          `HTTP error! status: ${response.status}, ${response.statusText}`
-        );
+        throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
       }
 
-      setFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
-      setIsDataReady(true);
-      setIsLoading(false);
-      setTimeout(() => {
-        setIsDataReady(false);
-      }, 5000);
-      router.reload();
+      const data = await response.json();
+
+      if (data) {
+        const intervalId = setInterval(() => {
+          console.log(data.task_id);
+          fetch(`${backend_url}/status/${data.task_id}`)
+            .then((response) => response.json())
+            .then((status) => {
+              if (status.state !== "PENDING") {
+                clearInterval(intervalId);
+                setExportSuccess(true);
+                setIsDataReady(true);
+                setIsLoading(false);
+                setTimeout(() => {
+                  setIsDataReady(false);
+                  router.reload();
+                }, 5000);
+              }
+            });
+        }, 5000);
+      }
     } catch (error) {
+      console.error("Error:", error);
       setIsLoading(false);
-      console.error("An error occurred:", error);
     }
   };
+
 
   return (
     <div>
@@ -312,51 +325,51 @@ const FileTable = ({
   }
 
   return (
-      <StyledTable aria-label="file table">
-        <TableHead>
-          <TableRow>
-            <TableCell>Filename</TableCell>
-            <TableCell>Created Time</TableCell>
-            <TableCell align="right">Type</TableCell>
-            {showSwitch && <TableCell align="right">Show on Map</TableCell>}
-            {showDelete && <TableCell align="right">Action</TableCell>}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {files.map((file, index) => (
-            <TableRow key={index}>
-              <TableCell component="th" scope="row">
-                {file.name}
+    <StyledTable aria-label="file table">
+      <TableHead>
+        <TableRow>
+          <TableCell>Filename</TableCell>
+          <TableCell>Created Time</TableCell>
+          <TableCell align="right">Type</TableCell>
+          {showSwitch && <TableCell align="right">Show on Map</TableCell>}
+          {showDelete && <TableCell align="right">Action</TableCell>}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {files.map((file, index) => (
+          <TableRow key={index}>
+            <TableCell component="th" scope="row">
+              {file.name}
+            </TableCell>
+            <TableCell>{file.uploadDate}</TableCell>
+            <TableCell align="right">{file.type}</TableCell>
+            {showSwitch && (
+              <TableCell align="right">
+                <IOSSwitch
+                  sx={{ m: 1 }}
+                  checked={checked[index]}
+                  onChange={handleToggle(index)}
+                  name="showOnMapSwitch"
+                  inputProps={{ "aria-label": "secondary checkbox" }}
+                />
               </TableCell>
-              <TableCell>{file.uploadDate}</TableCell>
-              <TableCell align="right">{file.type}</TableCell>
-              {showSwitch && (
-                <TableCell align="right">
-                  <IOSSwitch
-                    sx={{ m: 1 }}
-                    checked={checked[index]}
-                    onChange={handleToggle(index)}
-                    name="showOnMapSwitch"
-                    inputProps={{ "aria-label": "secondary checkbox" }}
-                  />
-                </TableCell>
-              )}
-              {showDelete && (
-                <TableCell align="right">
-                  <StyledIconButton
-                    onClick={() => handleDelete(file.id, setFiles)}
-                  >
-                    <DeleteIcon />
-                    <Typography sx={{ marginLeft: "10px" }}>
-                      Delete File
-                    </Typography>
-                  </StyledIconButton>
-                </TableCell>
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </StyledTable>
+            )}
+            {showDelete && (
+              <TableCell align="right">
+                <StyledIconButton
+                  onClick={() => handleDelete(file.id, setFiles)}
+                >
+                  <DeleteIcon />
+                  <Typography sx={{ marginLeft: "10px" }}>
+                    Delete File
+                  </Typography>
+                </StyledIconButton>
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+      </TableBody>
+    </StyledTable>
   );
 };
 

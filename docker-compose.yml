@@ -70,7 +70,7 @@ services:
       - 5000
 
   frontend:
-    image: ${DOCKER_IMAGE_FRONTEND}
+    image: frontend
     build: ./front-end
     volumes:
       - ./front-end:/app
