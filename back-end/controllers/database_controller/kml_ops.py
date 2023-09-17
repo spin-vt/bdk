@@ -206,8 +206,15 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
     return True
 
 def export(folderid, providerid, brandname, session): 
+
+    if not providerid or not brandname:
+        # If either providerid or brandname is False or falsy, do not perform the export.
+        return None
+        
     PROVIDER_ID = providerid
     BRAND_NAME = brandname
+
+
 
     
     all_files = get_files_with_postfix(folderid, '.kml', session) + get_files_with_postfix(folderid, '.geojson', session)
