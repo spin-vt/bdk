@@ -340,7 +340,6 @@ const FileTable = ({
   };
 
   if (checked.length !== files.length) {
-    console.log("Checked lenght not true")
     return null; // or return a loading spinner
   }
 

@@ -348,6 +348,7 @@ export default function Upload({ generateChallenge }) {
 
   return (
     <React.Fragment>
+
       <ToastContainer />
       <div style={{ position: "fixed", zIndex: 10 }}>
         {(isLoading || isDataReady) && (
