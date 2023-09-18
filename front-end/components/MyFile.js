@@ -231,13 +231,27 @@ const MyFile = () => {
         );
       }
 
-      setFiles((prevFiles) => prevFiles.filter((file) => file.id !== id));
-      setIsDataReady(true);
-      setIsLoading(false);
-      setTimeout(() => {
-        setIsDataReady(false);
-      }, 8000);
-      router.reload();
+      const data = await response.json();
+
+      if (data) {
+        const intervalId = setInterval(() => {
+          console.log(data.task_id);
+          fetch(`${backend_url}/status/${data.task_id}`)
+            .then((response) => response.json())
+            .then((status) => {
+              if (status.state !== "PENDING") {
+                clearInterval(intervalId);
+                setExportSuccess(true);
+                setIsDataReady(true);
+                setIsLoading(false);
+                setTimeout(() => {
+                  setIsDataReady(false);
+                  router.reload();
+                }, 5000);
+              }
+            });
+        }, 5000);
+      }
     } catch (error) {
       console.error("Error:", error);
       setIsLoading(false);
@@ -327,7 +341,6 @@ const FileTable = ({
   };
 
   if (checked.length !== files.length) {
-    console.log("Checked lenght not true")
     return null; // or return a loading spinner
   }
 
