@@ -130,7 +130,7 @@ const MyEdit = () => {
                                 setTimeout(() => {
                                     setIsDataReady(false);
                                     router.reload();
-                                }, 8000);
+                                }, 5000);
                             }
                         });
                 }, 5000);
