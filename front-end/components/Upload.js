@@ -201,10 +201,10 @@ export default function Upload({ generateChallenge }) {
                   setTimeout(() => {
                     setIsDataReady(false);
                     router.reload();
-                  }, 8000);
+                  }, 5000);
                 }
               });
-          }, 8000);
+          }, 5000);
         }
       })
       .catch((error) => {
