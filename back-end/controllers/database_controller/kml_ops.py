@@ -11,7 +11,7 @@ import fiona
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file, get_files_by_type
-from .folder_ops import create_folder
+from .folder_ops import create_folder, get_folder
 
 db_lock = Lock()
 
@@ -240,29 +240,14 @@ def export(userid, folderid, providerid, brandname, session):
     folder_name = f"export-{current_datetime}"
     csv_name = f"availability-{current_datetime}.csv"
 
-    # Step 1: Create a new 'folder' entry in the database
-    new_folder = create_folder(folder_name, userid, 'export', session=session)
-    session.add(new_folder)
-    session.flush()
+    # Step 1: Copy the content of original 'folder' into a new folder
+    original_folder = get_folder(userid=userid, folderid=folderid, session=session)
+    new_folder = original_folder.copy(name=folder_name,type='export', session=session)
 
     csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
     csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
     # Step 2: Save the availability CSV to a new 'file' entry linked to the new folder
     session.add(csv_file)
-
-    # Step 3: Copy the mbtiles data for the current folder to a new entry linked to the new folder
-    current_mbtile = session.query(mbtiles).filter_by(folder_id=folderid).one()
-    new_mbtile = mbtiles(tile_data=current_mbtile.tile_data, filename=current_mbtile.filename, timestamp=datetime.now(), folder_id=new_folder.id)
-    session.add(new_mbtile)
-    session.flush()
-
-    # Copy the vector tiles linked to the current mbtiles to new entries linked to the new mbtile
-    vector_tiles_data = session.query(vector_tiles).filter_by(mbtiles_id=current_mbtile.id).all()
-    for vt in vector_tiles_data:
-        new_vt = vector_tiles(zoom_level=vt.zoom_level, tile_column=vt.tile_column, tile_row=vt.tile_row, 
-                                tile_data=vt.tile_data, mbtiles_id=new_mbtile.id)
-        session.add(new_vt)
-    
 
     session.commit()
 
