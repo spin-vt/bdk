@@ -109,3 +109,29 @@ def get_folders_by_type_for_user(userid, foldertype, session=None):
     finally:
         if owns_session:
             session.close()
+
+
+def delete_folder(folderid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
+    try:
+        folder_to_delete = session.query(folder).filter(folder.id == folderid).one()
+        print(f'folder id is {folder_to_delete.id}', flush=True)
+        session.delete(folder_to_delete)
+        if owns_session:
+            session.commit()
+
+        return True
+
+    except NoResultFound:
+        return "Folder not found or unauthorized access"
+    except SQLAlchemyError as e:
+        if owns_session:
+            session.rollback()
+        return "An error occurred while deleting the folder: " + str(e)
+    finally:
+        if owns_session:
+            session.close()

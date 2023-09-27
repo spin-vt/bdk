@@ -437,6 +437,23 @@ def compute_challenge():
     challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", db_name, db_user, db_password, db_host)
     return jsonify({"message": "Data Computed!"}), 200
 
+@app.route('/api/delexport/<int:fileid>', methods=['DELETE'])
+@jwt_required()
+def delete_export(fileid):
+    fileid = int(fileid)
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
+        print(f'file id is {fileVal.id}', flush=True)
+        folder_ops.delete_folder(folderid=fileVal.folder_id, session=session)
+        return jsonify({'Status': "OK"}), 200 # return task id to the client
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.commit()
+        session.close()
+
 # For docker
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
