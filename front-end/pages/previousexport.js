@@ -143,7 +143,7 @@ const PreviousExport = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete file');
+        throw new Error('Failed to delete report');
       }
 
       const newFilesByPeriod = { ...filesByPeriod };
@@ -154,7 +154,7 @@ const PreviousExport = () => {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Failed to delete the file. Please try again.'
+        text: 'Failed to delete the report. Please try again.'
       });
     }
   };
