@@ -193,6 +193,8 @@ def tiles_join(geojson_data, folderid, session):
 def create_tiles(geojson_array, userid, folderid, session):
     from controllers.celery_controller.celery_tasks import run_tippecanoe
     network_data = get_kml_data(userid, folderid, session)
+    print("the length of kml is:\n")
+    print(len(network_data))
     if network_data:
         point_geojson = {
             "type": "FeatureCollection",

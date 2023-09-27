@@ -22,6 +22,7 @@ def get_kml_data(userid, folderid, session=None):
         session = Session()
         owns_session = True
     userVal = get_user_with_id(userid, session)
+    data = []
 
     try:
         # Query the File records related to the folder_id
@@ -393,9 +394,9 @@ def compute_geo_from_kml(folderid, kmlid):
     if (coverage_file.name.endswith('.kml')):
         fiona.drvsupport.supported_drivers['kml'] = 'rw'
         fiona.drvsupport.supported_drivers['KML'] = 'rw'
-        coverage = gpd.read_file(coverage_data, driver='KML')
+        coverage = geopandas.read_file(coverage_data, driver='KML')
     else:
-        coverage = gpd.read_file(coverage_data)
+        coverage = geopandas.read_file(coverage_data)
 
     coverage = coverage.to_crs("EPSG:4326")
     coverage = rename_conflicting_columns(coverage)
@@ -404,14 +405,19 @@ def compute_geo_from_kml(folderid, kmlid):
 
 def filter(serviceZones, nonServiceZones):
     # Obtain a unified geopandas dataframe of all nonServiceZones
-    all_non_service_zones = gpd.GeoDataFrame(pd.concat([compute_geo_from_kml(folderid, kmlid) for folderid, kmlid in nonServiceZones], ignore_index=True))
+    flag = False
+    if len(nonServiceZones) > 0:
+        all_non_service_zones = geopandas.GeoDataFrame(pandas.concat([compute_geo_from_kml(folderid, kmlid) for folderid, kmlid in nonServiceZones], ignore_index=True))
+        flag = True 
 
     # Iterate through serviceZones, filter out overlapping regions and make a call to add_to_db
     for bsl_fabric_near_fiber, kmlid, download, upload, tech, _, userid, latency, category, _ in serviceZones:
         fabric = bsl_fabric_near_fiber
-        # Overlap check and filtering
-        non_overlapping_fabric = gpd.overlay(fabric, all_non_service_zones, how="difference")
-        add_to_db(non_overlapping_fabric, kmlid, download, upload, tech, False, userid, latency, category, True)
+        if flag: 
+            non_overlapping_fabric = geopandas.overlay(fabric, all_non_service_zones, how="difference")
+            add_to_db(non_overlapping_fabric, kmlid, download, upload, tech, False, userid, latency, category, True)
+        else: 
+            add_to_db(fabric, kmlid, download, upload, tech, False, userid, latency, category, True)
     
 def add_network_data(folderid, kmlid ,download, upload, tech, type, userid, latency, category):
     res = False 

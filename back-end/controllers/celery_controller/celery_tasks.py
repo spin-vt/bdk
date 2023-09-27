@@ -1,4 +1,4 @@
-import logging, subprocess, os, json, uuid, cProfile
+import logging, subprocess, os, json, uuid, cProfile, sys
 from controllers.celery_controller.celery_config import celery
 from controllers.database_controller import fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
 from database.models import file, user, folder
@@ -12,12 +12,13 @@ def process_data(self, file_names, file_data_list, userid, folderid):
     try:
         geojson_array = []
         serviceZones = []  
+        nonServiceZones = [] 
+
         session = Session()
 
         csv_file_data = []
         kml_file_data = []
         geojson_file_data = []
-        nonServiceZones = [] 
         
         # Separate file data into csv and kml
         for file_name, file_data_str in zip(file_names, file_data_list):
@@ -82,7 +83,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             elif techType in wirelessTypes: 
                 networkType = 1
             else: 
-                networkType = -1 #we want to throw an error on this 
+                networkType = -1 
             
             if serviceType == 1: 
                 nonServiceZones.append((folderid, existing_file.id)) 
