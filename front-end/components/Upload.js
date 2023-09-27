@@ -61,13 +61,13 @@ const tech_types = {
 };
 
 const latency_type = {
-  "<= 100 ms": 1, 
+  "<= 100 ms": 1,
   "> 100 ms": 0,
 }
 
 const bus_codes = {
-  "Business": "B", 
-  "Residential": "R", 
+  "Business": "B",
+  "Residential": "R",
   "Both": "X"
 }
 
@@ -92,6 +92,8 @@ export default function Upload({ generateChallenge }) {
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [isDataReady, setIsDataReady] = React.useState(false);
+  const [fileData, setFileData] = React.useState({});
+
   const loadingTimeInMs = 3.5 * 60 * 1000;
   const router = useRouter();
 
@@ -218,8 +220,35 @@ export default function Upload({ generateChallenge }) {
       categoryCode: options[selectedIndex] === "Network" ? categoryCode : "",
       file: file
     }));
-  
+
     setFiles(prevFiles => [...prevFiles, ...newFileDetails]);
+
+    newFileDetails.forEach((fileDetail) => {
+      setFileData((prevFileData) => ({
+        ...prevFileData,
+        [fileDetail.id]: {
+          downloadSpeed: fileDetail.downloadSpeed,
+          uploadSpeed: fileDetail.uploadSpeed,
+          techType: fileDetail.techType,
+          networkType: fileDetail.networkType,
+          latency: fileDetail.latency,
+          categoryCode: fileDetail.categoryCode,
+        },
+      }));
+    });
+  };
+
+  const handleCellEditCommit = (params) => {
+    const { id, field, value } = params;
+
+    // Update the fileData state with the edited value
+    setFileData((prevFileData) => ({
+      ...prevFileData,
+      [id]: {
+        ...prevFileData[id],
+        [field]: value,
+      },
+    }));
   };
 
   const handleClick = () => {
@@ -260,7 +289,7 @@ export default function Upload({ generateChallenge }) {
     {
       field: "name",
       headerName: "File Name",
-      editable: true,
+      editable: true, // Allow editing of the file name
     },
     {
       field: "option",
@@ -270,31 +299,37 @@ export default function Upload({ generateChallenge }) {
       field: "downloadSpeed",
       headerName: "Download Speed",
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+      editable: true, // Allow editing of download speed
     },
     {
       field: "uploadSpeed",
       headerName: "Upload Speed",
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+      editable: true, // Allow editing of upload speed
     },
     {
       field: "techType",
       headerName: "Tech Type",
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+      editable: true, // Allow editing of technology type
     },
     {
       field: "networkType",
       headerName: "Network Type",
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+      editable: true, // Allow editing of network type
     },
     {
       field: "latency",
       headerName: "Latency",
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+      editable: true, // Allow editing of latency
     },
     {
       field: "categoryCode",
       headerName: "Category",
       hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
+      editable: true, // Allow editing of category code
     },
     {
       field: "actions",
@@ -394,7 +429,7 @@ export default function Upload({ generateChallenge }) {
           <Box sx={{ marginTop: "1rem" }}>
             <Grid container spacing={1}>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="downloadSpeed">Download Speed: </label>
+                <label style={{ display: 'block' }} htmlFor="downloadSpeed">Download Speed: </label>
                 <input
                   type="text"
                   id="downloadSpeed"
@@ -403,7 +438,7 @@ export default function Upload({ generateChallenge }) {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="uploadSpeed">Upload Speed: </label>
+                <label style={{ display: 'block' }} htmlFor="uploadSpeed">Upload Speed: </label>
                 <input
                   type="text"
                   id="uploadSpeed"
@@ -412,7 +447,7 @@ export default function Upload({ generateChallenge }) {
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="techType">Technology Type: </label>
+                <label style={{ display: 'block' }} htmlFor="techType">Technology Type: </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -440,7 +475,7 @@ export default function Upload({ generateChallenge }) {
                 </StyledFormControl>
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="wiredWireless">Network Type: </label>
+                <label style={{ display: 'block' }} htmlFor="wiredWireless">Network Type: </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -458,7 +493,7 @@ export default function Upload({ generateChallenge }) {
                   </StyledSelect>
                 </StyledFormControl>
               </Grid>              <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="techType">Latency: </label>
+                <label style={{ display: 'block' }} htmlFor="techType">Latency: </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -486,7 +521,7 @@ export default function Upload({ generateChallenge }) {
                 </StyledFormControl>
               </Grid>
               <Grid item xs={12} sm={2}>
-                <label style={{display: 'block'}} htmlFor="techType">Category: </label>
+                <label style={{ display: 'block' }} htmlFor="techType">Category: </label>
                 <StyledFormControl variant="outlined">
                   <StyledSelect
                     labelId="demo-simple-select-outlined-label"
@@ -530,11 +565,13 @@ export default function Upload({ generateChallenge }) {
             columns={columns}
             pageSize={5}
             checkboxSelection
+            onCellEditCommit={handleCellEditCommit}
           />
+
         </Box>
         {!generateChallenge && (
           <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-            <ExportButton onClick={handleFilingClick} challenge={generateChallenge}/>
+            <ExportButton onClick={handleFilingClick} challenge={generateChallenge} />
           </Box>
         )}
         {generateChallenge && (
