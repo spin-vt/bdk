@@ -6,14 +6,18 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import SQLAlchemyError
 from .user_ops import get_user_with_id
 
-def get_folder(userid, folderid=None, session=None):
+def get_export_folder(userid, folderid=None, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
     try:
+        # Query to retrieve the last folder of type 'upload' for the given user
         if not folderid:
-            folderVal = session.query(folder).filter(folder.user_id == userid).order_by(folder.id.desc()).first()
+            folderVal = (session.query(folder)
+                        .filter(folder.user_id == userid, folder.type == "export")
+                        .order_by(folder.id.desc())
+                        .first())
         else:
             folderVal = session.query(folder).filter(folder.id == folderid, folder.user_id == userid).one()
         return folderVal
@@ -21,7 +25,7 @@ def get_folder(userid, folderid=None, session=None):
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given user ID or folder ID"
+        return "Multiple results found for the given user ID"
     except Exception as e:
         return str(e)
     finally:

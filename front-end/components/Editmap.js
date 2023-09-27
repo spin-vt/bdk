@@ -88,6 +88,8 @@ function Editmap() {
       map.current.removeSource("custom");
     }
 
+    console.log(mbtid);
+
     const user = localStorage.getItem("username");
     const tilesURL = mbtid
     ? `${backend_url}/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
@@ -322,34 +324,6 @@ function Editmap() {
 
   }, [selectedPoints]); // Dependency on selectedPoints
 
-
-  const toggleMarkers = (markers) => {
-    return fetch(`${backend_url}/toggle-markers`, {
-      method: "POST",
-      credentials: "include", // Include cookies in the request
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(markers),
-    })
-      .then((response) => {
-        if (response.status === 401) {
-          // Redirect the user to the login page or other unauthorized handling page
-          router.push("/login");
-        } else {
-          return response.json();
-        }
-      })
-      .then((data) => {
-        if (data) { // to make sure data is not undefined when status is 401
-          console.log(data.message);
-        }
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  };
-
   const changeToUnserved = (lastList) => {
     if (lastList !== undefined && lastList !== null) {
       lastList.forEach((marker) => {
@@ -383,31 +357,6 @@ function Editmap() {
     }
   };
 
-  const doneWithChanges = () => {
-    setIsLoadingForTimedEffect(true);
-    const selectedMarkerIds = [];
-    selectedMarkersRef.current.forEach((list) => {
-      list.forEach((marker) => {
-        selectedMarkerIds.push({ id: marker.id, served: marker.served });
-      });
-    });
-    console.log(selectedMarkerIds);
-    // Send request to server to change the selected markers to served
-    toggleMarkers(selectedMarkerIds).finally(() => {
-
-      removeVectorTiles();
-      addVectorTiles();
-
-      setIsDataReady(true);
-      setIsLoadingForTimedEffect(false);
-
-      setTimeout(() => {
-        setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
-      }, 5000);
-    });
-
-    selectedMarkersRef.current = [];
-  };
 
   const setFeatureStateForMarkers = (markers) => {
     markers.forEach((marker) => {
@@ -434,8 +383,11 @@ function Editmap() {
       allMarkersRef.current.length === 0
     ) {
       setIsLoadingForUntimedEffect(true);
-
-      return fetch(`${backend_url}/served-data`, {
+      const url = mbtid 
+    ? `${backend_url}/served-data/${mbtid}` 
+    : `${backend_url}/served-data/None`;
+    
+      return fetch(url, {
         method: "GET",
         credentials: "include",
       })

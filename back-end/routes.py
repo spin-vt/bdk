@@ -56,15 +56,20 @@ db_password = os.environ.get("POSTGRES_PASSWORD")
 db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
 
-@app.route("/served-data", methods=['GET'])
+@app.route("/served-data/<mbtid>", methods=['GET'])
 @jwt_required()
-def get_number_records():
-
+def get_number_records(mbtid):
+    mbtid = str(mbtid)
+    session = Session()
     try:
         identity = get_jwt_identity()
-        userVal = user_ops.get_user_with_id(identity['id'])
-        folderVal = folder_ops.get_upload_folder(userVal.id)
-        return jsonify(kml_ops.get_kml_data(userVal.id, folderVal.id)), 200
+        if mbtid != 'None':
+            mbtid = int(mbtid)
+            mbt_entry = mbtiles_ops.get_mbtiles_with_id(mbtid=mbtid, session=session)
+            folderVal = folder_ops.get_export_folder(userid=identity['id'], folderid=mbt_entry.folder_id, session=session)
+        else:
+            folderVal = folder_ops.get_upload_folder(userid=identity['id'], folderid=None, session=session)
+        return jsonify(kml_ops.get_kml_data(userid=identity['id'], folderid=folderVal.id, session=session)), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
@@ -346,9 +351,11 @@ def serve_tile(username, zoom, x, y):
 @jwt_required()
 def toggle_markers():
     try:
-        markers = request.json
+        request_data = request.json
+        markers = request_data['marker']
+        mbtid = request_data['mbtid']
         identity = get_jwt_identity()
-        response = vt_ops.toggle_tiles(markers, identity['id'])
+        response = vt_ops.toggle_tiles(markers=markers, userid=identity['id'], mbtid=mbtid)
 
         return jsonify(message=response[0]), response[1]
     except NoAuthorizationError:
@@ -392,14 +399,16 @@ def get_exported_folders():
     session = Session()
     try:
         identity = get_jwt_identity()
-        folders = folder_ops.get_folders_by_type_for_user(identity['id'], 'export', session)
+        folders = folder_ops.get_folders_by_type_for_user(userid=identity['id'], foldertype='export', session=session)
 
         response_data = []
         for fldr in folders:
-            files_in_folder = file_ops.get_files_in_folder(fldr.id, session)
-            mbt_in_folder = mbtiles_ops.get_latest_mbtiles(fldr.id, session)
-            
-            for f in files_in_folder:
+            exportcsv_in_folder = file_ops.get_files_by_type(folderid=fldr.id, filetype='export', session=session)
+            # exportcsv_in_folder = file_ops.get_files_in_folder(folderid=fldr.id, session=session)
+            mbt_in_folder = mbtiles_ops.get_latest_mbtiles(folderid=fldr.id, session=session)
+
+            # print(exportcsv_in_folder)
+            for f in exportcsv_in_folder:
                 file_data = {
                     "id": f.id,
                     "name": f.name,

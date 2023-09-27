@@ -24,6 +24,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import UndoIcon from '@mui/icons-material/Undo';
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
+import MbtilesContext from "../contexts/MbtilesContext";
 
 const HeaderText = styled(Typography)({
     marginBottom: "20px",
@@ -61,6 +62,7 @@ const MyEdit = () => {
 
     const { setLocation } = useContext(SelectedLocationContext);
     const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
+    const { mbtid } = useContext(MbtilesContext);
 
     const handleLocateOnMap = (option) => {
         if (option !== undefined && option !== null) {
@@ -84,13 +86,18 @@ const MyEdit = () => {
     };
 
     const toggleMarkers = (markers) => {
+        const requestBody = {
+            marker: markers,
+            mbtid: mbtid ? mbtid : -1
+        };
+        console.log(requestBody);
         return fetch(`${backend_url}/toggle-markers`, {
             method: "POST",
             credentials: "include", // Include cookies in the request
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(markers),
+            body: JSON.stringify(requestBody),
         })
             .then((response) => {
                 if (response.status === 401) {

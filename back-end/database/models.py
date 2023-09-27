@@ -163,32 +163,6 @@ class fabric_data(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)  # Unique primary key
     file = relationship('file', back_populates='fabric_data')
 
-    # def copy(self, session, new_file_id):
-    #     new_fabric_data = fabric_data(
-    #         location_id=self.location_id,
-    #         address_primary = self.address_primary,
-    #         city = self.city,
-    #         state = self.state,
-    #         zip_code = self.zip_code,
-    #         zip_suffix = self.zip_suffix,
-    #         unit_count = self.unit_count,
-    #         bsl_flag = self.bsl_flag,
-    #         building_type_code = self.building_type_code,
-    #         land_use_code = self.land_use_code,
-    #         address_confidence_code = self.address_confidence_code,
-    #         country_geoid = self.country_geoid,
-    #         block_geoid = self.block_geoid,
-    #         h3_9 = self.h3_9,
-    #         latitude = self.latitude,
-    #         longitude = self.longitude,
-    #         fcc_rel = self.fcc_rel,
-    #         file_id=new_file_id
-    #     )
-    #     session.add(new_fabric_data)
-    #     return new_fabric_data
-
-    # __table_args__ = (UniqueConstraint('location_id', 'user_id', name='location_user_uc'),)
-
 class fabric_data_temp(Base):
     __tablename__ = 'fabric_data_temp'
     location_id = Column(Integer, primary_key=True)
@@ -231,27 +205,6 @@ class kml_data(Base):
     latency = Column(Integer)
     category = Column(String)
 
-    # def copy(self, session, new_file_id):
-    #     new_kml_data = kml_data(
-    #         location_id=self.location_id,
-    #         served = self.served,
-    #         wireless = self.wireless,
-    #         lte = self.lte,
-    #         username = self.username,
-    #         coveredLocations = self.coveredLocations,
-    #         maxDownloadNetwork = self.maxDownloadNetwork,
-    #         maxDownloadSpeed = self.maxDownloadSpeed,
-    #         maxUploadSpeed = self.maxUploadSpeed,
-    #         techType = self.techType,
-    #         address_primary = self.address_primary,
-    #         longitude = self.longitude,
-    #         latitude = self.latitude,
-    #         latency = self.latency,
-    #         category = self.category,
-    #         file_id=new_file_id
-    #     )
-    #     session.add(new_kml_data)
-    #     return new_kml_data
 
 class mbtiles(Base):
     __tablename__ = 'mbtiles'
@@ -292,18 +245,6 @@ class vector_tiles(Base):
     tile_data = Column(LargeBinary)
     mbtiles_id = Column(Integer, ForeignKey('mbtiles.id', ondelete='CASCADE'))
     mbtiles = relationship('mbtiles', back_populates='vector_tiles')
-
-    # def copy(self, session, new_mbtile_id):
-    #     new_vector_tile = vector_tiles(
-    #         zoom_level = self.zoom_level,
-    #         tile_column = self.tile_column,
-    #         tile_row = self.tile_row,
-    #         tile_data = self.tile_data,
-    #         mbtiles_id = new_mbtile_id
-
-    #     )
-    #     session.add(new_vector_tile)
-    #     return new_vector_tile
 
 class ChallengeLocations(Base):
     __tablename__ = 'challenge_locations'

@@ -11,7 +11,7 @@ import fiona
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file, get_files_by_type
-from .folder_ops import create_folder, get_folder
+from .folder_ops import create_folder, get_upload_folder
 
 db_lock = Lock()
 
@@ -206,52 +206,46 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
 
     return True
 
-def export(userid, folderid, providerid, brandname, session): 
-    PROVIDER_ID = providerid
-    BRAND_NAME = brandname
-
-    
-    all_files = get_files_with_postfix(folderid, '.kml', session) + get_files_with_postfix(folderid, '.geojson', session)
-
-    all_file_ids = [file.id for file in all_files]
-
-    result = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
-
+def generate_csv_data(results, provider_id, brand_name):
     availability_csv = pandas.DataFrame()
 
-    availability_csv['location_id'] = [row.location_id for row in result]  # Adjusted
-    availability_csv['provider_id'] = PROVIDER_ID
-    availability_csv['brand_name'] = BRAND_NAME
-    availability_csv['technology'] = [row.techType for row in result]  # Adjusted
-    availability_csv['max_advertised_download_speed'] = [row.maxDownloadSpeed for row in result]  # Adjusted
-    availability_csv['max_advertised_upload_speed'] = [row.maxUploadSpeed for row in result]  # Adjusted
-    availability_csv['low_latency'] = [row.latency for row in result]
-    availability_csv['business_residential_code'] = [row.category for row in result]
+    availability_csv['location_id'] = [row.location_id for row in results]
+    availability_csv['provider_id'] = provider_id
+    availability_csv['brand_name'] = brand_name
+    availability_csv['technology'] = [row.techType for row in results]
+    availability_csv['max_advertised_download_speed'] = [row.maxDownloadSpeed for row in results]
+    availability_csv['max_advertised_upload_speed'] = [row.maxUploadSpeed for row in results]
+    availability_csv['low_latency'] = [row.latency for row in results]
+    availability_csv['business_residential_code'] = [row.category for row in results]
 
     availability_csv.drop_duplicates(subset=['location_id', 'technology'], keep='first', inplace=True)
     availability_csv = availability_csv[['provider_id', 'brand_name', 'location_id', 'technology', 'max_advertised_download_speed', 
-                                        'max_advertised_upload_speed', 'low_latency', 'business_residential_code']] 
-    
+                                         'max_advertised_upload_speed', 'low_latency', 'business_residential_code']]
+
+    return availability_csv
+
+def export(userid, folderid, providerid, brandname, session): 
+    all_files = get_files_with_postfix(folderid, '.kml', session) + get_files_with_postfix(folderid, '.geojson', session)
+    all_file_ids = [file.id for file in all_files]
+    results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
+
+    availability_csv = generate_csv_data(results, providerid, brandname)
 
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding='utf-8')
 
-    current_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    current_datetime = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
     folder_name = f"export-{current_datetime}"
     csv_name = f"availability-{current_datetime}.csv"
 
-    # Step 1: Copy the content of original 'folder' into a new folder
-    original_folder = get_folder(userid=userid, folderid=folderid, session=session)
+    original_folder = get_upload_folder(userid=userid, folderid=folderid, session=session)
     new_folder = original_folder.copy(name=folder_name,type='export', session=session)
 
     csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
     csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
-    # Step 2: Save the availability CSV to a new 'file' entry linked to the new folder
+    
     session.add(csv_file)
-
     session.commit()
-
-
 
     return output
 
