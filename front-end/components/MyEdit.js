@@ -24,6 +24,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import UndoIcon from '@mui/icons-material/Undo';
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
+import MbtilesContext from "../contexts/MbtilesContext";
 
 const HeaderText = styled(Typography)({
     marginBottom: "20px",
@@ -61,6 +62,7 @@ const MyEdit = () => {
 
     const { setLocation } = useContext(SelectedLocationContext);
     const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
+    const { mbtid } = useContext(MbtilesContext);
 
     const handleLocateOnMap = (option) => {
         if (option !== undefined && option !== null) {
@@ -83,85 +85,59 @@ const MyEdit = () => {
         setSelectedPoints(updatedPoints);
     };
 
-    const toggleMarkers = async () => {
-        setIsLoading(true);
-        try {
-            const selectedMarkerIds = [];
-            selectedPoints.forEach((marker) => {
-                selectedMarkerIds.push({ id: marker.id, served: marker.served });
-            });
-            const response = await fetch(`${backend_url}/toggle-markers`, {
-                method: "POST",
-                credentials: "include", // Include cookies in the request
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(selectedMarkerIds),
+    const toggleMarkers = (markers) => {
+        const requestBody = {
+            marker: markers,
+            mbtid: mbtid ? mbtid : -1
+        };
+        console.log(requestBody);
+        return fetch(`${backend_url}/toggle-markers`, {
+            method: "POST",
+            credentials: "include", // Include cookies in the request
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+        })
+            .then((response) => {
+                if (response.status === 401) {
+                    // Redirect the user to the login page or other unauthorized handling page
+                    Swal.fire({
+                        icon: "error",
+                        title: "Oops...",
+                        text: "Session expired, please log in again!",
+                    });
+                    router.push("/login");
+                } else {
+                    return response.json();
+                }
             })
-
-            if (response.status === 401) {
-                setIsLoading(false);
-                // Redirect the user to the login page or other unauthorized handling page
-                Swal.fire({
-                    icon: "error",
-                    title: "Oops...",
-                    text: "Session expired, please log in again!",
-                });
-                router.push("/login");
-            }
-            if (!response.ok) {
-                setIsLoading(false);
-                // If the response status is not ok (not 200)
-                throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
-            }
-            const data = await response.json();
-            if (data) {
-                const intervalId = setInterval(() => {
-                    console.log(data.task_id);
-                    fetch(`${backend_url}/status/${data.task_id}`)
-                        .then((response) => response.json())
-                        .then((status) => {
-                            if (status.state !== "PENDING") {
-                                clearInterval(intervalId);
-                                setIsDataReady(true);
-                                setIsLoading(false);
-                                setTimeout(() => {
-                                    setIsDataReady(false);
-                                    router.reload();
-                                }, 5000);
-                            }
-                        });
-                }, 5000);
-            }
-        } catch (error) {
-            console.error("Error:", error);
-            setIsLoading(false);
-        }
+            .then((data) => {
+                if (data) { // to make sure data is not undefined when status is 401
+                    console.log(data.message);
+                }
+            })
+            .catch((error) => {
+                console.log(error);
+            });
     };
 
+    const doneWithChanges = () => {
+        setIsLoading(true);
+        console.log(selectedPoints);
+        // Send request to server to change the selected markers to served
+        toggleMarkers(selectedPoints).finally(() => {
 
+            setIsDataReady(true);
+            setIsLoading(false);
 
-
-    // const doneWithChanges = () => {
-    //     setIsLoading(true);
-    //     const selectedMarkerIds = [];
-    //     selectedPoints.forEach((marker) => {
-    //         selectedMarkerIds.push({ id: marker.id, served: marker.served });
-    //     });
-
-    //     // Send request to server to change the selected markers to served
-    //     toggleMarkers(selectedMarkerIds).finally(() => {
-
-    //         setIsDataReady(true);
-    //         setIsLoading(false);
-
-    //         setTimeout(() => {
-    //             setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
-    //         }, 5000);
-    //         setSelectedPoints([]);
-    //         router.reload();
-    //     });
-    // };
+            setTimeout(() => {
+                setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
+            }, 5000);
+            setSelectedPoints([]);
+            router.reload();
+        });
+    };
 
 
     return (

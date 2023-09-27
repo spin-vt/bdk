@@ -51,6 +51,11 @@ def get_files_by_type(folderid, filetype, session=None):
     try:
         files_with_type = session.query(file).filter(file.folder_id == folderid, file.type == filetype).all()
         return files_with_type
+    except NoResultFound:
+        return None
+    except SQLAlchemyError as e:
+        print(f"Error occurred during query: {str(e)}")
+        return None
     finally:
         if owns_session:
             session.close()
@@ -65,6 +70,11 @@ def get_files_with_prefix(folderid, prefix, session=None):
     try:
         files_with_ending = session.query(file).filter(file.folder_id == folderid, file.name.startswith(prefix)).all()
         return files_with_ending
+    except NoResultFound:
+        return None
+    except SQLAlchemyError as e:
+        print(f"Error occurred during query: {str(e)}")
+        return None
     finally:
         if owns_session:
             session.close()

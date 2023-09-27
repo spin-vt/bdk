@@ -64,52 +64,64 @@ const PreviousExport = () => {
   const handleClose = () => setOpen(false);
 
   const fetchExportedFiles = async () => {
-    const response = await fetch(`${backend_url}/api/export`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
+    try {
+      const response = await fetch(`${backend_url}/api/export`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
 
-    if (response.status === 401) {
+      if (response.status === 401) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: 'Session expired, please log in again!'
+        });
+        router.push('/login');
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch exported files');
+      }
+      setFilesByPeriod(groupFilesByPeriod(data));
+    } catch (error) {
+      console.error(error);
       Swal.fire({
         icon: 'error',
-        title: 'Oops...',
-        text: 'Session expired, please log in again!'
+        title: 'Error',
+        text: 'Failed to fetch exported files.'
       });
-      router.push('/login');
-      return;
     }
+  };
 
-    const data = await response.json();
 
-    const groupFilesByPeriod = (files) => {
-      return files.reduce((acc, file) => {
-        const fileDate = new Date(file.timestamp);
-        const year = fileDate.getFullYear();
-        const startDate1 = new Date(year, 2, 16);  // March 16
-        const endDate1 = new Date(year, 8, 15);    // Sep 15
-        const startDate2 = new Date(year, 8, 16);  // Sep 16
-        const endDate2 = new Date(year + 1, 2, 15); // Next year Mar 15
+  const groupFilesByPeriod = (files) => {
+    return files.reduce((acc, file) => {
+      const fileDate = new Date(file.timestamp);
+      const year = fileDate.getFullYear();
+      const startDate1 = new Date(year, 2, 16);
+      const endDate1 = new Date(year, 8, 15);
+      const startDate2 = new Date(year, 8, 16);
+      const endDate2 = new Date(year + 1, 2, 15);
 
-        let period = "";
-        if (fileDate >= startDate1 && fileDate <= endDate1) {
-          period = `${year} March 16 - ${year} Sep 15`;
-        } else if (fileDate >= startDate2 && fileDate <= endDate2) {
-          period = `${year} Sep 16 - ${year + 1} Mar 15`;
-        }
+      let period = "";
+      if (fileDate >= startDate1 && fileDate <= endDate1) {
+        period = `${year} March 16 - ${year} Sep 15`;
+      } else if (fileDate >= startDate2 && fileDate <= endDate2) {
+        period = `${year} Sep 16 - ${year + 1} Mar 15`;
+      }
 
-        if (!acc[period]) {
-          acc[period] = [];
-        }
-        acc[period].push(file);
-
-        return acc;
-      }, {});
-    };
-
-    setFilesByPeriod(groupFilesByPeriod(data));
+      if (!acc[period]) {
+        acc[period] = [];
+      }
+      acc[period].push(file);
+      return acc;
+    }, {});
   };
 
 
@@ -120,27 +132,38 @@ const PreviousExport = () => {
   }, []);
 
   const handleDelete = async (period, fileIndex) => {
-    const file = filesByPeriod[period][fileIndex];
-    const response = await fetch(`${backend_url}/api/delexport/${file.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
+    try {
+      const file = filesByPeriod[period][fileIndex];
+      const response = await fetch(`${backend_url}/api/delexport/${file.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
 
-    if (response.ok) {
+      if (!response.ok) {
+        throw new Error('Failed to delete file');
+      }
+
       const newFilesByPeriod = { ...filesByPeriod };
       newFilesByPeriod[period].splice(fileIndex, 1);
       setFilesByPeriod(newFilesByPeriod);
-    } else {
-      console.log("Error deleting file");
+    } catch (error) {
+      console.error(error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to delete the file. Please try again.'
+      });
     }
   };
+
 
   const handleEditMap = (period, fileIndex) => {
     const file = filesByPeriod[period][fileIndex];
     setMbtid(file.mbt_id);
+    console.log(file.mbt_id);
     setEditingMap(true);
     router.push("/");
   };
@@ -157,7 +180,7 @@ const PreviousExport = () => {
       <Navbar />
       <StyledContainer component="main" maxWidth="md">
         <HeaderText component="h1" variant="h5">
-          Your Previous Exports
+          Your Previous Reports
         </HeaderText>
         <Modal
           open={open}
@@ -179,7 +202,7 @@ const PreviousExport = () => {
               overflow: 'hidden' // add scrollbar if content is taller than maxHeight
             }}
           >
-            <IconButton onClick={handleClose}><Typography>Close Map</Typography><CloseIcon /></IconButton>
+            <IconButton sx={{backgroundColor: '#f76d9e'}} onClick={handleClose}><Typography>Close Map</Typography><CloseIcon /></IconButton>
             <Minimap id={viewonlymapid} />
           </Box>
         </Modal>
@@ -215,19 +238,19 @@ const FileTable = ({ filesByPeriod, handleDelete, handleViewOnMap, handleEditMap
                       <StyledIconButton onClick={() => handleViewOnMap(period, fileIndex)}>
                         <MapIcon />
                         <Typography sx={{ marginLeft: "10px" }}>
-                          View this map
+                          View report on map
                         </Typography>
                       </StyledIconButton>
                       <StyledIconButton onClick={() => handleEditMap(period, fileIndex)}>
                         <EditIcon />
                         <Typography sx={{ marginLeft: '10px' }}>
-                          Edit on map
+                          Edit report on map
                         </Typography>
                       </StyledIconButton>
                       <StyledIconButton onClick={() => handleDelete(period, fileIndex)}>
                         <DeleteIcon />
                         <Typography sx={{ marginLeft: "10px" }}>
-                          Delete this export
+                          Delete this report
                         </Typography>
                       </StyledIconButton>
                     </TableCell>

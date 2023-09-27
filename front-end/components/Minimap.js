@@ -10,8 +10,8 @@ import { styled } from "@mui/material/styles";
 const StyledBaseMapIconButton = styled(IconButton)({
     width: "33px",
     height: "33px",
-    top: "30%",
-    position: "absolute",
+    top: "25vh",
+    position: "relative",
     left: "10px",
     zIndex: 1000,
     backgroundColor: "rgba(255, 255, 255, 1)",

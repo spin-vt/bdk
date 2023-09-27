@@ -88,6 +88,8 @@ function Editmap() {
       map.current.removeSource("custom");
     }
 
+    console.log(mbtid);
+
     const user = localStorage.getItem("username");
     const tilesURL = mbtid
     ? `${backend_url}/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
@@ -355,6 +357,7 @@ function Editmap() {
     }
   };
 
+
   const setFeatureStateForMarkers = (markers) => {
     markers.forEach((marker) => {
       if (marker.served) {
@@ -380,8 +383,11 @@ function Editmap() {
       allMarkersRef.current.length === 0
     ) {
       setIsLoadingForUntimedEffect(true);
-
-      return fetch(`${backend_url}/served-data`, {
+      const url = mbtid 
+    ? `${backend_url}/served-data/${mbtid}` 
+    : `${backend_url}/served-data/None`;
+    
+      return fetch(url, {
         method: "GET",
         credentials: "include",
       })
