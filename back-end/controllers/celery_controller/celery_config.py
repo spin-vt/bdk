@@ -1,14 +1,17 @@
 from celery import Celery
 from flask import Flask
 from flask_cors import CORS
+from celery.signals import setup_logging
+import logging
 
-
+# Set up custom logger here if not already done in 'utils.logger_config'
+# ... your logger setup ...
 
 def make_celery(app):
     celery = Celery(
         app.import_name,
-        backend=app.config['CELERY_RESULT_BACKEND'],
-        broker=app.config['CELERY_BROKER_URL'],
+        backend=app.config['result_backend'],
+        broker=app.config['broker_url'],
         include=['controllers.celery_controller.celery_tasks']
     )
     celery.conf.update(app.config)
@@ -24,8 +27,9 @@ def make_celery(app):
 app = Flask(__name__)
 
 app.config.update(
-    CELERY_BROKER_URL='redis://redis:6379/0',
-    CELERY_RESULT_BACKEND='redis://redis:6379/0'
+    broker_url='redis://redis:6379/0',
+    result_backend='redis://redis:6379/0',
+    worker_hijack_root_logger=False
 )
 
 CORS(app, supports_credentials=True)

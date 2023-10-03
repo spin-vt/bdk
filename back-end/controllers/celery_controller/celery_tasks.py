@@ -30,10 +30,10 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         for file_name, file_data_str in csv_file_data:
             # Check if file name already exists in the database for this user
             existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
-            print(existing_file)
+            logger.debug(existing_file)
             # If file name exists, skip to the next iteration
             if existing_file and existing_file.computed:
-                print("skip")
+                logger.info("skipping existing file")
                 continue
             
             # names.append(file_name)
@@ -51,10 +51,10 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         for file_name, file_data_str in kml_file_data:
 
             existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
-            print(existing_file)
+            logger.debug(existing_file)
             # If file name exists, skip to the next iteration
             if existing_file and existing_file.computed:
-                print("skip")
+                logger.info("skipping existing file")
                 continue
             
             # names.append(file_name)
@@ -83,10 +83,10 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         for file_name, file_data_str in geojson_file_data:
 
             existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
-            print(existing_file)
+            logger.debug(existing_file)
             # If file name exists, skip to the next iteration
             if existing_file and existing_file.computed:
-                print("skip")
+                logger.info("skipping existing file")
                 continue
             
             # names.append(file_name)
@@ -120,7 +120,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
         
         mbtiles_ops.delete_mbtiles(folderid, session)
-        print("finished kml processing, now creating tiles")
+        logger.info("finished kml processing, now creating tiles")
         
         vt_ops.create_tiles(geojson_array, userid, folderid, session)
         
@@ -137,8 +137,8 @@ def process_data(self, file_names, file_data_list, userid, folderid):
 def run_tippecanoe(self, command, folderid, mbtilepath):
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
-    if result.stderr:
-        print("Tippecanoe stderr:", result.stderr.decode())
+    if result.stdout:
+        logger.debug("Tippecanoe stdout: %s", result.stdout.decode())
 
     vt_ops.add_values_to_VT(mbtilepath, folderid)
     return result.returncode 
@@ -158,14 +158,13 @@ def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
 
     # print outputs if any
     if result1.stdout:
-        print("Tippecanoe stdout:", result1.stdout.decode())
+        logger.debug("Tippecanoe stdout: %s", result1.stdout.decode())
     if result1.stderr:
-        print("Tippecanoe stderr:", result1.stderr.decode())
+        logger.error("Tippecanoe stderr: %s", result1.stderr.decode())
     if result2.stdout:
-        print("Tile-join stdout:", result2.stdout.decode())
+        logger.debug("Tile-join stdout: %s", result2.stdout.decode())
     if result2.stderr:
-        print("Tile-join stderr:", result2.stderr.decode())
-
+        logger.error("Tile-join stderr: %s", result2.stderr.decode())
     # handle the result
     vt_ops.add_values_to_VT(mbtilepaths[0], folderid)
     for i in range(1, len(mbtilepaths)):
