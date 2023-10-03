@@ -1,7 +1,5 @@
 import logging, os, base64, uuid, io
 from zipfile import ZipFile
-from logging.handlers import RotatingFileHandler
-from logging import getLogger
 from werkzeug.security import check_password_hash
 from flask import jsonify, request, make_response, send_file, Response
 from flask_jwt_extended.exceptions import NoAuthorizationError
@@ -38,9 +36,6 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-
-logging.basicConfig(level=logging.DEBUG)
-
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET').encode())
 app.config["JWT_TOKEN_LOCATION"] = [os.getenv('JWT_TOKEN_LOCATION')]
