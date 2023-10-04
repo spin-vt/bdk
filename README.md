@@ -10,6 +10,12 @@ This app run necessary shell scripts written in unix-style line-ending(LF). If y
 1) `git config --global core.autocrlf false`
 2) `git config --global core.eol lf`
 
+# If running on Mac:
+The Airplay reciever will be running on the 5000 port which will not allow use. To shut off:
+1) Search Airplay in system settings
+2) Click on Airdrop & Handoff
+3) Toggle off the Airplay reciever
+
 # Before you start building
 Run the following commands in the front-end directory
 1) `npm install`
