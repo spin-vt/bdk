@@ -22,11 +22,8 @@ import { backend_url } from "../utils/settings";
 import { styled } from "@mui/material/styles";
 import styles from "../styles/Map.module.css";
 
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
-
-
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const StyledFormControl = styled(FormControl)({
   margin: "4px",
@@ -78,7 +75,6 @@ const bus_codes = {
   Both: "X",
 };
 
-
 export default function Upload({ generateChallenge }) {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
@@ -109,12 +105,20 @@ export default function Upload({ generateChallenge }) {
     const formData = new FormData();
 
     files.forEach((fileDetails) => {
+      if (!fileDetails.file.name.toLowerCase().endsWith("kml")) {
+        toast.error("Invalid File Format. Please upload a KML file.", {
+          position: toast.POSITION.TOP_RIGHT,
+          autoClose: 10000,
+        });
+
+        return;
+      }
+
       formData.append("fileData", JSON.stringify(fileDetails));
       formData.append("file", fileDetails.file);
     });
 
     setIsLoading(true);
-
 
     fetch(`${backend_url}/compute-challenge`, {
       method: "POST",
@@ -152,6 +156,14 @@ export default function Upload({ generateChallenge }) {
     const formData = new FormData();
 
     files.forEach((fileDetails) => {
+      if (!fileDetails.file.name.toLowerCase().endsWith("kml")) {
+        toast.error("Invalid File Format. Please upload a KML file.", {
+          position: toast.POSITION.TOP_RIGHT,
+          autoClose: 10000,
+        });
+
+        return;
+      }
       formData.append("fileData", JSON.stringify(fileDetails));
       formData.append("file", fileDetails.file);
     });
@@ -177,12 +189,14 @@ export default function Upload({ generateChallenge }) {
         } else if (response.status === 200) {
           return response.json();
         } else if (response.status === 500 || response.status === 400) {
-
-          setIsLoading(false)
-          toast.error("Invalid File Format, please upload file with supported format", {
-            position: toast.POSITION.TOP_RIGHT, 
-            autoClose: 10000,
-          });
+          setIsLoading(false);
+          toast.error(
+            "Invalid File Format, please upload file with supported format",
+            {
+              position: toast.POSITION.TOP_RIGHT,
+              autoClose: 10000,
+            }
+          );
         }
       })
       .then((data) => {
@@ -192,7 +206,6 @@ export default function Upload({ generateChallenge }) {
             fetch(`${backend_url}/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
-                
                 if (status.state !== "PENDING") {
                   clearInterval(intervalId);
                   setExportSuccess(true);
@@ -348,7 +361,6 @@ export default function Upload({ generateChallenge }) {
 
   return (
     <React.Fragment>
-
       <ToastContainer />
       <div style={{ position: "fixed", zIndex: 10 }}>
         {(isLoading || isDataReady) && (
