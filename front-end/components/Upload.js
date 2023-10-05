@@ -111,6 +111,7 @@ export default function Upload({ generateChallenge }) {
           autoClose: 10000,
         });
 
+        setIsLoading(false)
         return;
       }
 
@@ -161,6 +162,7 @@ export default function Upload({ generateChallenge }) {
           position: toast.POSITION.TOP_RIGHT,
           autoClose: 10000,
         });
+        setIsLoading(false)
 
         return;
       }
