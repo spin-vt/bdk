@@ -25,3 +25,14 @@ RUN npm install
 COPY . .
 
 CMD ["npm", "run", "dev"]
+
+# RUN npm install --only=production
+
+# # Copy the rest of the application files
+# COPY . .
+
+# # Build the Next.js app for production
+# RUN npm run build
+
+# # Command to start the production server
+# CMD ["npm", "run", "start"]

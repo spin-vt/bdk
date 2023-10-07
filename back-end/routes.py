@@ -15,7 +15,7 @@ from flask_jwt_extended import (
 from datetime import datetime
 import shortuuid
 from celery.result import AsyncResult
-from utils.settings import DATABASE_URL, COOKIE_EXP_TIME
+from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
 from controllers.celery_controller.celery_config import app, celery 
@@ -455,7 +455,7 @@ def delete_export(fileid):
 
 # For docker
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=backend_port, debug=True)
 
 
 # if __name__ == '__main__':

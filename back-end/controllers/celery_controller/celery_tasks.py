@@ -178,7 +178,7 @@ def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
 def deleteFiles(self, fileid, userid):
     try:
         session = Session()
-        file_to_del = file_ops.get_file_with_id(fileid, session)
+        file_to_del = file_ops.get_file_with_id(fileid)
         folderid = file_to_del.folder_id
         file_ops.delete_file(file_to_del.id, session)
         mbtiles_ops.delete_mbtiles(folderid, session)
