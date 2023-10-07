@@ -7,6 +7,7 @@ db_user = os.getenv('POSTGRES_USER')
 db_password = os.getenv('POSTGRES_PASSWORD')
 db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
+backend_port = os.getenv('DEVELOP_BACKEND_PORT')
 DATABASE_URL = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
 BATCH_SIZE = 50000
 COOKIE_EXP_TIME = timedelta(days=7)  # Cookie will expire in 7 days

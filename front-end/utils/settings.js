@@ -1,1 +1,1 @@
-export const backend_url = 'https://bdk.cs.vt.edu';
+export const backend_url = 'http://localhost:8000';
