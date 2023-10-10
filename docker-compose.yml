@@ -51,7 +51,7 @@ services:
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
-    command: gunicorn routes:app -b 0.0.0.0:8000 -w 4 --log-level debug --reload
+    command: python3 routes.py
     environment: 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -67,14 +67,14 @@ services:
       - db
       - redis
     ports:
-      - 8000:8000
+      - ${DEVELOP_BACKEND_PORT}:${DEVELOP_BACKEND_PORT}
 
   frontend:
-    image: frontend
+    image: ${DOCKER_IMAGE_FRONTEND}
     build: ./front-end
     volumes:
       - ./front-end:/app
     depends_on:
       - backend
     ports:
-      - 3000:3000
+      - ${DEVELOP_FRONTEND_PORT}:${DEVELOP_FRONTEND_PORT}
