@@ -51,6 +51,11 @@ const Divider = styled("div")({
 });
 
 const Login = () => {
+  const handleResetPasswordClick = () => {
+    router.push("/forgotpassword")
+    return 
+  }
+
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -59,6 +64,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
+      
       const response = await fetch(`${backend_url}/api/login`, {
         method: 'POST',
         headers: {
@@ -89,6 +95,7 @@ const Login = () => {
     event.preventDefault();
     router.push('/register');
   };
+
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -151,6 +158,13 @@ const Login = () => {
       };
     }
   }, []);
+  const buttonStyle = {
+    color: 'blue',
+    fontSize: 'smaller',
+    background: 'transparent', // Set the background color to transparent
+    border: 'none', // Remove border
+    cursor: 'pointer', // Add pointer cursor for better UX
+  };
 
   return (
     <div>
@@ -188,6 +202,14 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+             <center>
+             <p>
+  <span style={{ fontSize: 'smaller' }}>Having trouble logging in?</span> <a href="/forgotpassword" style={{ color: 'blue', fontSize: 'smaller' }}>Reset password</a>
+</p>
+
+            </center>
+             
+
               <LoginButtonContainer>
                 <Button
                   type="submit"

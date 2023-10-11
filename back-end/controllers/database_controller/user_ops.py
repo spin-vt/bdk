@@ -63,3 +63,25 @@ def create_user_in_db(username, password, providerid, brandname):
 
     finally:
         session.close()
+
+def change_user_in_db(username, provider_id, brandname, new_password): 
+    session = Session() 
+    try: 
+        user = get_user_with_username(username, session)
+        
+        if user.username != username or user.provider_id != int(provider_id) or user.brand_name != str(brandname): 
+            return {"error": "Username, provider id, or brand name does not match"}
+        
+        
+        hashed_pwd = generate_password_hash(new_password, method='sha256')
+        user.password = hashed_pwd
+        session.commit() 
+
+        return {"success": user.id}
+    except Exception as e: 
+        session.rollback()
+        return {"error": str(e)}
+    finally:
+        session.close() 
+        
+            

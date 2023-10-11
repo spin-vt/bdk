@@ -227,6 +227,22 @@ def register():
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
     return response, 200
 
+@app.route('/api/forgot-password', methods=["POST"])
+def forgot_password():
+    data = request.get_json()
+    username = data.get('username')
+    brandname = data.get('brandName')
+    providerid = data.get('providerId')
+    newpassword = data.get('newPassword')
+
+    response = user_ops.change_user_in_db(username, providerid, brandname, newpassword)
+
+    if 'error' in response:
+        return jsonify({'status': 'error', 'message': response["error"]}), 400
+    
+    return  make_response(jsonify({'status': 'success'})), 200
+
+
 
 @app.route('/api/login', methods=['POST'])
 def login():
