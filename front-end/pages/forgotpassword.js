@@ -46,7 +46,6 @@ const Register = () => {
         credentials: 'include',
       });
 
-      console.log("Response code is " + response.status)
       if (response.ok) {
         const data = await response.json();
         console.log("Data status " + Object.values(data))
