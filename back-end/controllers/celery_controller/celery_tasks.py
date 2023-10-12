@@ -1,13 +1,14 @@
 import logging, subprocess, os, json, uuid, cProfile
 from controllers.celery_controller.celery_config import celery
-from controllers.database_controller import fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
+from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
 from database.models import file, kml_data
 from database.sessions import Session
 from flask import jsonify
+from datetime import datetime
+from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_data(self, file_names, file_data_list, userid, folderid): 
-    from controllers.database_controller import vt_ops
     print(file_names)
     try:
         geojson_array = []
@@ -134,7 +135,6 @@ def process_data(self, file_names, file_data_list, userid, folderid):
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def run_tippecanoe(self, command, folderid, mbtilepath):
-    from controllers.database_controller import vt_ops
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
     if result.stderr:
@@ -145,7 +145,6 @@ def run_tippecanoe(self, command, folderid, mbtilepath):
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
-    from controllers.database_controller import vt_ops
     
     # run first command
     result1 = subprocess.run(command1, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -201,16 +200,17 @@ def deleteFiles(self, fileid, userid):
         session.close()
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def toggle_tiles(self, markers, userid):
-
-    
+def toggle_tiles(self, markers, userid, mbtid):
     message = ''
     status_code = 0
     session = Session()
     try:
         # Get the last folder of the user
-        user_last_folder = folder_ops.get_folder(userid=userid, folderid=None, session=session)
-        geojson_data = []
+        if mbtid != -1:
+            mbtiles_entry = mbtiles_ops.get_mbtiles_with_id(mbtid=mbtid, session=session)
+            user_last_folder = folder_ops.get_export_folder(userid=userid, folderid=mbtiles_entry.folder_id, session=session)
+        else:
+            user_last_folder = folder_ops.get_upload_folder(userid=userid, folderid=None, session=session)
         if user_last_folder:
             
             kml_set = set()
@@ -239,16 +239,39 @@ def toggle_tiles(self, markers, userid):
         else:
             raise Exception('No last folder for the user')
         
-        all_kmls = file_ops.get_files_with_postfix(folderid=user_last_folder.id, postfix='.kml', session=session)
+        geojson_data = []
+        all_kmls = file_ops.get_files_with_postfix(user_last_folder.id, '.kml', session)
         for kml_f in all_kmls:
             geojson_data.append(vt_ops.read_kml(kml_f.id, session))
+        
         all_geojsons = file_ops.get_files_with_postfix(folderid=user_last_folder.id, postfix='.geojson', session=session)
         for geojson_f in all_geojsons:
             geojson_data.append(vt_ops.read_geojson(geojson_f.id, session))
+
         mbtiles_ops.delete_mbtiles(user_last_folder.id, session)
         vt_ops.create_tiles(geojson_data, userid, user_last_folder.id, session)
+        if mbtid != -1:
+            existing_csvs = file_ops.get_files_by_type(folderid=user_last_folder.id, filetype='export', session=session)
+            for csv_file in existing_csvs:
+                session.delete(csv_file)
+
+            userVal = user_ops.get_user_with_id(userid=userid, session=session)
+            # Generate and save a new CSV
+            all_file_ids = [file.id for file in file_ops.get_files_with_postfix(user_last_folder.id, '.kml', session) + file_ops.get_files_with_postfix(user_last_folder.id, '.geojson', session)]
+
+            results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
+            availability_csv = file_ops.generate_csv_data(results, userVal.provider_id, userVal.brand_name)
+
+            csv_name = f"availability-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.csv"
+            csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
+            new_csv_file = file_ops.create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=user_last_folder.id, filetype='export', session=session)
+            session.add(new_csv_file)
+
+        
+
         message = 'Markers toggled successfully'
         status_code = 200
+        
         
         
 
@@ -262,3 +285,21 @@ def toggle_tiles(self, markers, userid):
         session.close()
 
     return (message, status_code)
+
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def async_folder_copy_for_export(self, userid, folderid, serialized_csv):
+    session = Session()
+    userVal = user_ops.get_user_with_id(userid)
+    current_datetime = datetime.now().strftime(DATETIME_FORMAT)
+    newfolder_name = f"export-{current_datetime}"
+
+
+    csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datetime=current_datetime)
+
+    original_folder = folder_ops.get_upload_folder(userid=userid, folderid=folderid, session=session)
+    new_folder = original_folder.copy(name=newfolder_name,type='export', session=session)
+    csv_file = file_ops.create_file(filename=csv_name, content=serialized_csv.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
+    session.add(csv_file)
+    session.commit()
+    session.close()

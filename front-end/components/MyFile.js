@@ -224,7 +224,6 @@ const MyFile = () => {
             .then((status) => {
               if (status.state !== "PENDING") {
                 clearInterval(intervalId);
-                setExportSuccess(true);
                 setIsDataReady(true);
                 setIsLoading(false);
                 setTimeout(() => {

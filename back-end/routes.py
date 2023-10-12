@@ -20,6 +20,7 @@ from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles
+from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 
 logging.basicConfig(level=logging.DEBUG)
 console_handler = logging.StreamHandler()
@@ -278,10 +279,9 @@ def exportFiling():
             csv_output = kml_ops.export(userVal.id, folderVal.id, userVal.provider_id, userVal.brand_name, session)
 
             if csv_output:
-                current_time = datetime.now()
-                formatted_time = current_time.strftime('%Y_%B')
+                current_time = datetime.now().strftime(DATETIME_FORMAT)
                 
-                download_name = "BDC_Report_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
+                download_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datetime=current_time)
                 
                 csv_output.seek(0)
                 return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
@@ -355,9 +355,9 @@ def toggle_markers():
         markers = request_data['marker']
         mbtid = request_data['mbtid']
         identity = get_jwt_identity()
-        response = vt_ops.toggle_tiles(markers=markers, userid=identity['id'], mbtid=mbtid)
+        task = toggle_tiles.apply_async(args=[markers, identity['id'], mbtid])
 
-        return jsonify(message=response[0]), response[1]
+        return jsonify({'Status': "OK", 'task_id': task.id}), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 

@@ -225,6 +225,8 @@ def generate_csv_data(results, provider_id, brand_name):
     return availability_csv
 
 def export(userid, folderid, providerid, brandname, session): 
+    from controllers.celery_controller.celery_tasks import async_folder_copy_for_export
+
     all_files = get_files_with_postfix(folderid, '.kml', session) + get_files_with_postfix(folderid, '.geojson', session)
     all_file_ids = [file.id for file in all_files]
     results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
@@ -233,19 +235,17 @@ def export(userid, folderid, providerid, brandname, session):
 
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding='utf-8')
-
-    current_datetime = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-    folder_name = f"export-{current_datetime}"
-    csv_name = f"availability-{current_datetime}.csv"
-
-    original_folder = get_upload_folder(userid=userid, folderid=folderid, session=session)
-    new_folder = original_folder.copy(name=folder_name,type='export', session=session)
-
     csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
-    csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
+
+    # original_folder = get_upload_folder(userid=userid, folderid=folderid, session=session)
+    # new_folder = original_folder.copy(name=folder_name,type='export', session=session)
+
+    # csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
     
-    session.add(csv_file)
-    session.commit()
+    # session.add(csv_file)
+    # session.commit()
+
+    async_folder_copy_for_export.apply_async(args=[userid, folderid, csv_data_str])
 
     return output
 

@@ -24,6 +24,7 @@ from .file_ops import get_files_by_type, get_file_with_id, get_files_with_postfi
 from .folder_ops import get_upload_folder, get_export_folder
 from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles, get_mbtiles_with_id
 from .user_ops import get_user_with_id, get_user_with_username
+from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 
 db_lock = Lock()
 
@@ -325,7 +326,7 @@ def toggle_tiles(markers, userid, mbtid):
             results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
             availability_csv = generate_csv_data(results, userVal.provider_id, userVal.brand_name)
 
-            csv_name = f"availability-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.csv"
+            csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datime=datetime.now().strftime(DATETIME_FORMAT))
             csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
             new_csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=user_last_folder.id, filetype='export', session=session)
             session.add(new_csv_file)
