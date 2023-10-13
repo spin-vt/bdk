@@ -1,14 +1,14 @@
 version: '3.8'
 services:
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=${POSTGRES_ADMIN_EMAIL}
-      - PGADMIN_DEFAULT_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
-    ports:
-      - 8080:80
-    depends_on:
-      - db
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   environment:
+  #     - PGADMIN_DEFAULT_EMAIL=${POSTGRES_ADMIN_EMAIL}
+  #     - PGADMIN_DEFAULT_PASSWORD=${POSTGRES_ADMIN_PASSWORD}
+  #   ports:
+  #     - 8080:80
+  #   depends_on:
+  #     - db
       
   db:
     image: postgres:latest 
@@ -51,9 +51,7 @@ services:
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
-    env_file: 
-      - .env
-    command: python3 routes.py
+    command: gunicorn routes:app -b 0.0.0.0:5000 -w 4 --log-level debug --reload
     environment: 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -68,8 +66,8 @@ services:
     depends_on:
       - db
       - redis
-    ports:
-      - ${DEVELOP_BACKEND_PORT}:${DEVELOP_BACKEND_PORT}
+    expose:
+      - 5000
 
   frontend:
     image: ${DOCKER_IMAGE_FRONTEND}
@@ -78,5 +76,22 @@ services:
       - ./front-end:/app
     depends_on:
       - backend
+    expose:
+      - 80
+
+  nginx:
+    image: my-nginx
+    container_name: nginx-proxy
+    environment:
+      - SSL_PASSWORD_FILE=/ssl/passphrase_file
     ports:
-      - ${DEVELOP_FRONTEND_PORT}:${DEVELOP_FRONTEND_PORT}
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ../ssl/bdk.cs.vt.edu.crt:/etc/nginx/ssl/bdk.cs.vt.edu.crt
+      - ../ssl/private_key.pem:/etc/nginx/ssl/private_key.pem
+      - ../ssl/passphrase_file:/ssl/passphrase_file
+    depends_on:
+      - backend
+      - frontend

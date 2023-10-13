@@ -30,3 +30,8 @@ jobs:
       run: |
         docker build --network=host -t ghcr.io/spin-vt/frontend:latest ./front-end
         docker push ghcr.io/spin-vt/frontend:latest
+    
+    - name: Build and push my-nginx Docker image
+      run: |
+        docker build --network=host -t ghcr.io/spin-vt/my-nginx:latest .
+        docker push ghcr.io/spin-vt/my-nginx:latest
