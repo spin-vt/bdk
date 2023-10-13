@@ -33,5 +33,5 @@ jobs:
     
     - name: Build and push my-nginx Docker image
       run: |
-        docker build --network=host -f ~/Dockerfile.nginx -t ghcr.io/spin-vt/my-nginx:latest ~
+        docker build --network=host -f Dockerfile.nginx -t ghcr.io/spin-vt/my-nginx:latest .
         docker push ghcr.io/spin-vt/my-nginx:latest
