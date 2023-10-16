@@ -33,8 +33,21 @@ const Register = () => {
   const [providerId, setProviderId] = useState('');
   const [brandName, setBrandName] = useState('');  
 
+  const isValidEmail = (email) => {
+    // Regular expression to match a valid email address
+    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+  
+    return emailRegex.test(email);
+  }
+  
+
   const handleRegister = async (e) => {
     e.preventDefault();
+
+    if (username && !isValidEmail(username)) {
+      Swal.fire('Error', "Please make sure your username is your email", 'error')
+      return 
+    }
 
     try {
       const response = await fetch(`${backend_url}/api/register`, {
