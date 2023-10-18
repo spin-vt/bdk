@@ -234,9 +234,11 @@ def export(userid, folderid, providerid, brandname, session):
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding='utf-8')
 
+    userVal = get_user_with_id(userid, session)
+    brandname = userVal.brand_name
     current_datetime = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
     folder_name = f"export-{current_datetime}"
-    csv_name = f"availability-{current_datetime}.csv"
+    csv_name = f"BDC_{brand_name}_Availability_Report-{current_datetime}.csv"
 
     original_folder = get_upload_folder(userid=userid, folderid=folderid, session=session)
     new_folder = original_folder.copy(name=folder_name,type='export', session=session)
