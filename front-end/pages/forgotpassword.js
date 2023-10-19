@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 import { backend_url } from '../utils/settings';
 import { styled } from '@mui/system';
 
+
 const RegisterContainer = styled('div')({
   display: 'flex',
   flexDirection: 'column',
@@ -31,8 +32,9 @@ const Register = () => {
   const [newPassword, setNewPassword] = useState('');
   const [providerId, setProviderId] = useState('');
   const [brandName, setBrandName] = useState('');
-  const [confirmationCode, setConfirmationCode] = useState('');
+  const [userConfirmationCode, setUserConfirmationCode] = useState('');
   const [step, setStep] = useState(1);
+  const [generatedConfirmationCode, setGeneratedConfirmationCode] = useState('')
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -50,39 +52,62 @@ const Register = () => {
         });
 
         if (response.ok) {
-          setStep(2); // Move to the next step
+
+          // send an email to the user's entered email address including the confirmation code 
+
+          const emailVerificationResponse = await fetch(`${backend_url}/api/send-confirmation-code`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username}),
+            credentials: 'include',
+          });
+
+          if (emailVerificationResponse.ok) {
+            const data = await emailVerificationResponse.json()
+            console.log("message " + data.message)
+            setGeneratedConfirmationCode(data.message)
+            Swal.fire(
+              'Check Email Inbox',
+              'We sent you a confirmation code for verification! Do not close out or refresh this window.',
+            )
+            setStep(2); 
+
+          }
+          else if (response.status == 400 || response.status == 500) {
+            Swal.fire('Error', 'Error sending email, please try again later', 'error');
+
+          }
+
         } else if (response.status === 400) {
           const data = await response.json();
           if (data.message === "Username, provider id, or brand name does not match") {
             Swal.fire('Error', 'Some of the provided information does not match our records. Please ensure that your username, provider ID, and brand name are correct and try again', 'error');
           }
         }
+        
       } else if (step === 2) {
         // Step 2: Send the confirmation code to the server
-        const response = await fetch(`${backend_url}/api/send-confirmation-code`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
+        
+        console.log("Value is " + userConfirmationCode + " generated " + generatedConfirmationCode)
 
-        if (response.ok) {
-          setStep(3); // Move to the next step
-        } else if (response.status === 400) {
-          const data = await response.json();
-          if (data.message === "Some error message") {
-            Swal.fire('Error', 'Some error message', 'error');
-          }
+        if (generatedConfirmationCode == userConfirmationCode) {
+
+          setStep(3)
         }
+        else {
+          Swal.fire('Error', 'Confirmation code is incorrect', 'error');
+        }
+      
       } else if (step === 3) {
         // Step 3: Send the new password to the server
-        const response = await fetch(`${backend_url}/api/step-3-endpoint`, {
+        const response = await fetch(`${backend_url}/api/forgot-password`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ newPassword }),
+          body: JSON.stringify({username, brandName, providerId, newPassword}),
           credentials: 'include',
         });
 
@@ -162,8 +187,8 @@ const Register = () => {
                   id="confirmationCode"
                   label="Confirmation Code"
                   name="confirmationCode"
-                  value={confirmationCode}
-                  onChange={(e) => setConfirmationCode(e.target.value)}
+                  value={userConfirmationCode}
+                  onChange={(e) => setUserConfirmationCode(e.target.value)}
                   key="confirmationCode-input"
                 />
               </div>
@@ -194,7 +219,7 @@ const Register = () => {
                 fullWidth
                 variant="contained"
                 color="primary">
-                {step === 1 ? 'Next' : 'Change Password'}
+                {step === 1 || step === 2 ? 'Next' : 'Change Password'}
               </Button>
             </RegisterButtonContainer>
           </RegisterForm>

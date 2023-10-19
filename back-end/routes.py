@@ -2,7 +2,7 @@ import logging, os, base64, uuid, io
 from zipfile import ZipFile
 from logging.handlers import RotatingFileHandler
 from logging import getLogger
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 from flask import jsonify, request, make_response, send_file, Response
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_jwt_extended import (
@@ -12,6 +12,8 @@ from flask_jwt_extended import (
     get_jwt_identity,
     decode_token
 )
+
+import random 
 from datetime import datetime
 import shortuuid
 from celery.result import AsyncResult
@@ -227,6 +229,21 @@ def register():
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
     return response, 200
 
+
+@app.route('/api/send-confirmation-code', methods=['POST', 'GET'])
+def send_confirmation_code():
+    
+    if request.method == 'POST':
+        confirmation_code = random.randint(100000, 999999)
+
+
+        # send email confirmation here. 
+
+
+
+        return jsonify({'status': 'success', 'message': confirmation_code})
+
+
 @app.route('/api/forgot-password', methods=["POST"])
 def forgot_password():
     data = request.get_json()
@@ -237,7 +254,7 @@ def forgot_password():
 
     if (newpassword and len(newpassword) > 0):
             response = user_ops.change_user_in_db(username, providerid, brandname, newpassword)
-    else:
+    else:        
         response = user_ops.get_user_with_username(username)
         if response.username != username or response.provider_id != int(providerid) or response.brand_name != str(brandname): 
             return jsonify({"error": "Username, provider id, or brand name does not match"}), 400
