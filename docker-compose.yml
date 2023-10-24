@@ -80,3 +80,23 @@ services:
       - backend
     ports:
       - ${DEVELOP_FRONTEND_PORT}:${DEVELOP_FRONTEND_PORT}
+
+  nginx:
+    image: ${DOCKER_IMAGE_NGINX}
+    build:
+      context: ./
+      dockerfile: Dockerfile.nginx
+    container_name: nginx-proxy
+    environment:
+      - SSL_PASSWORD_FILE=/ssl/passphrase_file
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ../ssl/bdk.cs.vt.edu.crt:/etc/nginx/ssl/bdk.cs.vt.edu.crt
+      - ../ssl/private_key.pem:/etc/nginx/ssl/private_key.pem
+      - ../ssl/passphrase_file:/ssl/passphrase_file
+    depends_on:
+      - backend
+      - frontend
