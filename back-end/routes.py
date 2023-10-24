@@ -21,21 +21,9 @@ from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_op
 from controllers.celery_controller.celery_config import app, celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
+from utils.logger_config import logger
+logger = logging.getLogger(__name__)
 
-logging.basicConfig(level=logging.DEBUG)
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler.setFormatter(console_formatter)
-logger = getLogger(__name__)
-
-file_handler = RotatingFileHandler(filename='app.log', maxBytes=1000000, backupCount=1)
-file_handler.setLevel(logging.DEBUG)
-file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(file_formatter)
-logger.addHandler(file_handler)
-
-logger.addHandler(console_handler)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
