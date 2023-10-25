@@ -105,16 +105,24 @@ export default function Upload({ generateChallenge }) {
     const formData = new FormData();
 
     files.forEach((fileDetails) => {
-      if (!fileDetails.file.name.toLowerCase().endsWith("kml")) {
-        toast.error("Invalid File Format. Please upload a KML file.", {
-          position: toast.POSITION.TOP_RIGHT,
-          autoClose: 10000,
-        });
+      const allowedExtensions = ["kml", "geojson", "csv", "kmz"];
+      const fileExtension = fileDetails.file.name
+        .split(".")
+        .pop()
+        .toLowerCase();
 
-        setIsLoading(false)
+      if (!allowedExtensions.includes(fileExtension)) {
+        toast.error(
+          "Invalid File Format. Please upload a KML, GeoJSON, CSV, or KMZ file.",
+          {
+            position: toast.POSITION.TOP_RIGHT,
+            autoClose: 10000,
+          }
+        );
+
+        setIsLoading(false);
         return;
       }
-
       formData.append("fileData", JSON.stringify(fileDetails));
       formData.append("file", fileDetails.file);
     });
@@ -157,13 +165,22 @@ export default function Upload({ generateChallenge }) {
     const formData = new FormData();
 
     files.forEach((fileDetails) => {
-      if (!fileDetails.file.name.toLowerCase().endsWith("kml")) {
-        toast.error("Invalid File Format. Please upload a KML file.", {
-          position: toast.POSITION.TOP_RIGHT,
-          autoClose: 10000,
-        });
-        setIsLoading(false)
+      const allowedExtensions = ["kml", "geojson", "csv", "kmz"];
+      const fileExtension = fileDetails.file.name
+        .split(".")
+        .pop()
+        .toLowerCase();
 
+      if (!allowedExtensions.includes(fileExtension)) {
+        toast.error(
+          "Invalid File Format. Please upload a KML, GeoJSON, CSV, or KMZ file.",
+          {
+            position: toast.POSITION.TOP_RIGHT,
+            autoClose: 10000,
+          }
+        );
+
+        setIsLoading(false);
         return;
       }
       formData.append("fileData", JSON.stringify(fileDetails));
