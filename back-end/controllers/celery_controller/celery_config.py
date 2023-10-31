@@ -1,7 +1,7 @@
 from celery import Celery
 from flask import Flask
 from flask_cors import CORS
-
+import redis 
 
 
 def make_celery(app):

@@ -12,6 +12,7 @@ from flask_jwt_extended import (
     get_jwt_identity,
     decode_token
 )
+import redis 
 
 import random 
 from datetime import datetime
@@ -24,6 +25,8 @@ from controllers.celery_controller.celery_config import app, celery
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles
 
 logging.basicConfig(level=logging.DEBUG)
+redis_client = redis.StrictRedis(host='redis', port=6379, db=0)
+
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -237,11 +240,35 @@ def send_confirmation_code():
         confirmation_code = random.randint(100000, 999999)
 
 
-        # send email confirmation here. 
+        # The confirmation code expiration time is set to 600 seconds 
+    
+        redis_client.setex("confirmation_code", 600, confirmation_code)
 
-
+        # send confirmation code email here 
 
         return jsonify({'status': 'success', 'message': confirmation_code})
+    
+    elif request.method == 'GET':
+        conf_code = request.args.get("confirmation_code")
+
+        if conf_code: 
+            stored_confirmation_code = redis_client.get('confirmation_code')
+
+            print("stored " + str(stored_confirmation_code))
+
+            if stored_confirmation_code:
+                if int(conf_code) == int(stored_confirmation_code.decode()):
+                    key = redis_client.ttl("confirmation_code")
+                    if key > 0:
+                        return make_response(jsonify({'status': 'success', 'message': 'Confirmation code is valid'})), 200
+                    else:
+                        return make_response(jsonify({'status': 'error', 'message': 'Confirmation code has expired'})), 404 
+                else:
+                    return make_response(jsonify({'status': 'error', 'message': 'Confirmation code does not match'})), 401 
+            else:
+                return make_response(jsonify({'status': 'error', 'message': 'Confirmation code not found or expired'})), 404
+        else:
+            return make_response(jsonify({'status': 'error', 'message': 'Confirmation code not provided'})), 403 
 
 
 @app.route('/api/forgot-password', methods=["POST"])

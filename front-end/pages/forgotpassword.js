@@ -98,6 +98,14 @@ const Register = () => {
       } else if (step === 2) {
         // Step 2: Send the confirmation code to the server
 
+        const response = await fetch(
+          `${backend_url}/api/send-confirmation-code?confirmation_code=${userConfirmationCode}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
         console.log(
           "Value is " +
             userConfirmationCode +
@@ -105,10 +113,20 @@ const Register = () => {
             generatedConfirmationCode
         );
 
-        if (generatedConfirmationCode == userConfirmationCode) {
+        if (response.ok) {
+          const data = await response.json();
+          console.log("resp message " + data.message);
           setStep(3);
-        } else {
-          Swal.fire("Error", "Confirmation code is incorrect", "error");
+        } else if (response.status === 404) {
+          Swal.fire(
+            "Error",
+            "Unfortunately, the confirmation code has expired! Please navigate to the login page to try to reset your password again",
+            "error"
+          );
+        } else if (response.status === 401) {
+          Swal.fire("Error", "Invalid confirmation code!", "error");
+        } else if (response.status === 403) {
+          Swal.fire("Error", "Please enter a confirmation code!", "error");
         }
       } else if (step === 3) {
         const response = await fetch(`${backend_url}/api/forgot-password`, {

@@ -5,6 +5,7 @@ from database.models import file, kml_data
 from database.sessions import Session
 from flask import jsonify
 
+
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_data(self, file_names, file_data_list, userid, folderid): 
     from controllers.database_controller import vt_ops
