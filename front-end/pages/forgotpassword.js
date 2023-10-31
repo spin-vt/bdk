@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { TextField, Button, Typography, Container } from "@mui/material";
+import {
+  TextField,
+  Button,
+  Typography,
+  Container,
+  FormControlLabel,
+  Checkbox,
+} from "@mui/material";
 import Navbar from "../components/Navbar";
 import Swal from "sweetalert2";
 import { backend_url } from "../utils/settings";
@@ -33,14 +40,23 @@ const Register = () => {
   const [brandName, setBrandName] = useState("");
   const [userConfirmationCode, setUserConfirmationCode] = useState("");
   const [step, setStep] = useState(1);
-  const [generatedConfirmationCode, setGeneratedConfirmationCode] =
-    useState("");
+  const [consent, setConsent] = useState("");
+  const [confirm, setConfirm] = useState(false);
 
   const handleRegister = async (e) => {
     e.preventDefault();
 
     try {
       if (step === 1) {
+        if (!consent) {
+          Swal.fire(
+            "Error",
+            "Please consent to receiving emails by checking the box",
+            "error"
+          );
+          return;
+        }
+
         // Step 1: Send the username, provider id, and brand name to the server
         const response = await fetch(`${backend_url}/api/forgot-password`, {
           method: "POST",
@@ -69,18 +85,33 @@ const Register = () => {
           if (emailVerificationResponse.ok) {
             const data = await emailVerificationResponse.json();
             console.log("message " + data.message);
-            setGeneratedConfirmationCode(data.message);
             Swal.fire(
               "Check Email Inbox",
               "We sent you a confirmation code for verification! Do not close out or refresh this window."
             );
             setStep(2);
-          } else if (response.status == 400 || response.status == 500) {
-            Swal.fire(
-              "Error",
-              "Error sending email, please try again later",
-              "error"
-            );
+          } else if (
+            emailVerificationResponse.status == 400 ||
+            emailVerificationResponse.status == 500
+          ) {
+            Swal.fire({
+              icon: "error",
+              title: "Oops...",
+              text: "Something went wrong!",
+              footer: '<a href="">Why do I have this issue?</a>',
+            });
+          } else if (emailVerificationResponse.status === 409) {
+            Swal.fire({
+              title: "Previous confirmation code has not expired yet!",
+              text: "We sent you a confirmation code for verification! This code has not expired yet!",
+              icon: "info",
+              showCancelButton: true,
+              confirmButtonText: "Try Code Again", // Your confirmation button text
+            }).then((result) => {
+              if (result.isConfirmed) {
+                setStep(2);
+              }
+            });
           }
         } else if (response.status === 400) {
           const data = await response.json();
@@ -104,13 +135,6 @@ const Register = () => {
             method: "GET",
             credentials: "include",
           }
-        );
-
-        console.log(
-          "Value is " +
-            userConfirmationCode +
-            " generated " +
-            generatedConfirmationCode
         );
 
         if (response.ok) {
@@ -185,6 +209,17 @@ const Register = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   key="username-input"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={consent} // Use a state variable for consent
+                      onChange={(e) => setConsent(e.target.checked)} // Handle consent change
+                      name="consent"
+                      color="primary"
+                    />
+                  }
+                  label="I consent to receiving emails."
                 />
               </div>
             )}

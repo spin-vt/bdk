@@ -64,12 +64,12 @@ def create_user_in_db(username, password, providerid, brandname):
     finally:
         session.close()
 
-def change_user_in_db(username, provider_id, brandname, new_password): 
+def change_user_in_db(username, new_password): 
     session = Session() 
     try: 
         user = get_user_with_username(username, session)
         
-        if user.username != username or user.provider_id != int(provider_id) or user.brand_name != str(brandname): 
+        if user.username != username: 
             return {"error": "Username, provider id, or brand name does not match"}
         
         

@@ -240,6 +240,9 @@ def send_confirmation_code():
         confirmation_code = random.randint(100000, 999999)
 
 
+        if redis_client.get("confirmation_code"):
+            return make_response(jsonify({'status': 'error'})), 409  
+
         # The confirmation code expiration time is set to 600 seconds 
     
         redis_client.setex("confirmation_code", 600, confirmation_code)
@@ -260,6 +263,7 @@ def send_confirmation_code():
                 if int(conf_code) == int(stored_confirmation_code.decode()):
                     key = redis_client.ttl("confirmation_code")
                     if key > 0:
+                        redis_client.delete("confirmation_code")
                         return make_response(jsonify({'status': 'success', 'message': 'Confirmation code is valid'})), 200
                     else:
                         return make_response(jsonify({'status': 'error', 'message': 'Confirmation code has expired'})), 404 
@@ -275,18 +279,20 @@ def send_confirmation_code():
 def forgot_password():
     data = request.get_json()
     username = data.get('username')
-    brandname = data.get('brandName')
-    providerid = data.get('providerId')
     newpassword = data.get('newPassword')
 
+
     if (newpassword and len(newpassword) > 0):
-            response = user_ops.change_user_in_db(username, providerid, brandname, newpassword)
-    else:        
+            response = user_ops.change_user_in_db(username, newpassword)
+    else:
         response = user_ops.get_user_with_username(username)
+
         if response.username != username: 
             return jsonify({"error": "Username does not match"}), 400
         else:
             return jsonify({'status': 'success', 'message': 'valid user'}), 200  
+        
+    print("Response " + str(response))
 
     if 'error' in response:
         return jsonify({'status': 'error', 'message': response["error"]}), 400
