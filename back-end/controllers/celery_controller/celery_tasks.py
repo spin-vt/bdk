@@ -262,3 +262,4 @@ def toggle_tiles(self, markers, userid):
         session.close()
 
     return (message, status_code)
+

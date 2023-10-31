@@ -47,7 +47,7 @@ const Register = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ username, providerId, brandName }),
+          body: JSON.stringify({ username }),
           credentials: "include",
         });
 
@@ -167,30 +167,6 @@ const Register = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   key="username-input"
-                />
-                <TextField
-                  variant="outlined"
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="providerId"
-                  label="Provider ID"
-                  name="providerId"
-                  value={providerId}
-                  onChange={(e) => setProviderId(e.target.value)}
-                  key="providerId-input"
-                />
-                <TextField
-                  variant="outlined"
-                  margin="normal"
-                  required
-                  fullWidth
-                  id="brandName"
-                  label="Brand Name"
-                  name="brandName"
-                  value={brandName}
-                  onChange={(e) => setBrandName(e.target.value)}
-                  key="brandName-input"
                 />
               </div>
             )}

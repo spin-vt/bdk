@@ -256,8 +256,8 @@ def forgot_password():
             response = user_ops.change_user_in_db(username, providerid, brandname, newpassword)
     else:        
         response = user_ops.get_user_with_username(username)
-        if response.username != username or response.provider_id != int(providerid) or response.brand_name != str(brandname): 
-            return jsonify({"error": "Username, provider id, or brand name does not match"}), 400
+        if response.username != username: 
+            return jsonify({"error": "Username does not match"}), 400
         else:
             return jsonify({'status': 'success', 'message': 'valid user'}), 200  
 
