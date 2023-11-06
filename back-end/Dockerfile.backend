@@ -1,43 +1,27 @@
-FROM python:3.9-slim-buster
+FROM ubuntu:20.04
 
-# Basic packages and GDAL's compile dependencies
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+# Install dependencies
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  software-properties-common && \
+  add-apt-repository ppa:ubuntugis/ppa && \
+  apt-get update && apt-get install -y \
   gcc \
   python3-dev \
+  python3-pip \
   libpq-dev \
   build-essential \
   libsqlite3-dev \
-  sqlite3 \
   zlib1g-dev \
-  wget \
-  libgdal-dev \
-  libproj-dev \
-  libgeos-dev \
-  libssl-dev \
   git \
-  && rm -rf /var/lib/apt/lists/*
+  gdal-bin\
+  g++ \
+  cmake \
+  libbz2-dev \
+  imagemagick \
+  zip && \
+  rm -rf /var/lib/apt/lists/*
 
-# Compile and install PROJ 7.1.0 from source
-# WORKDIR /proj-src
-# RUN wget https://github.com/OSGeo/PROJ/releases/download/7.1.0/proj-7.1.0.tar.gz && \
-#     tar xvfz proj-7.1.0.tar.gz && \
-#     cd proj-7.1.0 && \
-#     ./configure && \
-#     make -j 4 && \
-#     make install
 
-# # Set environment variables to help GDAL find PROJ
-# ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH \
-#     PROJ_LIB=/usr/local/share/proj
-
-# # Compile and install GDAL 3.2 using traditional method
-# WORKDIR /gdal-src
-# RUN wget https://github.com/OSGeo/gdal/releases/download/v3.2.0/gdal-3.2.0.tar.gz && \
-#     tar xvfz gdal-3.2.0.tar.gz && \
-#     cd gdal-3.2.0 && \
-#     ./configure --with-proj=/usr/local && \
-#     make -j 4 && \
-#     make install
 
 # Clone and install Tippecanoe
 WORKDIR /tippecanoe
@@ -49,8 +33,42 @@ RUN git clone https://github.com/mapbox/tippecanoe.git && \
 # Check if Tippecanoe is in PATH
 RUN which tippecanoe || { echo 'Tippecanoe not found in PATH'; exit 1; }
 
+# Set the working directory to /Signal-Server
+WORKDIR /Signal-Server
+
+# Clone Signal-Server repository
+RUN git clone https://github.com/Cloud-RF/Signal-Server.git .
+
+# Change to the source directory and build the binaries
+WORKDIR /Signal-Server/src
+
+# Before running cmake, we should ensure that the RUNTIME DESTINATION is specified in CMakeLists.txt.
+# If the CMakeLists.txt is not correctly setting the RUNTIME DESTINATION, you can use a sed command to replace it with the correct line. For example:
+RUN sed -i 's/install(TARGETS signalserver)/install(TARGETS signalserver RUNTIME DESTINATION bin)/' CMakeLists.txt
+RUN sed -i 's/install(TARGETS signalserverHD)/install(TARGETS signalserverHD RUNTIME DESTINATION bin)/' CMakeLists.txt
+RUN sed -i 's/install(TARGETS signalserverLIDAR)/install(TARGETS signalserverLIDAR RUNTIME DESTINATION bin)/' CMakeLists.txt
+
+# Run cmake and make, specifying a runtime destination
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr/local . && \
+    make
+
+# Add /usr/local/bin to the PATH, just in case it's not
+ENV PATH="/Signal-Server/src:${PATH}"
+
+# Check if signalserver is in PATH
+RUN which signalserver || { echo 'Signal-Server not found in PATH'; exit 1; }
+
+WORKDIR /Signal-Server/output/GoogleEarth
+# Modify runsig.sh to use signalserverHD instead of signalserver
+RUN sed -i 's/time signalserver -sdf/time signalserverHD -sdf/' runsig.sh
+
+ENV PATH="/Signal-Server/output/GoogleEarth:${PATH}"
+
+Run which runsig.sh || { echo 'runsig not found in PATH'; exit 1; }
+
 WORKDIR /app
 
+# COPY ./idaho_sdf1 ./one-arc-second-data
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
