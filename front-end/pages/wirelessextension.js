@@ -63,7 +63,7 @@ const WirelessExtension = () => {
 
   const [imageUrl, setImageUrl] = useState(''); // replace with actual state logic
   const [bounds, setBounds] = useState({
-    north: 39.5, east: -98.5, south: 39.5, west: -98.5 
+    north: 39.5, east: -98.5, south: 39.5, west: -98.5
   });
 
   const handleInputChange = (event) => {
@@ -79,27 +79,27 @@ const WirelessExtension = () => {
       method: "GET",
       credentials: "include", // make sure to send credentials to maintain the session
     })
-    .then((response) => {
-      if (response.ok) {
-        return response.blob().then(imageBlob => ({
-          imageBlob
-        }));
-      } else {
-        throw new Error('Failed to fetch raster data');
-      }
-    })
-    .then(({ imageBlob }) => {
-      // Create a URL for the image blob
-      const imageUrl = URL.createObjectURL(imageBlob);
-      setImageUrl(imageUrl);
-    })
-    .catch((error) => {
-      Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: error.message,
+      .then((response) => {
+        if (response.ok) {
+          return response.blob().then(imageBlob => ({
+            imageBlob
+          }));
+        } else {
+          throw new Error('Failed to fetch raster data');
+        }
+      })
+      .then(({ imageBlob }) => {
+        // Create a URL for the image blob
+        const imageUrl = URL.createObjectURL(imageBlob);
+        setImageUrl(imageUrl);
+      })
+      .catch((error) => {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: error.message,
+        });
       });
-    });
   };
 
   const fetchRasterBounds = (towerId) => {
@@ -107,24 +107,24 @@ const WirelessExtension = () => {
       method: "GET",
       credentials: "include", // make sure to send credentials to maintain the session
     })
-    .then((response) => {
-      if (response.ok) {
-        return response.json(); // Parse the JSON response body
-      } else {
-        throw new Error('Failed to fetch raster bounds');
-      }
-    })
-    .then((data) => {
-      // Use the bounds from the response data
-      setBounds(data.bounds);
-    })
-    .catch((error) => {
-      Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: error.message,
+      .then((response) => {
+        if (response.ok) {
+          return response.json(); // Parse the JSON response body
+        } else {
+          throw new Error('Failed to fetch raster bounds');
+        }
+      })
+      .then((data) => {
+        // Use the bounds from the response data
+        setBounds(data.bounds);
+      })
+      .catch((error) => {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: error.message,
+        });
       });
-    });
   };
 
   const handleSubmit = (event) => {
@@ -190,26 +190,100 @@ const WirelessExtension = () => {
       });
   };
 
-  const renderFieldGroup = (group, groupName) => (
-    <Box mb={3}>
-      <Typography variant="h6">{groupName}</Typography>
-      {group.map((field) => (
-        <TextField
-          key={field.key}
-          fullWidth
-          name={field.key}
-          label={field.label}
-          value={formData[field.key]}
-          onChange={handleInputChange}
-          margin="normal"
-          InputProps={{
-            endAdornment: field.unit ? <span>{field.unit}</span> : null,
-          }}
-        />
-      ))}
-    </Box>
-  );
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // setIsLoadingForUntimedEffect(true);
+      const formD = new FormData();
+      formD.append('file', file);
 
+      fetch(`${backend_url}/api/upload-tower-csv`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formD
+      })
+        .then((response) => {
+          if (response.status === 401) {
+            setIsLoadingForUntimedEffect(false);
+            Swal.fire({
+              icon: "error",
+              title: "Oops...",
+              text: "Session expired, please log in again!",
+            });
+            // Redirect to login page
+            router.push("/login");
+            return;
+          } else if (response.status === 200) {
+            return response.json();
+          } else if (response.status === 500 || response.status === 400) {
+            setIsLoadingForUntimedEffect(false);
+            toast.error(
+              "There is an error on our end",
+              {
+                position: toast.POSITION.TOP_RIGHT,
+                autoClose: 10000,
+              }
+            );
+          }
+        })
+        .then(data => {
+          // Assuming the backend returns the parsed CSV data in the same structure as the formData state
+          
+          // The backend returns an array with a dict object for each tower, since we only support
+          // single tower information in the frontend, we just use data[0] for now.
+          
+          setFormData(prevFormData => ({
+            ...prevFormData,
+            towername: data[0].towerName || '',
+            latitude: data[0].latitude || '',
+            longitude: data[0].longitude || '',
+            frequency: data[0].frequency || '',
+            radius: data[0].coverageRadius || '',
+            antennaHeight: data[0].antennaHeight || '',
+            antennaTilt: data[0].antennaTilt || '',
+            horizontalFacing: data[0].horizontalFacing || ''
+          }));
+        })
+        .catch(error => {
+          // setIsLoadingForUntimedEffect(false);
+          Swal.fire({
+            icon: "error",
+            title: "Oops...",
+            text: "There was a problem uploading the file",
+          });
+          console.log(error);
+        });
+    }
+  };
+
+  const downloadSampleCSV = () => {
+    // Construct the URL to your sample CSV file located in the public folder
+    // Trigger the browser to download the file
+    window.location.href = process.env.NEXT_PUBLIC_SAMPLE_TOWER_INFO_CSV;
+  };
+
+  const renderFieldGroup = (group, groupName) => {
+    return (
+      <Box mb={3} sx={{ marginTop: '50px' }}>
+        <Typography variant="h6">{groupName}</Typography>
+        {group.map((field) => (
+          <TextField
+            key={field.key}
+            fullWidth
+            name={field.key}
+            label={field.label}
+            value={formData[field.key]}
+            onChange={handleInputChange}
+            margin="normal"
+            InputProps={{
+              endAdornment: field.unit ? <span>{field.unit}</span> : null,
+            }}
+          />
+        ))}
+      </Box>
+    );
+  };
+  
   return (
     <div>
       <div>
@@ -218,12 +292,38 @@ const WirelessExtension = () => {
       <Navbar />
       <Container component="main" maxWidth="xl">
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            {/* Apply the style to this Paper component to make it scrollable */}
+          <Grid item xs={12} md={3}>
+            {/* This will take 3 columns on medium devices and above, and full width on small devices */}
             <Paper elevation={10} sx={{ padding: 3, ...formContainerStyle }}>
               <Typography component="h1" variant="h5" textAlign="center">
                 Tower Information
               </Typography>
+              <Box mb={3} sx={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}>
+                <Box sx={{ width: '48%' }}> {/* Adjust the width as needed */}
+                  <Button
+                    variant="contained"
+                    component="label"
+                    fullWidth
+                  >
+                    Upload CSV
+                    <input
+                      type="file"
+                      hidden
+                      onChange={handleFileUpload}
+                      accept=".csv"
+                    />
+                  </Button>
+                </Box>
+                <Box sx={{ width: '48%' }}> {/* Adjust the width as needed */}
+                  <Button
+                    variant="contained"
+                    onClick={downloadSampleCSV}
+                    fullWidth
+                  >
+                    Download Sample CSV
+                  </Button>
+                </Box>
+              </Box>
               <form onSubmit={handleSubmit}>
                 {renderFieldGroup(fieldGroups.towerLocation, 'Tower Location')}
                 {renderFieldGroup(fieldGroups.signalStrength, 'Signal Strength')}
@@ -234,11 +334,13 @@ const WirelessExtension = () => {
               </form>
             </Paper>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={9}>
+            {/* This will take 9 columns on medium devices and above, and full width on small devices */}
             <WirelessCoveragemap imageUrl={imageUrl} bounds={bounds} />
           </Grid>
         </Grid>
       </Container>
+
     </div>
   );
 };
