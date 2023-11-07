@@ -25,6 +25,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import Searchbar from "./Searchbar";
 import FolderIcon from "@mui/icons-material/Folder";
 import EditIcon from "@mui/icons-material/Edit";
+import CellTowerIcon from '@mui/icons-material/CellTower';
 import EditMapContext from "../contexts/EditMapContext";
 import { backend_url } from "../utils/settings";
 import HistoryIcon from '@mui/icons-material/History';
@@ -285,6 +286,11 @@ export default function Navbar({
       text: "Filing Tool",
       href: "/",
       icon: <HomeIcon />,
+    },
+    {
+      text: "Wireless Coverage Calculation",
+      href: "/wirelessextension",
+      icon: <CellTowerIcon />,
     },
     {
       text: "Export History",

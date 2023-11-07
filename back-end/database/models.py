@@ -14,6 +14,49 @@ class user(Base):
     provider_id = Column(Integer)
     brand_name = Column(String(50))
     folders = relationship('folder', back_populates='user', cascade='all, delete')
+    towers = relationship('tower', back_populates='user', cascade='all, delete')
+
+class tower(Base):
+    __tablename__ = 'tower'
+
+    id = Column(Integer, primary_key=True)
+    tower_name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+
+    # Relationship to TowerInfo and RasterData models (assuming they exist)
+    user = relationship('user', back_populates='towers')
+    tower_info = relationship('towerinfo', back_populates='tower', uselist=False, cascade='all, delete')
+    raster_data = relationship('rasterdata', back_populates='tower', uselist=False, cascade='all, delete')
+
+class towerinfo(Base):
+    __tablename__ = 'towerinfo'
+
+    id = Column(Integer, primary_key=True)
+    latitude = Column(String)
+    longitude = Column(String)
+    frequency = Column(String)
+    radius = Column(String)
+    antennaHeight = Column(String)
+    antennaTilt = Column(String)
+    horizontalFacing = Column(String)
+    
+    # One-to-one relationship with Tower
+    tower_id = Column(Integer, ForeignKey('tower.id', ondelete='CASCADE'))
+    tower = relationship('tower', back_populates='tower_info', uselist=False)
+
+class rasterdata(Base):
+    __tablename__ = 'rasterdata'
+
+    id = Column(Integer, primary_key=True)
+    image_data = Column(LargeBinary)  # for storing binary image data
+    north_bound = Column(String)
+    south_bound = Column(String)
+    east_bound = Column(String)
+    west_bound = Column(String)
+    
+    # One-to-one relationship with Tower
+    tower_id = Column(Integer, ForeignKey('tower.id', ondelete='CASCADE'))
+    tower = relationship('tower', back_populates='raster_data', uselist=False)
 
 class folder(Base):
     __tablename__ = 'folder'

@@ -3,9 +3,14 @@ from controllers.celery_controller.celery_config import celery
 from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
 from database.models import file, kml_data
 from database.sessions import Session
+from controllers.database_controller.towerinfo_ops import create_towerinfo
+from controllers.database_controller.rasterdata_ops import create_rasterdata
+from controllers.signalserver_controller.read_rasterkmz import read_rasterkmz
 from flask import jsonify
 from datetime import datetime
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
+from utils.logger_config import logger
+from utils.wireless_form2args import wireless_raster_file_format
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_data(self, file_names, file_data_list, userid, folderid): 
@@ -303,3 +308,49 @@ def async_folder_copy_for_export(self, userid, folderid, serialized_csv):
     session.add(csv_file)
     session.commit()
     session.close()
+
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def run_signalserver(self, command, outfile_name, tower_id, data):
+    session = Session()
+    try:
+        result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
+
+        if result.stderr:
+            print("SignalServer stderr:", result.stderr.decode())
+        
+        data['tower_id'] = tower_id
+        logger.debug(data)
+        # Create TowerInfo and RasterData entries only after the command execution succeeds
+        tower_info_val = create_towerinfo(tower_info_data=data, session=session)
+        logger.debug('created tower info')
+        if isinstance(tower_info_val, str):  # In case create_towerinfo returned an error message
+            return {'error': tower_info_val}
+        
+        bbox = read_rasterkmz(outfile_name + '.kmz')
+        logger.debug('read kmz')
+        logger.debug(bbox)
+        with open(outfile_name + '.png', 'rb') as img_file:
+            img_data = img_file.read()
+        logger.debug('read image')
+        # Assume we have some way to get raster data after running the command
+        raster_data_val = create_rasterdata(tower_id=tower_id, 
+                                            image_data=img_data, 
+                                            nbound=bbox['nbound'],
+                                            sbound=bbox['sbound'],
+                                            ebound=bbox['ebound'],
+                                            wbound=bbox['wbound'],
+                                            session=session)
+        if isinstance(raster_data_val, str):  # In case create_rasterdata returned an error message
+            return {'error': raster_data_val}
+
+        logger.debug('create raster data')
+
+        for f_extension in wireless_raster_file_format:
+            os.remove(outfile_name + f_extension)
+        return result.returncode 
+    except Exception as e:
+        return {'error': str(e)}
+    finally:
+        session.commit()
+        session.close()
