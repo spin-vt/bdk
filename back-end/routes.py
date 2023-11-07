@@ -25,6 +25,7 @@ from controllers.signalserver_controller.signalserver_command_builder import run
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
 from controllers.database_controller.towerinfo_ops import create_towerinfo
 from controllers.database_controller.rasterdata_ops import create_rasterdata
+from controllers.signalserver_controller.read_towerinfo import read_tower_csv
 from utils.logger_config import logger
 import json
 # logger = logging.getLogger(__name__)
@@ -528,6 +529,32 @@ def get_raster_bounds(towername):
         return jsonify({'error': 'Token is invalid or expired'}), 401
     finally:
         session.close()
+
+@app.route('/api/upload-tower-csv', methods=['POST'])
+@jwt_required()
+def upload_csv():
+    try:
+        identity = get_jwt_identity()
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        logger.debug('reached file check')
+        if file and file.filename.endswith('.csv'):
+            # Read the file content
+            tower_data = read_tower_csv(file)
+            logger.debug(tower_data)
+            if not isinstance(tower_data, str):
+                return jsonify(tower_data), 200
+            else:
+                return jsonify({'error': tower_data}), 400
+        else:
+            return jsonify({'error': 'Invalid file'}), 400
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
 
 # For docker
 if __name__ == '__main__':
