@@ -92,8 +92,8 @@ function Editmap() {
 
     const user = localStorage.getItem("username");
     const tilesURL = mbtid
-    ? `${backend_url}/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
-    : `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
+      ? `${backend_url}/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
+      : `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -332,13 +332,14 @@ function Editmap() {
 
         // Set the feature state for each updated marker
         if (map.current && map.current.getSource("custom")) {
-          // Check if the marker's feature state has been previously set
+          // Check if the marker's feature state has been previously set and if served is true
           const currentFeatureState = map.current.getFeatureState({
             source: "custom",
             sourceLayer: "data",
             id: marker.id,
           });
-          if (currentFeatureState.hasOwnProperty("served")) {
+
+          if (currentFeatureState.hasOwnProperty("served") && currentFeatureState.served === true) {
             // Set the 'served' feature state to false
             map.current.setFeatureState(
               {
@@ -350,12 +351,15 @@ function Editmap() {
                 served: false,
               }
             );
+            selectedSingleMarkersRef.current.push(marker);
           }
         }
-        selectedSingleMarkersRef.current.push(marker);
+        // Push the updated marker to the ref for selected single markers
+        
       });
     }
   };
+
 
 
   const setFeatureStateForMarkers = (markers) => {
@@ -383,10 +387,10 @@ function Editmap() {
       allMarkersRef.current.length === 0
     ) {
       setIsLoadingForUntimedEffect(true);
-      const url = mbtid 
-    ? `${backend_url}/served-data/${mbtid}` 
-    : `${backend_url}/served-data/None`;
-    
+      const url = mbtid
+        ? `${backend_url}/served-data/${mbtid}`
+        : `${backend_url}/served-data/None`;
+
       return fetch(url, {
         method: "GET",
         credentials: "include",
