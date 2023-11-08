@@ -357,31 +357,6 @@ function Editmap() {
     }
   };
 
-  const doneWithChanges = () => {
-    setIsLoadingForTimedEffect(true);
-    const selectedMarkerIds = [];
-    selectedMarkersRef.current.forEach((list) => {
-      list.forEach((marker) => {
-        selectedMarkerIds.push({ id: marker.id, served: marker.served });
-      });
-    });
-    console.log(selectedMarkerIds);
-    // Send request to server to change the selected markers to served
-    toggleMarkers(selectedMarkerIds).finally(() => {
-
-      removeVectorTiles();
-      addVectorTiles();
-
-      setIsDataReady(true);
-      setIsLoadingForTimedEffect(false);
-
-      setTimeout(() => {
-        setIsDataReady(false); // This will be executed 15 seconds after setIsLoading(false)
-      }, 5000);
-    });
-
-    selectedMarkersRef.current = [];
-  };
 
   const setFeatureStateForMarkers = (markers) => {
     markers.forEach((marker) => {
@@ -574,7 +549,7 @@ function Editmap() {
         </Menu>
       </div>
       <div>
-        {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
+        {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} message={"Getting the editing tool ready..."} />}
       </div>
 
       <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />

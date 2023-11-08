@@ -287,12 +287,12 @@ const WirelessExtension = () => {
   return (
     <div>
       <div>
-        {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />}
+        {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} message={"Generating your tower coverage area..."}/>}
       </div>
       <Navbar />
       <Container component="main" maxWidth="xl">
         <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
             {/* This will take 3 columns on medium devices and above, and full width on small devices */}
             <Paper elevation={10} sx={{ padding: 3, ...formContainerStyle }}>
               <Typography component="h1" variant="h5" textAlign="center">
@@ -334,7 +334,7 @@ const WirelessExtension = () => {
               </form>
             </Paper>
           </Grid>
-          <Grid item xs={12} md={9}>
+          <Grid item xs={12} md={8}>
             {/* This will take 9 columns on medium devices and above, and full width on small devices */}
             <WirelessCoveragemap imageUrl={imageUrl} bounds={bounds} />
           </Grid>

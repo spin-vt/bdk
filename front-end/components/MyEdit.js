@@ -88,10 +88,16 @@ const MyEdit = () => {
     const toggleMarkers = async () => {
         setIsLoading(true);
         try {
-            const selectedMarkerIds = [];
-            selectedPoints.forEach((marker) => {
-                selectedMarkerIds.push({ id: marker.id, served: marker.served });
-            });
+            const markersPayload = selectedPoints.map((marker) => ({
+                id: marker.id,
+                served: marker.served,
+            }));
+
+            const requestBody = {
+                marker: markersPayload,
+                mbtid: mbtid || -1, // Set mbtid to -1 if it's null or undefined
+            };
+
             const response = await fetch(`${backend_url}/toggle-markers`, {
                 method: "POST",
                 credentials: "include", // Include cookies in the request
@@ -99,7 +105,7 @@ const MyEdit = () => {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify(requestBody),
-            })
+            });
 
             if (response.status === 401) {
                 setIsLoading(false);

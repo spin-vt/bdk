@@ -453,18 +453,20 @@ def compute_wireless_coverage():
     try:
         identity = get_jwt_identity()
         data = request.json
-        logger.debug('towername       ' + data['towername'])
         towerVal = create_tower(towername=data['towername'], userid=identity['id'])
         if isinstance(towerVal, str):  # In case create_tower returned an error message
+            logger.debug(towerVal)
             return jsonify({'error': towerVal}), 400
-        logger.info('created tower in db')
         outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(userid=identity['id'], towername=data['towername'])
-        logger.debug('check outfile name    ' + outfile_name)
         del data['towername']
         command = runsig_command_builder(data, outfile_name)
-        logger.debug('check signalserver command    ' + command)
+        data['tower_id'] = towerVal.id
 
-        logger.debug(towerVal.id)
+        tower_info_val = create_towerinfo(tower_info_data=data)
+        if isinstance(tower_info_val, str):  # In case create_towerinfo returned an error message
+            logger.debug(tower_info_val)
+            return jsonify({'error': tower_info_val}), 400
+
         task = run_signalserver.apply_async(args=[command, outfile_name, towerVal.id, data]) # store the AsyncResult instance
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     except NoAuthorizationError:
@@ -476,17 +478,16 @@ def get_raster_image(towername):
     session = Session()
     try:
         identity = get_jwt_identity()
-        logger.debug(towername)
         towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
-        if isinstance(towerVal, str):  # In case create_tower returned an error message
+        if isinstance(towerVal, str):  # In case create_tower returned an error 
+            logger.debug(towerVal)
             return jsonify({'error': towerVal}), 400
-        logger.debug(towerVal)
-
+        
         if not towerVal:
+            logger.debug('tower not found under towername')
             return jsonify({'error': 'File not found'}), 404
 
         rasterData = towerVal.raster_data
-        logger.debug(rasterData)
         if rasterData:
             image_io = io.BytesIO(rasterData.image_data)
             image_io.seek(0)
@@ -505,11 +506,10 @@ def get_raster_bounds(towername):
     session = Session()
     try:
         identity = get_jwt_identity()
-        logger.debug(towername)
         towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
         if isinstance(towerVal, str):  # In case create_tower returned an error message
+            logger.debug(towerVal)
             return jsonify({'error': towerVal}), 400
-        logger.debug(towerVal)
 
         if not towerVal:
             return jsonify({'error': 'File not found'}), 404
@@ -546,7 +546,6 @@ def upload_csv():
         if file and file.filename.endswith('.csv'):
             # Read the file content
             tower_data = read_tower_csv(file)
-            logger.debug(tower_data)
             if not isinstance(tower_data, str):
                 return jsonify(tower_data), 200
             else:
