@@ -1,14 +1,27 @@
-FROM python:3.9-slim-buster
+FROM ubuntu:20.04
 
-RUN apt-get update && apt-get install -y \
+# Install dependencies
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  software-properties-common && \
+  add-apt-repository ppa:ubuntugis/ppa && \
+  apt-get update && apt-get install -y \
   gcc \
   python3-dev \
+  python3-pip \
   libpq-dev \
   build-essential \
   libsqlite3-dev \
   zlib1g-dev \
   git \
-  && rm -rf /var/lib/apt/lists/*
+  gdal-bin\
+  g++ \
+  cmake \
+  libbz2-dev \
+  imagemagick \
+  zip && \
+  rm -rf /var/lib/apt/lists/*
+
+
 
 # Clone and install Tippecanoe
 WORKDIR /tippecanoe
@@ -20,9 +33,44 @@ RUN git clone https://github.com/mapbox/tippecanoe.git && \
 # Check if Tippecanoe is in PATH
 RUN which tippecanoe || { echo 'Tippecanoe not found in PATH'; exit 1; }
 
+# Set the working directory to /Signal-Server
+WORKDIR /Signal-Server
+
+# Clone Signal-Server repository
+RUN git clone https://github.com/Cloud-RF/Signal-Server.git .
+
+# Change to the source directory and build the binaries
+WORKDIR /Signal-Server/src
+
+# Before running cmake, we should ensure that the RUNTIME DESTINATION is specified in CMakeLists.txt.
+# If the CMakeLists.txt is not correctly setting the RUNTIME DESTINATION, you can use a sed command to replace it with the correct line. For example:
+RUN sed -i 's/install(TARGETS signalserver)/install(TARGETS signalserver RUNTIME DESTINATION bin)/' CMakeLists.txt
+RUN sed -i 's/install(TARGETS signalserverHD)/install(TARGETS signalserverHD RUNTIME DESTINATION bin)/' CMakeLists.txt
+RUN sed -i 's/install(TARGETS signalserverLIDAR)/install(TARGETS signalserverLIDAR RUNTIME DESTINATION bin)/' CMakeLists.txt
+
+# Run cmake and make, specifying a runtime destination
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr/local . && \
+    make
+
+# Add /usr/local/bin to the PATH, just in case it's not
+ENV PATH="/Signal-Server/src:${PATH}"
+
+# Check if signalserver is in PATH
+RUN which signalserver || { echo 'Signal-Server not found in PATH'; exit 1; }
+
+WORKDIR /Signal-Server/output/GoogleEarth
+# Modify runsig.sh to use signalserverHD instead of signalserver
+RUN sed -i 's/time signalserver -sdf/time signalserverHD -sdf/' runsig.sh
+
+ENV PATH="/Signal-Server/output/GoogleEarth:${PATH}"
+
+Run which runsig.sh || { echo 'runsig not found in PATH'; exit 1; }
+
 WORKDIR /app
 
+# COPY ./idaho_sdf1 ./one-arc-second-data
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
 COPY . .
+

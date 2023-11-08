@@ -1,64 +1,68 @@
-import { useState } from 'react';
-import { useRouter } from 'next/router';
-import { TextField, Button, Typography, Container } from '@mui/material';
-import Navbar from '../components/Navbar';
-import Swal from 'sweetalert2';
-import { backend_url } from '../utils/settings';
-import { styled } from '@mui/system';
+import { useState } from "react";
+import { useRouter } from "next/router";
+import { TextField, Button, Typography, Container } from "@mui/material";
+import Navbar from "../components/Navbar";
+import Swal from "sweetalert2";
+import { backend_url } from "../utils/settings";
+import { styled } from "@mui/system";
 
-const RegisterContainer = styled('div')({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  marginTop: '8px',
+const RegisterContainer = styled("div")({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  marginTop: "8px",
 });
 
-const RegisterForm = styled('form')({
-  width: '100%',
-  marginTop: '8px',
+const RegisterForm = styled("form")({
+  width: "100%",
+  marginTop: "8px",
 });
 
-const RegisterButtonContainer = styled('div')({
-  marginTop: '16px',
-  display: 'flex',
-  gap: '16px',
+const RegisterButtonContainer = styled("div")({
+  marginTop: "16px",
+  display: "flex",
+  gap: "16px",
 });
-
 
 const Register = () => {
   const router = useRouter();
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [providerId, setProviderId] = useState('');
-  const [brandName, setBrandName] = useState('');  
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [providerId, setProviderId] = useState("");
+  const [brandName, setBrandName] = useState("");
 
   const handleRegister = async (e) => {
     e.preventDefault();
 
+    console.log("url " + (backend_url + "/api/register"));
     try {
       const response = await fetch(`${backend_url}/api/register`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password, providerId, brandName }),  
-        credentials: 'include',
+        body: JSON.stringify({ username, password, providerId, brandName }),
+        credentials: "include",
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.status === "success") {
-          router.push('/');
+          router.push("/");
         }
       } else if (response.status === 400) {
         const data = await response.json();
         if (data.message === "Username already exists") {
-          Swal.fire('Error', 'Username already exists. Please try another one.', 'error');
+          Swal.fire(
+            "Error",
+            "Username already exists. Please try another one.",
+            "error"
+          );
         }
       }
     } catch (error) {
-      console.error('Register error:', error);
+      console.error("Register error:", error);
     }
   };
 
@@ -128,7 +132,8 @@ const Register = () => {
                 type="submit"
                 fullWidth
                 variant="contained"
-                color="primary">
+                color="primary"
+              >
                 Register
               </Button>
             </RegisterButtonContainer>

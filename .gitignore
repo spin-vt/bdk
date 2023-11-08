@@ -30,3 +30,15 @@ data/
 helpful.txt
 .env.*
 README.md
+# Data
+*.tif
+*.lcf
+*.png
+*.ppm
+*.kml
+*.kmz
+*.hgt
+*.sdf
+*.gpkg
+color/
+back-end/DEM
