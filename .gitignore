@@ -22,7 +22,6 @@ front-end/Map_marker.svg:Zone.Identifier
 *.mbtiles-journal
 .env
 back-end/alembic/versions/
-__init__.py
 pushgateway-*/
 profiling_data/
 data/

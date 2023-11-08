@@ -14,15 +14,16 @@ const ReminderTextArea = styled('div')({
     marginLeft: '10px',
 });
 
-export default function SmallLoadingEffect({ isLoading }) {
-
+export default function SmallLoadingEffect({ isLoading, message = 'Getting the editing tool ready...' }) {
+    // `message` is a new prop with a default value.
     return (
         <div className="LoadingEffect">
             <StyledBackdrop open={isLoading}>
                 <Box display="flex" alignItems="center">
                     <CircularProgress color="inherit" />
                     <ReminderTextArea>
-                        <Typography>Getting the editing tool ready...</Typography>
+                        <Typography>{message}</Typography>
+                        {/* Using the `message` prop inside Typography */}
                     </ReminderTextArea>
                 </Box>
             </StyledBackdrop>

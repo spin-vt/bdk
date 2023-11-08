@@ -19,10 +19,16 @@ from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
 from controllers.celery_controller.celery_config import app, celery 
-from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles
-from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
+from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver
+from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
+from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
+from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
+from controllers.database_controller.towerinfo_ops import create_towerinfo
+from controllers.database_controller.rasterdata_ops import create_rasterdata
+from controllers.signalserver_controller.read_towerinfo import read_tower_csv
 from utils.logger_config import logger
-logger = logging.getLogger(__name__)
+import json
+# logger = logging.getLogger(__name__)
 
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
@@ -440,6 +446,114 @@ def delete_export(fileid):
     finally:
         session.commit()
         session.close()
+
+@app.route('/api/compute-wireless-coverage', methods=['POST'])
+@jwt_required()
+def compute_wireless_coverage():
+    try:
+        identity = get_jwt_identity()
+        data = request.json
+        towerVal = create_tower(towername=data['towername'], userid=identity['id'])
+        if isinstance(towerVal, str):  # In case create_tower returned an error message
+            logger.debug(towerVal)
+            return jsonify({'error': towerVal}), 400
+        outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(userid=identity['id'], towername=data['towername'])
+        del data['towername']
+        command = runsig_command_builder(data, outfile_name)
+        data['tower_id'] = towerVal.id
+
+        tower_info_val = create_towerinfo(tower_info_data=data)
+        if isinstance(tower_info_val, str):  # In case create_towerinfo returned an error message
+            logger.debug(tower_info_val)
+            return jsonify({'error': tower_info_val}), 400
+
+        task = run_signalserver.apply_async(args=[command, outfile_name, towerVal.id, data]) # store the AsyncResult instance
+        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+
+@app.route('/api/get-raster-image/<string:towername>', methods=['GET'])
+@jwt_required()
+def get_raster_image(towername):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
+        if isinstance(towerVal, str):  # In case create_tower returned an error 
+            logger.debug(towerVal)
+            return jsonify({'error': towerVal}), 400
+        
+        if not towerVal:
+            logger.debug('tower not found under towername')
+            return jsonify({'error': 'File not found'}), 404
+
+        rasterData = towerVal.raster_data
+        if rasterData:
+            image_io = io.BytesIO(rasterData.image_data)
+            image_io.seek(0)
+            response = send_file(image_io, mimetype='image/png')
+            return response
+        else:
+            return jsonify({'error': 'Raster data not found'}), 404
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
+@app.route('/api/get-raster-bounds/<string:towername>', methods=['GET'])
+@jwt_required()
+def get_raster_bounds(towername):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
+        if isinstance(towerVal, str):  # In case create_tower returned an error message
+            logger.debug(towerVal)
+            return jsonify({'error': towerVal}), 400
+
+        if not towerVal:
+            return jsonify({'error': 'File not found'}), 404
+
+        rasterData = towerVal.raster_data
+        if rasterData:
+            bounds = {
+                "north": rasterData.north_bound,
+                "south": rasterData.south_bound,
+                "east": rasterData.east_bound,
+                "west": rasterData.west_bound,
+            }
+            return jsonify({'Status': 'OK', 'bounds': bounds}), 200 
+        else:
+            return jsonify({'error': 'Raster data not found'}), 404
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
+@app.route('/api/upload-tower-csv', methods=['POST'])
+@jwt_required()
+def upload_csv():
+    try:
+        identity = get_jwt_identity()
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+
+        logger.debug('reached file check')
+        if file and file.filename.endswith('.csv'):
+            # Read the file content
+            tower_data = read_tower_csv(file)
+            if not isinstance(tower_data, str):
+                return jsonify(tower_data), 200
+            else:
+                return jsonify({'error': tower_data}), 400
+        else:
+            return jsonify({'error': 'Invalid file'}), 400
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
 
 # For docker
 if __name__ == '__main__':

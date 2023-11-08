@@ -36,11 +36,9 @@ function Map() {
   const map = useRef(null);
   const currentPopup = useRef(null); // Ref to store the current popup
 
-  const [isLoadingForTimedEffect, setIsLoadingForTimedEffect] = useState(false);
   const [isDataReady, setIsDataReady] = useState(false);
   const loadingTimeInMs = 3.5 * 60 * 1000;
-  const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] =
-    useState(false);
+
 
   const { layers } = useContext(LayerVisibilityContext);
   const allKmlLayerRef = useRef({});
@@ -319,7 +317,6 @@ function Map() {
         })
         .catch((error) => {
           console.log(error);
-          setIsLoadingForUntimedEffect(false);
         });
     } else {
       return Promise.resolve();
@@ -580,17 +577,6 @@ function Map() {
             </MenuItem>
           ))}
         </Menu>
-      </div>
-      <div>
-        {(isLoadingForTimedEffect || isDataReady) && (
-          <LoadingEffect
-            isLoading={isLoadingForTimedEffect}
-            loadingTimeInMs={loadingTimeInMs}
-          />
-        )}
-        {isLoadingForUntimedEffect && (
-          <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} />
-        )}
       </div>
 
       <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />

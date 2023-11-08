@@ -43,7 +43,6 @@ RUN git clone https://github.com/Cloud-RF/Signal-Server.git .
 WORKDIR /Signal-Server/src
 
 # Before running cmake, we should ensure that the RUNTIME DESTINATION is specified in CMakeLists.txt.
-# If the CMakeLists.txt is not correctly setting the RUNTIME DESTINATION, you can use a sed command to replace it with the correct line. For example:
 RUN sed -i 's/install(TARGETS signalserver)/install(TARGETS signalserver RUNTIME DESTINATION bin)/' CMakeLists.txt
 RUN sed -i 's/install(TARGETS signalserverHD)/install(TARGETS signalserverHD RUNTIME DESTINATION bin)/' CMakeLists.txt
 RUN sed -i 's/install(TARGETS signalserverLIDAR)/install(TARGETS signalserverLIDAR RUNTIME DESTINATION bin)/' CMakeLists.txt
@@ -68,7 +67,6 @@ Run which runsig.sh || { echo 'runsig not found in PATH'; exit 1; }
 
 WORKDIR /app
 
-# COPY ./idaho_sdf1 ./one-arc-second-data
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
