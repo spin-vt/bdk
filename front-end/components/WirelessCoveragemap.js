@@ -15,7 +15,7 @@ const WirelessCoveragemap = ({ imageUrl, bounds }) => {
       container: mapContainerRef.current,
       style: 'https://api.maptiler.com/maps/satellite/style.json?key=QE9g8fJij2HMMqWYaZlN',
       center: [(bounds.east + bounds.west) / 2, (bounds.north + bounds.south) / 2],
-      zoom: 3, // Adjust the zoom level appropriately
+      zoom: 4, // Adjust the zoom level appropriately
     });
 
     return () => {

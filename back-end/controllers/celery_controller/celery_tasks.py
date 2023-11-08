@@ -319,20 +319,9 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
         if result.stderr:
             print("SignalServer stderr:", result.stderr.decode())
         
-        data['tower_id'] = tower_id
-        logger.debug(data)
-        # Create TowerInfo and RasterData entries only after the command execution succeeds
-        tower_info_val = create_towerinfo(tower_info_data=data, session=session)
-        logger.debug('created tower info')
-        if isinstance(tower_info_val, str):  # In case create_towerinfo returned an error message
-            return {'error': tower_info_val}
-        
         bbox = read_rasterkmz(outfile_name + '.kmz')
-        logger.debug('read kmz')
-        logger.debug(bbox)
         with open(outfile_name + '.png', 'rb') as img_file:
             img_data = img_file.read()
-        logger.debug('read image')
         # Assume we have some way to get raster data after running the command
         raster_data_val = create_rasterdata(tower_id=tower_id, 
                                             image_data=img_data, 
@@ -343,8 +332,6 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
                                             session=session)
         if isinstance(raster_data_val, str):  # In case create_rasterdata returned an error message
             return {'error': raster_data_val}
-
-        logger.debug('create raster data')
 
         for f_extension in wireless_raster_file_format:
             os.remove(outfile_name + f_extension)
