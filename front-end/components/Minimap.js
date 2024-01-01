@@ -62,8 +62,7 @@ function Minimap({ id }) {
             map.current.removeSource("custom");
         }
 
-        const user = localStorage.getItem("username");
-        const tilesURL = `${backend_url}/tiles/${id}/${user}/{z}/{x}/{y}.pbf`;
+        const tilesURL = `${backend_url}/tiles/${id}/{z}/{x}/{y}.pbf`;
         map.current.addSource("custom", {
             type: "vector",
             tiles: [tilesURL],
@@ -204,6 +203,14 @@ function Minimap({ id }) {
             style: initialStyle,
             center: currentCenter,
             zoom: currentZoom,
+            transformRequest: (url) => {
+                if (url.startsWith(`${backend_url}/tiles/`)) {
+                    return {
+                        url: url,
+                        credentials: 'include' // Include cookies for cross-origin requests
+                    };
+                }
+            }
         });
 
         //Remove the existing vector tile layer and source if they exist

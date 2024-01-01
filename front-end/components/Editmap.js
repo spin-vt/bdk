@@ -90,10 +90,9 @@ function Editmap() {
 
     console.log(mbtid);
 
-    const user = localStorage.getItem("username");
     const tilesURL = mbtid
-      ? `${backend_url}/tiles/${mbtid}/${user}/{z}/{x}/{y}.pbf`
-      : `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
+      ? `${backend_url}/tiles/${mbtid}/{z}/{x}/{y}.pbf`
+      : `${backend_url}/tiles/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -452,6 +451,14 @@ function Editmap() {
       style: initialStyle,
       center: currentCenter,
       zoom: currentZoom,
+      transformRequest: (url) => {
+        if (url.startsWith(`${backend_url}/tiles/`)) {
+          return {
+            url: url,
+            credentials: 'include' // Include cookies for cross-origin requests
+          };
+        }
+      }
     });
 
     map.current.getCanvas().className = "mapboxgl-canvas maplibregl-canvas";

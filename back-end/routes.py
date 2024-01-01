@@ -301,17 +301,18 @@ def exportChallenge():
     else:
         return jsonify({'Status': 'Failure'})
 
-@app.route("/tiles/<mbtile_id>/<username>/<zoom>/<x>/<y>.pbf")
-def serve_tile_withid(mbtile_id, username, zoom, x, y):
-    username = str(username)
+@app.route("/tiles/<mbtile_id>/<zoom>/<x>/<y>.pbf")
+@jwt_required()
+def serve_tile_withid(mbtile_id, zoom, x, y):
     mbtile_id = int(mbtile_id)
+    identity = get_jwt_identity()
 
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, username, mbtile_id)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['username'], mbtile_id)
 
     if tile is None:
         return Response('No tile found', status=404)
@@ -322,16 +323,17 @@ def serve_tile_withid(mbtile_id, username, zoom, x, y):
     return response
 
 
-@app.route("/tiles/<username>/<zoom>/<x>/<y>.pbf")
-def serve_tile(username, zoom, x, y):
-    username = str(username)
+@app.route("/tiles/<zoom>/<x>/<y>.pbf")
+@jwt_required()
+def serve_tile(zoom, x, y):
+    identity = get_jwt_identity()
 
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, username, None)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['username'], None)
 
     if tile is None:
         return Response('No tile found', status=404)

@@ -79,8 +79,7 @@ function Map() {
       map.current.removeSource("custom");
     }
 
-    const user = localStorage.getItem("username");
-    const tilesURL = `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/tiles/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -335,7 +334,7 @@ function Map() {
     })
       .then((response) => {
         if (!response.ok) {
-          
+
           throw new Error("Network response was not ok");
         }
         return response.json();
@@ -505,6 +504,14 @@ function Map() {
       style: initialStyle,
       center: currentCenter,
       zoom: currentZoom,
+      transformRequest: (url) => {
+        if (url.startsWith(`${backend_url}/tiles/`)) {
+          return {
+            url: url,
+            credentials: 'include' // Include cookies for cross-origin requests
+          };
+        }
+      }
     });
 
     //Remove the existing vector tile layer and source if they exist
