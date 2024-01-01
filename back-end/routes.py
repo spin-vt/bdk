@@ -554,6 +554,29 @@ def upload_csv():
             return jsonify({'error': 'Invalid file'}), 400
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
+    
+@app.route('/api/downloadexport/<int:fileid>', methods=['GET'])
+@jwt_required()
+def download_export(fileid):
+    fileid = int(fileid)
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
+        if not fileVal:
+            return jsonify({'error': 'File not found'}), 404
+        downfile = io.BytesIO(fileVal.data)
+        downfile.seek(0)
+        return send_file(
+                downfile,
+                download_name=fileVal.name,
+                as_attachment=True,
+                mimetype="text/csv"
+            )
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
 
 # For docker
 if __name__ == '__main__':
