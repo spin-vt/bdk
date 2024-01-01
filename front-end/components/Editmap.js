@@ -228,32 +228,25 @@ function Editmap() {
 
     map.current.on("click", "custom-point", function (e) {
       let featureProperties = e.features[0].properties;
-      let featureId = e.features[0].id;  // Capture the feature ID here
+      let featureId = e.features[0].id;
       let featureCoordinates = e.features[0].geometry.coordinates;
 
       console.log(featureCoordinates);
-
-      let content = "<h1>Marker Information</h1>";
-      for (let property in featureProperties) {
-        content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
-      }
-      content += '<button id="setUnserved">Change to Unserve</button>';
 
       if (currentPopup.current) {
         currentPopup.current.remove();
         currentPopup.current = null;
       }
 
-
       const popup = new maplibregl.Popup({ closeOnClick: false })
         .setLngLat(e.lngLat)
-        .setHTML(content)
         .addTo(map.current);
 
-      document.getElementById('setUnserved').addEventListener('click', function () {
-        // Logic to set the marker as unserved
-        featureProperties.served = false;
-
+      function updatePopup() {
+        let content = "<h1>Marker Information</h1>";
+        for (let property in featureProperties) {
+          content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
+        }
 
         const currentFeatureState = map.current.getFeatureState({
           source: "custom",
@@ -261,41 +254,60 @@ function Editmap() {
           id: featureId,
         });
 
-        if (currentFeatureState.hasOwnProperty("served")) {
-          // Set the 'served' feature state to false
+        if (currentFeatureState.served) {
+          content += '<button id="toggleServe">Change to Unserve</button>';
+        } else {
+          content += '<button id="toggleServe">Undo Change</button>';
+        }
+
+        popup.setHTML(content);
+
+        document.getElementById('toggleServe')?.addEventListener('click', function () {
+          // Toggle the 'served' property
+          const toggleRes = !currentFeatureState.served;
+          console.log(toggleRes);
+
+          // Update feature state
           map.current.setFeatureState(
             {
               source: "custom",
               sourceLayer: "data",
               id: featureId,
             },
-            {
-              served: false,
-            }
+            { served: toggleRes }
           );
 
-          const locationInfo = {
-            id: featureId,
-            latitude: featureCoordinates[1],
-            longitude: featureCoordinates[0],
-            address: featureProperties.address,
-            served: false
-          };
-          selectedSingleMarkersRef.current.push(locationInfo);
-          setSelectedPoints(selectedSingleMarkersRef.current);
-        }
+          if (toggleRes) {
+            // Remove the point from selectedSingleMarkersRef when undoing
+            selectedSingleMarkersRef.current = selectedSingleMarkersRef.current.filter(
+              location => location.id !== featureId
+            );
+          } else {
+            // Add the point to selectedSingleMarkersRef when serving
+            const locationInfo = {
+              id: featureId,
+              latitude: featureCoordinates[1],
+              longitude: featureCoordinates[0],
+              address: featureProperties.address,
+              served: toggleRes
+            };
+            selectedSingleMarkersRef.current.push(locationInfo);
+          }
 
-        // Refresh the popup content to reflect changes
-        let updatedContent = "<h1>Marker Information</h1>";
-        for (let property in featureProperties) {
-          updatedContent += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
-        }
-        updatedContent += '<button id="setUnserved">Set to Unserve</button>';
-        popup.setHTML(updatedContent);
-      });
+          setSelectedPoints(selectedSingleMarkersRef.current);
+
+          // Update the popup content to reflect changes
+          updatePopup();
+        });
+      }
+
+      // Initial popup content setup
+      updatePopup();
 
       currentPopup.current = popup;
     });
+
+
 
   };
 
@@ -354,7 +366,7 @@ function Editmap() {
           }
         }
         // Push the updated marker to the ref for selected single markers
-        
+
       });
     }
   };
