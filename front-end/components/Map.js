@@ -188,7 +188,9 @@ function Map() {
       }
 
       let featureProperties = e.features[0].properties;
+      let featureId = e.features[0].id;
       let content = "<h1>Marker Information</h1>";
+      content += `<p><strong>Location ID:</strong> ${featureId}</p>`;
       for (let property in featureProperties) {
         content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
       }
@@ -236,7 +238,9 @@ function Map() {
         }
 
         let featureProperties = e.features[0].properties;
+        let featureId = e.features[0].id;
         let content = "<h1>Marker Information</h1>";
+        content += `<p><strong>Location ID:</strong> ${featureId}</p>`;
         for (let property in featureProperties) {
           content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
         }
@@ -446,7 +450,9 @@ function Map() {
     });
     map.current.on("click", `served-points-${layername}`, function (e) {
       let featureProperties = e.features[0].properties;
+      let featureId = e.features[0].id;
       let content = "<h1>Marker Information</h1>";
+      content += `<p><strong>Location ID:</strong> ${featureId}</p>`;
       for (let property in featureProperties) {
         content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
       }

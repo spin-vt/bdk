@@ -25,6 +25,9 @@ import { backend_url } from "../utils/settings";
 import UndoIcon from '@mui/icons-material/Undo';
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
 import MbtilesContext from "../contexts/MbtilesContext";
+import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 const HeaderText = styled(Typography)({
     marginBottom: "20px",
@@ -63,6 +66,7 @@ const MyEdit = () => {
     const { setLocation } = useContext(SelectedLocationContext);
     const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
     const { mbtid } = useContext(MbtilesContext);
+    const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
 
     const handleLocateOnMap = (option) => {
         if (option !== undefined && option !== null) {
@@ -85,16 +89,61 @@ const MyEdit = () => {
         setSelectedPoints(updatedPoints);
     };
 
+    const handleUndoPolygonEdit = (index) => {
+        const updatedPolygons = [...selectedPolygons];
+        updatedPolygons.splice(index, 1);
+        setSelectedPolygons(updatedPolygons);
+    };
+
+    const handleUndoSinglePointWithinPolygon = (polygonIndex, pointIndex) => {
+        // Clone the current state of polygons
+        const updatedPolygons = [...selectedPolygons];
+
+        // Check if the polygon exists
+        if (updatedPolygons[polygonIndex]) {
+            // Clone the polygon to avoid direct mutation
+            const updatedPolygon = [...updatedPolygons[polygonIndex]];
+
+            // Adjust the point index by 1 to account for the ID at the first position
+            const adjustedPointIndex = pointIndex + 1;
+
+            // Check if the point exists and remove it
+            if (updatedPolygon[adjustedPointIndex]) {
+                updatedPolygon.splice(adjustedPointIndex, 1);
+
+                // If only the ID is left in the polygon, remove the entire polygon
+                if (updatedPolygon.length <= 1) {
+                    updatedPolygons.splice(polygonIndex, 1);
+                } else {
+                    // Otherwise, update the polygon with the point removed
+                    updatedPolygons[polygonIndex] = updatedPolygon;
+                }
+
+                // Update the state with the modified polygons array
+                setSelectedPolygons(updatedPolygons);
+            } else {
+                console.error("Invalid point index");
+            }
+        } else {
+            console.error("Invalid polygon index");
+        }
+    };
+
     const toggleMarkers = async () => {
         setIsLoading(true);
         try {
-            const markersPayload = selectedPoints.map((marker) => ({
-                id: marker.id,
-                served: marker.served,
+            const polygonPoints = selectedPolygons.flatMap(polygon => 
+                polygon.slice(1)  // Skip the first element (timestamp) and take the rest (points)
+            );
+    
+            // Merge points from selectedPoints and polygonPoints
+            const combinedPoints = [...selectedPoints, ...polygonPoints].map((point) => ({
+                id: point.id,
+                served: point.served,
             }));
-
+    
             const requestBody = {
-                marker: markersPayload,
+                marker: combinedPoints,
                 mbtid: mbtid || -1, // Set mbtid to -1 if it's null or undefined
             };
 
@@ -160,9 +209,12 @@ const MyEdit = () => {
                 )}
             </div>
             <StyledContainer component="main" maxWidth="md">
-                <HeaderText component="h1" variant="h5">
-                    Your Edits
-                </HeaderText>
+                <PolygonEditTable
+                    polygons={selectedPolygons}
+                    handleUndoPolygonEdit={handleUndoPolygonEdit}
+                    handleLocateOnMap={handleLocateOnMap}
+                    handleUndoSinglePointWithinPolygon={handleUndoSinglePointWithinPolygon}
+                />
                 <FileTable
                     files={selectedPoints}
                     handleUndoSingleEdit={handleUndoSingleEdit}
@@ -187,43 +239,130 @@ const MyEdit = () => {
 const FileTable = ({ files, handleUndoSingleEdit, handleLocateOnMap }) => {
 
     return (
-        <TableContainer component={Paper} sx={{ marginBottom: "20px", maxHeight: "80vh", overflow: "auto" }}>
-            <StyledTable aria-label="single point table">
-                <TableHead>
-                    <TableRow>
-                        <TableCell>Locate on Map</TableCell>
-                        <TableCell>Address</TableCell>
-                        <TableCell align='right'>Action</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {files.map((file, index) => (
-                        <TableRow key={index}>
-                            <TableCell>
-                                <IconButton
-                                    onClick={() => handleLocateOnMap(file)}
-                                >
-                                    <LocationOnIcon />
-
-                                </IconButton>
-                            </TableCell>
-                            <TableCell>{file.address}</TableCell>
-                            <TableCell align="right">
-                                <StyledIconButton
-                                    onClick={() => handleUndoSingleEdit(index)}
-                                >
-                                    <UndoIcon />
-                                    <Typography sx={{ marginLeft: "10px" }}>
-                                        Undo Point
-                                    </Typography>
-                                </StyledIconButton>
-                            </TableCell>
+        <div>
+            <Typography variant="h6" sx={{ margin: "20px 0" }}>
+                Single Point Edits
+            </Typography>
+            <TableContainer component={Paper} sx={{ marginBottom: "20px", maxHeight: "80vh", overflow: "auto" }}>
+                <StyledTable aria-label="single point table">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell>Location ID</TableCell>
+                            <TableCell>Address</TableCell>
+                            <TableCell></TableCell>
+                            <TableCell align='right'></TableCell>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </StyledTable>
-        </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                        {files.map((file, index) => (
+                            <TableRow key={index}>
+                                <TableCell>{file.id}</TableCell>
+                                <TableCell>{file.address}</TableCell>
+                                <TableCell>
+                                    <IconButton
+                                        onClick={() => handleLocateOnMap(file)}
+                                    >
+                                        <LocationOnIcon />
+
+                                    </IconButton>
+                                </TableCell>
+                                <TableCell align="right">
+                                    <StyledIconButton
+                                        onClick={() => handleUndoSingleEdit(index)}
+                                    >
+                                        <UndoIcon />
+                                    </StyledIconButton>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </StyledTable>
+            </TableContainer>
+        </div>
     );
 };
+
+
+const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap, handleUndoSinglePointWithinPolygon }) => {
+    const [expandedPolygon, setExpandedPolygon] = useState(null);
+
+    const toggleExpand = (polygonId) => {
+        if (expandedPolygon === polygonId) {
+            setExpandedPolygon(null);
+        } else {
+            setExpandedPolygon(polygonId);
+        }
+    };
+
+    return (
+        <div>
+            <Typography variant="h6" sx={{ margin: "20px 0" }}>
+                Bulk Edits
+            </Typography>
+            <TableContainer component={Paper} sx={{ marginBottom: "20px", maxHeight: "80vh", overflow: "auto" }}>
+                <Table aria-label="polygon edit table">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell>Polygon ID</TableCell>
+                            <TableCell></TableCell>
+                            <TableCell align='right'>Action</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {polygons.map((polygonGroup, groupIndex) => (
+                            <>
+                                <TableRow key={`polygon-${groupIndex}`}>
+                                    <TableCell>
+                                        {polygonGroup[0].id}
+                                    </TableCell>
+                                    <TableCell>
+                                        <IconButton onClick={() => toggleExpand(polygonGroup[0].id)}>
+                                            {expandedPolygon === polygonGroup[0].id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                        </IconButton>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <StyledIconButton onClick={() => handleUndoPolygonEdit(groupIndex)}>
+                                            <UndoIcon />
+                                        </StyledIconButton>
+                                    </TableCell>
+                                </TableRow>
+                                {expandedPolygon === polygonGroup[0].id && (
+                                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                        <TableCell>Location ID</TableCell>
+                                        <TableCell>Address</TableCell>
+                                        <TableCell></TableCell>
+                                        <TableCell align='right'></TableCell>
+                                    </TableRow>
+                                )}
+                                {expandedPolygon === polygonGroup[0].id && polygonGroup.slice(1).map((point, pointIndex) => (
+                                    <TableRow key={`point-${groupIndex}-${pointIndex}`} sx={{ backgroundColor: '#f5f5f5' }}>
+                                        <TableCell>
+                                            {point.id}
+                                        </TableCell>
+                                        <TableCell>
+                                            {point.address}
+                                        </TableCell>
+                                        <TableCell>
+                                            <IconButton onClick={() => handleLocateOnMap(point)}>
+                                                <LocationOnIcon />
+                                            </IconButton>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <StyledIconButton onClick={() => handleUndoSinglePointWithinPolygon(groupIndex, pointIndex)}>
+                                                <UndoIcon />
+                                            </StyledIconButton>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </div>
+    );
+};
+
+
 
 export default MyEdit;

@@ -17,6 +17,8 @@ import Swal from 'sweetalert2';
 import { backend_url } from "../utils/settings";
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
 import MbtilesContext from "../contexts/MbtilesContext";
+import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
+
 
 const StyledBaseMapIconButton = styled(IconButton)({
   width: "33px",
@@ -45,10 +47,11 @@ function Editmap() {
 
   const allMarkersRef = useRef([]); // create a ref for allMarkers
 
-  const selectedMarkersRef = useRef([]);
+  const selectedPolygonsRef = useRef([]);
   const selectedSingleMarkersRef = useRef([]);
 
   const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
+  const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
 
   const { mbtid } = useContext(MbtilesContext);
 
@@ -216,14 +219,23 @@ function Editmap() {
       // Convert drawn polygon to turf polygon
       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
-      // Iterate over markers and select if they are inside the polygon
-      const selected = allMarkersRef.current.filter((marker) => {
+      // Iterate over markers and select if they are inside the polygon and served is true
+      let selected = allMarkersRef.current.filter((marker) => {
         const point = turf.point([marker.longitude, marker.latitude]);
-        return turf.booleanPointInPolygon(point, turfPolygon);
+        const isInsidePolygon = turf.booleanPointInPolygon(point, turfPolygon);
+        return isInsidePolygon && marker.served;
       });
+      if (selected !== undefined && selected.length > 0) {
+        changeToUnserved(selected);
 
-      changeToUnserved(selected);
-      setSelectedPoints(selectedSingleMarkersRef.current);
+        const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
+
+        // Prepend the ID to the selected array
+        selected.unshift({ id: polygonId });
+
+        selectedPolygonsRef.current.push(selected);
+        setSelectedPolygons(selectedPolygonsRef.current);
+      }
     });
 
     map.current.on("click", "custom-point", function (e) {
@@ -244,6 +256,7 @@ function Editmap() {
 
       function updatePopup() {
         let content = "<h1>Marker Information</h1>";
+        content += `<p><strong>Location ID:</strong> ${featureId}</p>`;
         for (let property in featureProperties) {
           content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
         }
@@ -278,10 +291,23 @@ function Editmap() {
           );
 
           if (toggleRes) {
-            // Remove the point from selectedSingleMarkersRef when undoing
-            selectedSingleMarkersRef.current = selectedSingleMarkersRef.current.filter(
-              location => location.id !== featureId
-            );
+            // Check if the point exists in selectedSingleMarkersRef
+            const pointExistsInMarkers = selectedSingleMarkersRef.current.some(location => location.id === featureId);
+
+            if (pointExistsInMarkers) {
+              // Remove the point from selectedSingleMarkersRef
+              selectedSingleMarkersRef.current = selectedSingleMarkersRef.current.filter(
+                location => location.id !== featureId
+              );
+              setSelectedPoints(selectedSingleMarkersRef.current);
+            } else {
+              // Remove the point from selectedPolygonRef
+              selectedPolygonsRef.current = selectedPolygonsRef.current.map(polygon => {
+                // Remove the point if it exists in this polygon
+                return polygon.filter(location => location.id !== featureId);
+              });
+              setSelectedPolygons(selectedPolygonsRef.current);
+            }
           } else {
             // Add the point to selectedSingleMarkersRef when serving
             const locationInfo = {
@@ -292,9 +318,10 @@ function Editmap() {
               served: toggleRes
             };
             selectedSingleMarkersRef.current.push(locationInfo);
+            setSelectedPoints(selectedSingleMarkersRef.current);
           }
 
-          setSelectedPoints(selectedSingleMarkersRef.current);
+
 
           // Update the popup content to reflect changes
           updatePopup();
@@ -335,6 +362,75 @@ function Editmap() {
 
   }, [selectedPoints]); // Dependency on selectedPoints
 
+  useEffect(() => {
+    // Loop through each polygon in selectedPolygonsRef
+    for (let i = 0; i < selectedPolygonsRef.current.length; i++) {
+      const refPolygon = selectedPolygonsRef.current[i];
+      if (selectedPolygons === undefined || selectedPolygons.length === 0) {
+        refPolygon.forEach(marker => {
+          console.log(marker);
+          map.current.setFeatureState(
+            {
+              source: "custom",
+              sourceLayer: "data",
+              id: marker.id,
+            },
+            {
+              served: true,
+            }
+          );
+        });
+        break;
+      }
+      // If the entire polygon is missing in selectedPolygons, process all its markers
+      if (refPolygon[0] !== selectedPolygons[i][0]) {
+        refPolygon.forEach(marker => {
+          console.log(marker);
+          map.current.setFeatureState(
+            {
+              source: "custom",
+              sourceLayer: "data",
+              id: marker.id,
+            },
+            {
+              served: true,
+            }
+          );
+        });
+
+        // Skip further processing for this polygon
+        break;
+      }
+
+      // If the polygon exists but has different points, check each point
+      for (let j = 1; j < refPolygon.length; j++) {
+        const marker = refPolygon[j];
+        if (!selectedPolygons[i].some(point => point.id === marker.id)) {
+          console.log(marker);
+          map.current.setFeatureState(
+            {
+              source: "custom",
+              sourceLayer: "data",
+              id: marker.id,
+            },
+            {
+              served: true,
+            }
+          );
+
+        }
+      }
+
+    }
+
+    // Sync ref with the current state
+    selectedPolygonsRef.current = [...selectedPolygons];
+
+  }, [selectedPolygons]); // Dependency on selectedPolygons
+
+
+
+
   const changeToUnserved = (lastList) => {
     if (lastList !== undefined && lastList !== null) {
       lastList.forEach((marker) => {
@@ -362,7 +458,6 @@ function Editmap() {
                 served: false,
               }
             );
-            selectedSingleMarkersRef.current.push(marker);
           }
         }
         // Push the updated marker to the ref for selected single markers
