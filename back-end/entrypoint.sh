@@ -8,10 +8,8 @@ fi
 # Generate initial migration script if it does not exist
 if [ -z "$(ls -A /app/alembic/versions)" ]; then
    alembic revision --autogenerate -m "Initial migration"
+   # Run migrations
+   alembic upgrade head
 fi
-
-# Run migrations
-alembic upgrade head
-
 # Execute command
 exec "$@"

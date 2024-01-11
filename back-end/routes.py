@@ -19,7 +19,7 @@ from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
 from controllers.celery_controller.celery_config import app, celery 
-from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver
+from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
@@ -532,6 +532,29 @@ def get_raster_bounds(towername):
     finally:
         session.close()
 
+@app.route('/api/get-loss-color-mapping/<string:towername>', methods=['GET'])
+@jwt_required()
+def get_loss_color_mapping(towername):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
+        if not towerVal:
+            logger.debug('Tower not found under towername')
+            return jsonify({'error': 'Mapping not found'}), 404
+
+        rasterData = towerVal.raster_data
+        if rasterData and rasterData.loss_color_mapping:
+            # Now we can just return the JSON directly
+            return jsonify(rasterData.loss_color_mapping), 200
+        else:
+            return jsonify({'error': 'Loss to color mapping not found'}), 404
+
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
 @app.route('/api/upload-tower-csv', methods=['POST'])
 @jwt_required()
 def upload_csv():
@@ -544,7 +567,6 @@ def upload_csv():
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
 
-        logger.debug('reached file check')
         if file and file.filename.endswith('.csv'):
             # Read the file content
             tower_data = read_tower_csv(file)
@@ -579,6 +601,19 @@ def download_export(fileid):
         return jsonify({'error': 'Token is invalid or expired'}), 401
     finally:
         session.close()
+
+@app.route('/api/compute-wireless-prediction-fabric-coverage', methods=['POST'])
+@jwt_required()
+def compute_wireless_prediction_fabric_coverage():
+    try:
+        identity = get_jwt_identity()
+        data = request.json
+        outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(userid=identity['id'], towername=data['towername'])
+        task = raster2vector.apply_async(args=[data['towername'], identity['id'], outfile_name]) # store the AsyncResult instance
+        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+
 
 # For docker
 if __name__ == '__main__':

@@ -3,14 +3,15 @@ from controllers.celery_controller.celery_config import celery
 from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
 from database.models import file, kml_data
 from database.sessions import Session
-from controllers.database_controller.towerinfo_ops import create_towerinfo
+from controllers.database_controller.tower_ops import get_tower_with_towername
 from controllers.database_controller.rasterdata_ops import create_rasterdata
-from controllers.signalserver_controller.read_rasterkmz import read_rasterkmz
+from controllers.signalserver_controller.rasterprocessing import read_rasterkmz, filter_image_by_loss, load_loss_to_color_mapping
 from flask import jsonify
 from datetime import datetime
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 from utils.logger_config import logger
 from utils.wireless_form2args import wireless_raster_file_format
+from controllers.signalserver_controller.raster2vector import smooth_edges
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_data(self, file_names, file_data_list, userid, folderid): 
@@ -320,11 +321,15 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
             print("SignalServer stderr:", result.stderr.decode())
         
         bbox = read_rasterkmz(outfile_name + '.kmz')
+        filter_image_by_loss(outfile_name + '.png', int(data['floorLossRate']), outfile_name + '.lcf', outfile_name + '.png')
         with open(outfile_name + '.png', 'rb') as img_file:
             img_data = img_file.read()
+
+        loss_color_mapping = load_loss_to_color_mapping(outfile_name + '.lcf')
         # Assume we have some way to get raster data after running the command
         raster_data_val = create_rasterdata(tower_id=tower_id, 
-                                            image_data=img_data, 
+                                            image_data=img_data,
+                                            loss_color_mapping=loss_color_mapping,
                                             nbound=bbox['nbound'],
                                             sbound=bbox['sbound'],
                                             ebound=bbox['ebound'],
@@ -336,6 +341,46 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
         for f_extension in wireless_raster_file_format:
             os.remove(outfile_name + f_extension)
         return result.returncode 
+    except Exception as e:
+        return {'error': str(e)}
+    finally:
+        session.commit()
+        session.close()
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def raster2vector(self, towername, userid, outfile_name):
+    session = Session()
+    try:
+        towerVal = get_tower_with_towername(tower_name=towername, user_id=userid, session=session)
+        if isinstance(towerVal, str):  # In case create_tower returned an error 
+            logger.debug(towerVal)
+            return {'error': towerVal}
+        if not towerVal:
+            logger.debug('tower not found under towername')
+            return {'error': 'File not found'}
+
+        rasterData = towerVal.raster_data
+
+        # Specify the path for the .png file
+        image_file_path = f"{outfile_name}.png"
+
+        # Write the binary image data to a .png file
+        with open(image_file_path, 'wb') as image_file:
+            image_file.write(rasterData.image_data)
+
+        smooth_edges(image_file_path, image_file_path, 2)
+        gdal_translate_cmd = f"gdal_translate -a_ullr {rasterData.west_bound} {rasterData.north_bound} {rasterData.east_bound} {rasterData.west_bound} -a_srs EPSG:4326 {image_file_path} {outfile_name}.tif"
+
+        logger.debug("Executing:", gdal_translate_cmd)
+        subprocess.run(gdal_translate_cmd, shell=True)
+
+        # Execute gdal_polygonize.py
+        gdal_polygonize_cmd = f"gdal_polygonize.py {outfile_name}.tif -f \"KML\" {outfile_name}.kml"
+        logger.debug("Executing:", gdal_polygonize_cmd)
+        subprocess.run(gdal_polygonize_cmd, shell=True)
+        # for f_extension in wireless_raster_file_format:
+        #     os.remove(outfile_name + f_extension)
+        return {'Status': "Ok"}
     except Exception as e:
         return {'error': str(e)}
     finally:

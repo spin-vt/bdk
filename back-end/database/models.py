@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime, JSON
 from database.base import Base
 from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -39,6 +38,7 @@ class towerinfo(Base):
     antennaHeight = Column(String)
     antennaTilt = Column(String)
     horizontalFacing = Column(String)
+    floorLossRate = Column(String)
     
     # One-to-one relationship with Tower
     tower_id = Column(Integer, ForeignKey('tower.id', ondelete='CASCADE'))
@@ -49,6 +49,7 @@ class rasterdata(Base):
 
     id = Column(Integer, primary_key=True)
     image_data = Column(LargeBinary)  # for storing binary image data
+    loss_color_mapping = Column(JSON)
     north_bound = Column(String)
     south_bound = Column(String)
     east_bound = Column(String)
