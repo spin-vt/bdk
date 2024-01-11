@@ -15,8 +15,12 @@ import {
   Box,
   Grid,
   Paper,
+  Drawer,
+  Tooltip,
+  Input
 } from '@mui/material';
 import Swal from 'sweetalert2';
+import { styled } from "@mui/material/styles";
 
 
 const fieldGroups = {
@@ -45,7 +49,7 @@ const fieldGroups = {
 };
 
 const formContainerStyle = {
-  maxHeight: 'calc(100vh)', // replace <Navbar_Height> with the actual height of your Navbar
+  maxHeight: 'calc(100vh)',
   overflowY: 'auto',
 };
 
@@ -74,6 +78,74 @@ const ColorPalette = ({ mapping }) => {
     {paletteElements}</div>;
 };
 
+const StyledFormControl = styled(FormControl)({
+  margin: "4px",
+  minWidth: "150px",
+  backgroundColor: "white",
+  borderRadius: "4px",
+  height: "25px",
+  display: "flex",
+  alignItems: "center",
+});
+
+const StyledSelect = styled(Select)({
+  height: "25px",
+  padding: "0 0 0 10px",
+  minWidth: "150px",
+});
+
+const networkInfoHeaderStyle = {
+  textAlign: 'center',
+  margin: '10px 0',
+  fontWeight: 'bold',
+};
+
+const tech_types = {
+  "Geostationary Satellite": 60,
+  "Non-geostationary Satellite": 61,
+  "Unlicensed Terrestrial Fixed Wireless": 70,
+  "Licensed Terrestrial Fixed Wireless": 71,
+  "Licensed-by-Rule Terrestrial Fixed Wireless": 72,
+  "Other": 0,
+};
+
+const latency_type = {
+  "<= 100 ms": 1,
+  "> 100 ms": 0,
+};
+
+const bus_codes = {
+  Business: "B",
+  Residential: "R",
+  Both: "X",
+};
+
+const StyledInput = styled(Input)({
+  padding: '10px',
+  margin: '4px',
+  border: '1px solid #ccc',
+  borderRadius: '4px',
+  width: 'calc(100% - 24px)', // accounting for padding and margins
+  boxSizing: 'border-box', // make sure padding doesn't affect the width
+  maxHeight: '30%'
+});
+
+const StyledButton = styled(Button)({
+  margin: '20px 4px 4px',
+});
+
+const StyledGridItem = styled(Grid)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'flex-start', // Align items to the start of the flex container
+  alignItems: 'flex-start', // Align items to the start of the cross axis
+  padding: theme.spacing(1),
+  [theme.breakpoints.down('xs')]: {
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+}));
+
 const WirelessExtension = () => {
 
   const [isLoadingForUntimedEffect, setIsLoadingForUntimedEffect] = useState(false);
@@ -92,11 +164,18 @@ const WirelessExtension = () => {
   });
   const [inPreviewMode, setInPreviewMode] = useState(false);
   const [colorMapping, setColorMapping] = useState({});
+  const [saveCoverage, setSaveCoverage] = useState(false);
 
   const [imageUrl, setImageUrl] = useState(''); // replace with actual state logic
   const [bounds, setBounds] = useState({
     north: 39.5, east: -98.5, south: 39.5, west: -98.5
   });
+
+  const [downloadSpeed, setDownloadSpeed] = React.useState("");
+  const [uploadSpeed, setUploadSpeed] = React.useState("");
+  const [techType, setTechType] = React.useState("");
+  const [latency, setLatency] = React.useState("");
+  const [categoryCode, setCategoryCode] = React.useState("");
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -248,15 +327,29 @@ const WirelessExtension = () => {
       });
   };
 
+  const saveCoverageClick = (event) => {
+    event.preventDefault();
+    setSaveCoverage(true);
+  };
+
   const handleSaveCoverage = (event) => {
     event.preventDefault();
     setIsLoadingForUntimedEffect(true);
+    const coverageData = {
+      towername: formData.towername, // Ensure towername is included
+      downloadSpeed: downloadSpeed,
+      uploadSpeed: uploadSpeed,
+      techType: techType,
+      latency: latency,
+      categoryCode: categoryCode
+    };
+    console.log(coverageData);
     fetch(`${backend_url}/api/compute-wireless-prediction-fabric-coverage`, {
       method: "POST",
       headers: {
         'Content-Type': 'application/json', // Set the content type to application/json
       },
-      body: JSON.stringify(formData), // Serialize formData to JSON
+      body: JSON.stringify(coverageData), // Serialize formData to JSON
       credentials: "include",
     })
       .then((response) => {
@@ -382,6 +475,8 @@ const WirelessExtension = () => {
     window.location.href = process.env.NEXT_PUBLIC_SAMPLE_TOWER_INFO_CSV;
   };
 
+
+
   const renderFieldGroup = (group, groupName) => {
     return (
       <Box mb={3} sx={{ marginTop: '50px' }}>
@@ -453,7 +548,7 @@ const WirelessExtension = () => {
                   Compute Coverage
                 </Button>
                 {inPreviewMode && (
-                  <Button sx={{marginTop: '20px', backgroundColor: '#4dc732'}} onClick={handleSaveCoverage} variant="contained" fullWidth>
+                  <Button sx={{ marginTop: '20px', backgroundColor: '#4dc732' }} onClick={saveCoverageClick} variant="contained" fullWidth>
                     Save Coverage
                   </Button>
                 )}
@@ -462,11 +557,150 @@ const WirelessExtension = () => {
           </Grid>
           <Grid item xs={12} md={8}>
             {/* This will take 9 columns on medium devices and above, and full width on small devices */}
-            <WirelessCoveragemap imageUrl={imageUrl} bounds={bounds}/>
-            <ColorPalette mapping={colorMapping}/>
+            <WirelessCoveragemap imageUrl={imageUrl} bounds={bounds} />
+            <ColorPalette mapping={colorMapping} />
           </Grid>
         </Grid>
+
+        <Drawer
+          anchor="bottom"
+          open={saveCoverage}
+          onClose={() => setSaveCoverage(false)}
+        >
+          <div style={{ padding: 20 }}>
+            <Typography variant="h6" style={networkInfoHeaderStyle}>
+              Please fill in your network information
+            </Typography>
+            <Grid container spacing={1}>
+              <StyledGridItem item xs={12} sm={2}>
+                <label style={{ display: "block" }} htmlFor="downloadSpeed">
+                  Download Speed(Mbps):{" "}
+                </label>
+                <StyledInput
+                  type="text"
+                  id="downloadSpeed"
+                  value={downloadSpeed}
+                  onChange={(e) => setDownloadSpeed(e.target.value)}
+                />
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
+                <label style={{ display: "block" }} htmlFor="uploadSpeed">
+                  Upload Speed(Mbps):{" "}
+                </label>
+                <StyledInput
+                  type="text"
+                  id="uploadSpeed"
+                  value={uploadSpeed}
+                  onChange={(e) => setUploadSpeed(e.target.value)}
+                />
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
+                <label style={{ display: "block" }} htmlFor="techType">
+                  Technology Type:{" "}
+                </label>
+                <StyledFormControl variant="outlined">
+                  <StyledSelect
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={techType}
+                    onChange={(e) => setTechType(e.target.value)}
+                  >
+                    {Object.entries(tech_types).map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        <Tooltip title={key} placement="right">
+                          <div
+                            style={{
+                              maxWidth: techType === value ? "100px" : "none",
+                              textOverflow:
+                                techType === value ? "ellipsis" : "initial",
+                              overflow: techType === value ? "hidden" : "initial",
+                              whiteSpace:
+                                techType === value ? "nowrap" : "initial",
+                            }}
+                          >
+                            {key}
+                          </div>
+                        </Tooltip>
+                      </MenuItem>
+                    ))}
+                  </StyledSelect>
+                </StyledFormControl>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
+                <label style={{ display: "block" }} htmlFor="techType">
+                  Latency:{" "}
+                </label>
+                <StyledFormControl variant="outlined">
+                  <StyledSelect
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={latency}
+                    onChange={(e) => setLatency(e.target.value)}
+                  >
+                    {Object.entries(latency_type).map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        <div
+                          style={{
+                            maxWidth: techType === value ? "100px" : "none",
+                            textOverflow:
+                              techType === value ? "ellipsis" : "initial",
+                            overflow: techType === value ? "hidden" : "initial",
+                            whiteSpace:
+                              techType === value ? "nowrap" : "initial",
+                          }}
+                        >
+                          {key}
+                        </div>
+                      </MenuItem>
+                    ))}
+                  </StyledSelect>
+                </StyledFormControl>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
+                <label style={{ display: "block" }} htmlFor="techType">
+                  Category:{" "}
+                </label>
+                <StyledFormControl variant="outlined">
+                  <StyledSelect
+                    labelId="demo-simple-select-outlined-label"
+                    id="demo-simple-select-outlined"
+                    value={categoryCode}
+                    onChange={(e) => setCategoryCode(e.target.value)}
+                  >
+                    {Object.entries(bus_codes).map(([key, value]) => (
+                      <MenuItem key={value} value={value}>
+                        <div
+                          style={{
+                            maxWidth: techType === value ? "100px" : "none",
+                            textOverflow:
+                              techType === value ? "ellipsis" : "initial",
+                            overflow: techType === value ? "hidden" : "initial",
+                            whiteSpace:
+                              techType === value ? "nowrap" : "initial",
+                          }}
+                        >
+                          {key}
+                        </div>
+                      </MenuItem>
+                    ))}
+                  </StyledSelect>
+                </StyledFormControl>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
+                <StyledButton onClick={handleSaveCoverage} variant="contained">
+                  Submit
+                </StyledButton>
+              </StyledGridItem>
+            </Grid>
+          </div>
+
+        </Drawer>
+
+
       </Container>
+
+
+
 
     </div>
   );

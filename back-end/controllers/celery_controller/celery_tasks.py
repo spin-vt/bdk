@@ -10,7 +10,7 @@ from flask import jsonify
 from datetime import datetime
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 from utils.logger_config import logger
-from utils.wireless_form2args import wireless_raster_file_format
+from utils.wireless_form2args import wireless_raster_file_format, wireless_vector_file_format
 from controllers.signalserver_controller.raster2vector import smooth_edges
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
@@ -378,7 +378,7 @@ def raster2vector(self, towername, userid, outfile_name):
         gdal_polygonize_cmd = f"gdal_polygonize.py {outfile_name}.tif -f \"KML\" {outfile_name}.kml"
         logger.debug("Executing:", gdal_polygonize_cmd)
         subprocess.run(gdal_polygonize_cmd, shell=True)
-        # for f_extension in wireless_raster_file_format:
+        # for f_extension in wireless_vector_file_format:
         #     os.remove(outfile_name + f_extension)
         return {'Status': "Ok"}
     except Exception as e:

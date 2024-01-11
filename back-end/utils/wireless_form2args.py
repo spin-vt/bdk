@@ -10,3 +10,4 @@ wireless_formfield2args = {
 }
 
 wireless_raster_file_format = ['.kmz', '.lcf', '.png', '.ppm']
+wireless_vector_file_format = ['.kml', '.png', '.tif']
