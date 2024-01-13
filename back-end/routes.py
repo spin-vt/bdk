@@ -609,11 +609,41 @@ def compute_wireless_prediction_fabric_coverage():
         identity = get_jwt_identity()
         data = request.json
         outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(userid=identity['id'], towername=data['towername'])
-        task = raster2vector.apply_async(args=[data['towername'], identity['id'], outfile_name]) # store the AsyncResult instance
-        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+        task = raster2vector.apply_async(args=[data, identity['id'], outfile_name]) # store the AsyncResult instance
+        kml_filename = outfile_name + '.kml'
+        return jsonify({'Status': "OK", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
+@app.route('/api/download-kmlfile/<string:kml_filename>', methods=['GET'])
+@jwt_required()
+def download_kmlfile(kml_filename):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        folderVal = folder_ops.get_upload_folder(userid=identity['id'], folderid=None, session=session)
+        fileVal = file_ops.get_file_with_name(filename=kml_filename, folderid=folderVal.id, session=session)
+        if isinstance(fileVal, str):  # In case create_tower returned an error message
+            logger.debug(fileVal)
+            return jsonify({'error': fileVal}), 400
+
+        if not fileVal:
+            return jsonify({'error': 'File not found'}), 404
+
+        
+        downfile = io.BytesIO(fileVal.data)
+        downfile.seek(0)
+        return send_file(
+                downfile,
+                download_name=fileVal.name,
+                as_attachment=True,
+                mimetype="text/kml"
+            )
+        
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
 
 # For docker
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ import logging, subprocess, os, json, uuid, cProfile
 from controllers.celery_controller.celery_config import celery
 from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
 from database.models import file, kml_data
-from database.sessions import Session
+from database.sessions import Session, ScopedSession
 from controllers.database_controller.tower_ops import get_tower_with_towername
 from controllers.database_controller.rasterdata_ops import create_rasterdata
 from controllers.signalserver_controller.rasterprocessing import read_rasterkmz, filter_image_by_loss, load_loss_to_color_mapping
@@ -83,7 +83,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             else: 
                 networkType = 1
 
-            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
+            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category, session)
             tasks.append(task)
 
         for file_name, file_data_str in geojson_file_data:
@@ -113,7 +113,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
             else: 
                 networkType = 1
 
-            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category)
+            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category, session)
             tasks.append(task)
         
         # This is a temporary solution, we should try optimize to use tile-join
@@ -121,11 +121,13 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         for kml_f in all_kmls:
             geojson_array.append(vt_ops.read_kml(kml_f.id, session))
         
+        logger.debug(f'geojson array length: {len(geojson_array)}')
         all_geojsons = session.query(file).filter(file.folder_id == folderid, file.name.endswith('geojson')).all()
         for geojson_f in all_geojsons:
             geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
         
         mbtiles_ops.delete_mbtiles(folderid, session)
+        session.commit()
         print("finished kml processing, now creating tiles")
         
         vt_ops.create_tiles(geojson_array, userid, folderid, session)
@@ -348,10 +350,10 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
         session.close()
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def raster2vector(self, towername, userid, outfile_name):
+def raster2vector(self, data, userid, outfile_name):
     session = Session()
     try:
-        towerVal = get_tower_with_towername(tower_name=towername, user_id=userid, session=session)
+        towerVal = get_tower_with_towername(tower_name=data['towername'], user_id=userid, session=session)
         if isinstance(towerVal, str):  # In case create_tower returned an error 
             logger.debug(towerVal)
             return {'error': towerVal}
@@ -369,8 +371,7 @@ def raster2vector(self, towername, userid, outfile_name):
             image_file.write(rasterData.image_data)
 
         smooth_edges(image_file_path, image_file_path, 2)
-        gdal_translate_cmd = f"gdal_translate -a_ullr {rasterData.west_bound} {rasterData.north_bound} {rasterData.east_bound} {rasterData.west_bound} -a_srs EPSG:4326 {image_file_path} {outfile_name}.tif"
-
+        gdal_translate_cmd = f"gdal_translate -a_ullr {rasterData.west_bound} {rasterData.north_bound} {rasterData.east_bound} {rasterData.south_bound} -a_srs EPSG:4326 {image_file_path} {outfile_name}.tif"
         logger.debug("Executing:", gdal_translate_cmd)
         subprocess.run(gdal_translate_cmd, shell=True)
 
@@ -378,11 +379,48 @@ def raster2vector(self, towername, userid, outfile_name):
         gdal_polygonize_cmd = f"gdal_polygonize.py {outfile_name}.tif -f \"KML\" {outfile_name}.kml"
         logger.debug("Executing:", gdal_polygonize_cmd)
         subprocess.run(gdal_polygonize_cmd, shell=True)
-        # for f_extension in wireless_vector_file_format:
-        #     os.remove(outfile_name + f_extension)
+
+        userVal = user_ops.get_user_with_id(userid, session=session)
+        folderVal = folder_ops.get_upload_folder(userVal.id, session=session)
+        if folderVal is None:
+            num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
+            folder_name = f"{userVal.username}-{num_folders + 1}"
+            folderVal = folder_ops.create_folder(folder_name, userVal.id, 'upload', session=session)
+            session.commit()
+
+        logger.debug("Retrieved folder")
+        vector_file_name = outfile_name + '.kml'
+        with open(vector_file_name, 'rb') as vector_file:
+            kml_binarydata = vector_file.read()
+            fileVal = file_ops.create_file(vector_file_name, kml_binarydata, folderVal.id, None, 'wireless', session=session)
+            logger.debug("Created file")
+            fileVal.computed = True
+            session.commit()
+            downloadSpeed = data['downloadSpeed']
+            uploadSpeed = data['uploadSpeed']
+            techType = data['techType']
+            latency = data['latency']
+            category = data['categoryCode']
+        
+            kml_ops.compute_wireless_locations(fileVal.folder_id, fileVal.id, downloadSpeed, uploadSpeed, techType, userid, latency, category, session)
+            logger.debug("Added network data")
+            geojson_array = []
+            all_kmls = file_ops.get_files_with_postfix(fileVal.folder_id, '.kml', session)
+            for kml_f in all_kmls:
+                geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+            all_geojsons = file_ops.get_files_with_postfix(fileVal.folder_id, '.geojson', session)
+            for geojson_f in all_geojsons:
+                geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
+            
+            logger.debug("Creating Tiles")
+            mbtiles_ops.delete_mbtiles(fileVal.folder_id, session)
+            session.commit()
+            vt_ops.create_tiles(geojson_array, userid, fileVal.folder_id, session)
+
+        for f_extension in wireless_vector_file_format:
+            os.remove(outfile_name + f_extension)
         return {'Status': "Ok"}
     except Exception as e:
         return {'error': str(e)}
     finally:
-        session.commit()
         session.close()

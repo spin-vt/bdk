@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
 import SmallLoadingEffect from '../components/SmallLoadingEffect';
 import WirelessCoveragemap from '../components/WirelessCoveragemap';
+import { useRouter } from "next/router";
 import { backend_url } from '../utils/settings';
 import {
   Typography,
@@ -17,7 +18,12 @@ import {
   Paper,
   Drawer,
   Tooltip,
-  Input
+  Input,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from '@mui/material';
 import Swal from 'sweetalert2';
 import { styled } from "@mui/material/styles";
@@ -177,12 +183,59 @@ const WirelessExtension = () => {
   const [latency, setLatency] = React.useState("");
   const [categoryCode, setCategoryCode] = React.useState("");
 
+  const [openDialog, setOpenDialog] = useState(false);
+
+
+  const router = useRouter();
+  const handleDialogClose = (option) => {
+    setOpenDialog(false);
+    if (option === 'mainPage') {
+      router.push('/');
+    }
+  };
+
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     setFormData((prevFormData) => ({
       ...prevFormData,
       [name]: value,
     }));
+  };
+
+  const fetchKMLFile = (kml_filename) => {
+    fetch(`${backend_url}/api/download-kmlfile/${kml_filename}`, {
+      method: "GET",
+      credentials: "include", // make sure to send credentials to maintain the session
+    })
+      .then((response) => {
+        if (response.ok) {
+          return response.blob();
+        } else {
+          throw new Error('Failed to fetch file');
+        }
+      })
+      .then((blob) => {
+        // Create a URL for the blob
+        const fileUrl = URL.createObjectURL(blob);
+
+        // Create a temporary anchor element and trigger a download
+        const a = document.createElement("a");
+        a.href = fileUrl;
+        a.download = kml_filename; // Set the file name for download
+        document.body.appendChild(a); // Append to the document
+        a.click(); // Trigger a click to download
+
+        // Clean up: remove the anchor element and revoke the object URL
+        document.body.removeChild(a);
+        URL.revokeObjectURL(fileUrl);
+      })
+      .catch((error) => {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: error.message,
+        });
+      });
   };
 
   const fetchRasterImage = (towerId) => {
@@ -385,6 +438,9 @@ const WirelessExtension = () => {
                 if (status.state !== "PENDING") {
                   setIsLoadingForUntimedEffect(false);
                   clearInterval(intervalId);
+                  setSaveCoverage(false);
+                  fetchKMLFile(data.kml_filename);
+                  setOpenDialog(true);
                 }
               });
           }, 5000);
@@ -698,6 +754,23 @@ const WirelessExtension = () => {
 
 
       </Container>
+
+      <Dialog
+        open={openDialog}
+        onClose={() => handleDialogClose('stay')}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Your fabric location coverage has been successfully computed saved."}</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => handleDialogClose('stay')} color="primary">
+            Keep Adding Tower
+          </Button>
+          <Button onClick={() => handleDialogClose('mainPage')} color="secondary" autoFocus>
+            View Fabric Location Coverage on Main Page
+          </Button>
+        </DialogActions>
+      </Dialog>
 
 
 
