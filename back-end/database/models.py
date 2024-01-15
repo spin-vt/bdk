@@ -49,6 +49,7 @@ class rasterdata(Base):
 
     id = Column(Integer, primary_key=True)
     image_data = Column(LargeBinary)  # for storing binary image data
+    transparent_image_data = Column(LargeBinary)
     loss_color_mapping = Column(JSON)
     north_bound = Column(String)
     south_bound = Column(String)

@@ -336,6 +336,44 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, 
     res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category, session)
     return res
 
+def preview_wireless_locations(folderid, kml_filename):
+    
+    fabric_files = get_files_with_postfix(folderid, '.csv')
+    with open(kml_filename, 'rb') as file:  # Open the file in binary mode
+        coverage_data = file.read()  # Read the entire content of the file into memory
+
+    
+    if fabric_files is None:
+        raise FileNotFoundError("Fabric or coverage file not found in the database")
+    
+    fabric_arr = []
+    for fabric_file in fabric_files:
+        tempdf = pandas.read_csv(StringIO(fabric_file.data.decode()))
+        fabric_arr.append(tempdf)
+    df = pandas.concat(fabric_arr)
+
+    fabric = geopandas.GeoDataFrame(
+        df,
+        crs="EPSG:4326",
+        geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
+    
+    coverage_data_io = BytesIO(coverage_data)
+    
+    fiona.drvsupport.supported_drivers['kml'] = 'rw'
+    fiona.drvsupport.supported_drivers['KML'] = 'rw'
+    wireless_coverage = geopandas.read_file(coverage_data_io, driver='KML')
+
+
+    wireless_coverage = wireless_coverage.to_crs("EPSG:4326")
+    fabric = rename_conflicting_columns(fabric)
+    wireless_coverage = rename_conflicting_columns(wireless_coverage)
+    fabric_in_wireless = geopandas.sjoin(fabric,wireless_coverage,how="inner")
+    bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
+    bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates(subset='location_id', keep='first')
+
+    logger.debug(f'number of points computed: {len(bsl_fabric_in_wireless)}')
+    return bsl_fabric_in_wireless
+
 def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session):
     
 

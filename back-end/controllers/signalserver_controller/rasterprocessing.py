@@ -45,6 +45,18 @@ def filter_image_by_loss(input_image_path, floor_loss_rate, lcf_file_path, outpu
 
         img.save(output_image_path, 'PNG')
 
+def generate_transparent_image(input_image_path, output_image_path):
+    with Image.open(input_image_path) as img:
+        img = img.convert('RGBA')
+        pixels = img.load()
+
+        for i in range(img.width):
+            for j in range(img.height):
+                if pixels[i, j] != (255, 255, 255, 0):
+                    pixels[i, j] = (0, 194, 255, 76)
+
+        img.save(output_image_path, 'PNG')
+
 def read_rasterkmz(kmz_filename):
     try: 
         with zipfile.ZipFile(kmz_filename, 'r') as kmz:

@@ -59,30 +59,6 @@ const formContainerStyle = {
   overflowY: 'auto',
 };
 
-const ColorPalette = ({ mapping }) => {
-  // Convert the mapping object into an array of elements
-  const paletteElements = Object.entries(mapping).map(([loss, rgb]) => {
-    const style = {
-      backgroundColor: `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`,
-      width: '100%',
-      height: '20px', // or any other height
-      margin: '2px 0',
-      color: 'white',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    };
-    return (
-      <div key={loss} style={style}>
-        {loss} dB
-      </div>
-    );
-  });
-
-  return <div>
-    <Typography>Loss Rate(dB)</Typography>
-    {paletteElements}</div>;
-};
 
 const StyledFormControl = styled(FormControl)({
   margin: "4px",
@@ -172,7 +148,8 @@ const WirelessExtension = () => {
   const [colorMapping, setColorMapping] = useState({});
   const [saveCoverage, setSaveCoverage] = useState(false);
 
-  const [imageUrl, setImageUrl] = useState(''); // replace with actual state logic
+  const [imageUrl, setImageUrl] = useState(''); 
+  const [transparentImageUrl, setTransparentImageUrl] = useState('');
   const [bounds, setBounds] = useState({
     north: 39.5, east: -98.5, south: 39.5, west: -98.5
   });
@@ -256,6 +233,34 @@ const WirelessExtension = () => {
         // Create a URL for the image blob
         const imageUrl = URL.createObjectURL(imageBlob);
         setImageUrl(imageUrl);
+      })
+      .catch((error) => {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: error.message,
+        });
+      });
+  };
+
+  const fetchTransparentRasterImage = (towerId) => {
+    fetch(`${backend_url}/api/get-transparent-raster-image/${towerId}`, {
+      method: "GET",
+      credentials: "include", // make sure to send credentials to maintain the session
+    })
+      .then((response) => {
+        if (response.ok) {
+          return response.blob().then(imageBlob => ({
+            imageBlob
+          }));
+        } else {
+          throw new Error('Failed to fetch raster data');
+        }
+      })
+      .then(({ imageBlob }) => {
+        // Create a URL for the image blob
+        const imageUrl = URL.createObjectURL(imageBlob);
+        setTransparentImageUrl(imageUrl);
       })
       .catch((error) => {
         Swal.fire({
@@ -361,6 +366,7 @@ const WirelessExtension = () => {
                   setIsLoadingForUntimedEffect(false);
                   clearInterval(intervalId);
                   fetchRasterImage(formData.towername);
+                  fetchTransparentRasterImage(formData.towername);
                   fetchRasterBounds(formData.towername);
                   fetchLossToColorMapping(formData.towername);
                 }
@@ -613,8 +619,7 @@ const WirelessExtension = () => {
           </Grid>
           <Grid item xs={12} md={8}>
             {/* This will take 9 columns on medium devices and above, and full width on small devices */}
-            <WirelessCoveragemap imageUrl={imageUrl} bounds={bounds} />
-            <ColorPalette mapping={colorMapping} />
+            <WirelessCoveragemap imageUrl={imageUrl} transparentImageUrl={transparentImageUrl} bounds={bounds} formData={formData} colorMapping={colorMapping}/>
           </Grid>
         </Grid>
 
