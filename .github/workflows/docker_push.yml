@@ -1,9 +1,12 @@
 name: Build and Push Docker Images to GitHub Registry
 
+# on:
+#   push:
+#     branches:
+#       - main
+
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build-and-push:
