@@ -9,6 +9,8 @@ import Popper from "@mui/material/Popper";
 import MenuItem from "@mui/material/MenuItem";
 import MenuList from "@mui/material/MenuList";
 import Box from "@mui/material/Box";
+import Tooltip from "@mui/material/Tooltip";
+import Input from "@mui/material/Input";
 import ExportButton from "./SubmitButton";
 import { DataGrid } from "@mui/x-data-grid";
 import Select from "@mui/material/Select";
@@ -41,10 +43,27 @@ const StyledSelect = styled(Select)({
   minWidth: "150px",
 });
 
-const StyledTypography = styled(Typography)({
-  marginTop: "20px",
-  marginBottom: "20px",
+const StyledInput = styled(Input)({
+  padding: '10px',
+  margin: '4px',
+  border: '1px solid #ccc',
+  borderRadius: '4px',
+  width: 'calc(100% - 24px)', // accounting for padding and margins
+  boxSizing: 'border-box', // make sure padding doesn't affect the width
+  maxHeight: '30%'
 });
+
+const StyledGridItem = styled(Grid)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'flex-start', // Align items to the start of the flex container
+  alignItems: 'flex-start', // Align items to the start of the cross axis
+  padding: theme.spacing(1),
+  [theme.breakpoints.down('xs')]: {
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+}));
 
 const options = ["Fabric", "Network"];
 const wiredWirelessOptions = {
@@ -61,7 +80,7 @@ const tech_types = {
   "Unlicensed Terrestrial Fixed Wireless": 70,
   "Licensed Terrestrial Fixed Wireless": 71,
   "Licensed-by-Rule Terrestrial Fixed Wireless": 72,
-  Other: 0,
+  "Other": 0,
 };
 
 const latency_type = {
@@ -455,29 +474,29 @@ export default function Upload({ generateChallenge }) {
         {selectedIndex === 1 && (
           <Box sx={{ marginTop: "1rem" }}>
             <Grid container spacing={1}>
-              <Grid item xs={12} sm={2}>
+              <StyledGridItem item xs={12} sm={2}>
                 <label style={{ display: "block" }} htmlFor="downloadSpeed">
-                  Download Speed:{" "}
+                  Download Speed(Mbps):{" "}
                 </label>
-                <input
+                <StyledInput
                   type="text"
                   id="downloadSpeed"
                   value={downloadSpeed}
                   onChange={(e) => setDownloadSpeed(e.target.value)}
                 />
-              </Grid>
-              <Grid item xs={12} sm={2}>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
                 <label style={{ display: "block" }} htmlFor="uploadSpeed">
-                  Upload Speed:{" "}
+                  Upload Speed(Mbps):{" "}
                 </label>
-                <input
+                <StyledInput
                   type="text"
                   id="uploadSpeed"
                   value={uploadSpeed}
                   onChange={(e) => setUploadSpeed(e.target.value)}
                 />
-              </Grid>
-              <Grid item xs={12} sm={2}>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
                 <label style={{ display: "block" }} htmlFor="techType">
                   Technology Type:{" "}
                 </label>
@@ -490,24 +509,26 @@ export default function Upload({ generateChallenge }) {
                   >
                     {Object.entries(tech_types).map(([key, value]) => (
                       <MenuItem key={value} value={value}>
-                        <div
-                          style={{
-                            maxWidth: techType === value ? "100px" : "none",
-                            textOverflow:
-                              techType === value ? "ellipsis" : "initial",
-                            overflow: techType === value ? "hidden" : "initial",
-                            whiteSpace:
-                              techType === value ? "nowrap" : "initial",
-                          }}
-                        >
-                          {key}
-                        </div>
+                        <Tooltip title={key} placement="right">
+                          <div
+                            style={{
+                              maxWidth: techType === value ? "100px" : "none",
+                              textOverflow:
+                                techType === value ? "ellipsis" : "initial",
+                              overflow: techType === value ? "hidden" : "initial",
+                              whiteSpace:
+                                techType === value ? "nowrap" : "initial",
+                            }}
+                          >
+                            {key}
+                          </div>
+                        </Tooltip>
                       </MenuItem>
                     ))}
                   </StyledSelect>
                 </StyledFormControl>
-              </Grid>
-              <Grid item xs={12} sm={2}>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
                 <label style={{ display: "block" }} htmlFor="wiredWireless">
                   Network Type:{" "}
                 </label>
@@ -527,8 +548,8 @@ export default function Upload({ generateChallenge }) {
                     )}
                   </StyledSelect>
                 </StyledFormControl>
-              </Grid>{" "}
-              <Grid item xs={12} sm={2}>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
                 <label style={{ display: "block" }} htmlFor="techType">
                   Latency:{" "}
                 </label>
@@ -557,8 +578,8 @@ export default function Upload({ generateChallenge }) {
                     ))}
                   </StyledSelect>
                 </StyledFormControl>
-              </Grid>
-              <Grid item xs={12} sm={2}>
+              </StyledGridItem>
+              <StyledGridItem item xs={12} sm={2}>
                 <label style={{ display: "block" }} htmlFor="techType">
                   Category:{" "}
                 </label>
@@ -587,7 +608,7 @@ export default function Upload({ generateChallenge }) {
                     ))}
                   </StyledSelect>
                 </StyledFormControl>
-              </Grid>
+              </StyledGridItem>
             </Grid>
           </Box>
         )}

@@ -79,8 +79,7 @@ function Map() {
       map.current.removeSource("custom");
     }
 
-    const user = localStorage.getItem("username");
-    const tilesURL = `${backend_url}/tiles/${user}/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/tiles/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -189,7 +188,9 @@ function Map() {
       }
 
       let featureProperties = e.features[0].properties;
+      let featureId = e.features[0].id;
       let content = "<h1>Marker Information</h1>";
+      content += `<p><strong>Location ID:</strong> ${featureId}</p>`;
       for (let property in featureProperties) {
         content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
       }
@@ -237,7 +238,9 @@ function Map() {
         }
 
         let featureProperties = e.features[0].properties;
+        let featureId = e.features[0].id;
         let content = "<h1>Marker Information</h1>";
+        content += `<p><strong>Location ID:</strong> ${featureId}</p>`;
         for (let property in featureProperties) {
           content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
         }
@@ -335,7 +338,7 @@ function Map() {
     })
       .then((response) => {
         if (!response.ok) {
-          
+
           throw new Error("Network response was not ok");
         }
         return response.json();
@@ -447,7 +450,9 @@ function Map() {
     });
     map.current.on("click", `served-points-${layername}`, function (e) {
       let featureProperties = e.features[0].properties;
+      let featureId = e.features[0].id;
       let content = "<h1>Marker Information</h1>";
+      content += `<p><strong>Location ID:</strong> ${featureId}</p>`;
       for (let property in featureProperties) {
         content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
       }
@@ -505,6 +510,14 @@ function Map() {
       style: initialStyle,
       center: currentCenter,
       zoom: currentZoom,
+      transformRequest: (url) => {
+        if (url.startsWith(`${backend_url}/tiles/`)) {
+          return {
+            url: url,
+            credentials: 'include' // Include cookies for cross-origin requests
+          };
+        }
+      }
     });
 
     //Remove the existing vector tile layer and source if they exist

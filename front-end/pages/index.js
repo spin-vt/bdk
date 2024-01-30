@@ -10,6 +10,7 @@ import SelectedLocationProvider from "../contexts/SelectedLocationProvider";
 import EditMapContext from "../contexts/EditMapContext";
 import MyEdit from "../components/MyEdit";
 import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
+import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
 import { styled } from '@mui/material/styles';
 import { Typography } from "@mui/material";
 
@@ -48,6 +49,7 @@ const HomePage = () => {
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
           <SelectedPointsProvider>
+            <SelectedPolygonProvider>
             <Navbar
               sx={{ height: "10vh" }}
               handleMyFileOpen={handleDrawerOpen}
@@ -69,6 +71,7 @@ const HomePage = () => {
               </StyledTypography>
               <Upload generateChallenge={false}/> {/*Set it to always false for now to upload files for filling*/}
             </Drawer>
+            </SelectedPolygonProvider>
           </SelectedPointsProvider>
         </SelectedLocationProvider>
       </LayerVisibilityProvider>

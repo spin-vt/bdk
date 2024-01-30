@@ -12,6 +12,7 @@ from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file, get_files_by_type
 from .folder_ops import create_folder, get_upload_folder
+from utils.logger_config import logger
 
 db_lock = Lock()
 
@@ -146,9 +147,8 @@ def get_kml_data(userid, folderid, session=None):
 
         return data
 
-def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category):
+def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category, session):
     batch = [] 
-    session = Session()
 
     userVal = get_user_with_id(userid)
     fileVal = get_file_with_id(kmlid)
@@ -202,7 +202,6 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
             except IntegrityError:
                 session.rollback() 
     session.commit()
-    session.close()
 
     return True
 
@@ -298,12 +297,11 @@ def rename_conflicting_columns(gdf):
     return gdf.rename(columns=rename_dict)
 
 #might need to add lte data in the future
-def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
+def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session):
     
     fabric_files = get_files_with_postfix(folderid, '.csv')
     coverage_file = get_file_with_id(kmlid)
 
-    session = ScopedSession()
     
     if fabric_files is None or coverage_file is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")
@@ -334,11 +332,49 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, 
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates(subset='location_id', keep='first')
 
-    session.close()
-    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category)
+    logger.debug(f'number of points computed: {len(bsl_fabric_in_wireless)}')
+    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category, session)
     return res
 
-def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category):
+def preview_wireless_locations(folderid, kml_filename):
+    
+    fabric_files = get_files_with_postfix(folderid, '.csv')
+    with open(kml_filename, 'rb') as file:  # Open the file in binary mode
+        coverage_data = file.read()  # Read the entire content of the file into memory
+
+    
+    if fabric_files is None:
+        raise FileNotFoundError("Fabric or coverage file not found in the database")
+    
+    fabric_arr = []
+    for fabric_file in fabric_files:
+        tempdf = pandas.read_csv(StringIO(fabric_file.data.decode()))
+        fabric_arr.append(tempdf)
+    df = pandas.concat(fabric_arr)
+
+    fabric = geopandas.GeoDataFrame(
+        df,
+        crs="EPSG:4326",
+        geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)])
+    
+    coverage_data_io = BytesIO(coverage_data)
+    
+    fiona.drvsupport.supported_drivers['kml'] = 'rw'
+    fiona.drvsupport.supported_drivers['KML'] = 'rw'
+    wireless_coverage = geopandas.read_file(coverage_data_io, driver='KML')
+
+
+    wireless_coverage = wireless_coverage.to_crs("EPSG:4326")
+    fabric = rename_conflicting_columns(fabric)
+    wireless_coverage = rename_conflicting_columns(wireless_coverage)
+    fabric_in_wireless = geopandas.sjoin(fabric,wireless_coverage,how="inner")
+    bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
+    bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates(subset='location_id', keep='first')
+
+    logger.debug(f'number of points computed: {len(bsl_fabric_in_wireless)}')
+    return bsl_fabric_in_wireless
+
+def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session):
     
 
     # Fetch Fabric file from database
@@ -357,9 +393,6 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, lat
     if not fiber_file_record:
         raise ValueError(f"No file found with name {fiber_file_record.name} and id {fiber_file_record.id}")
     fiber_kml_data = fiber_file_record.data
-
-    # Open session
-    session = ScopedSession()
 
     # Convert the KML data bytes to a file-like object
     fiber_data = BytesIO(fiber_kml_data)
@@ -392,16 +425,15 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, lat
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates(subset='location_id', keep='first')
     # bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates()  
 
-    session.close()
-    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category)
+    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category, session)
     return res 
 
-def add_network_data(folderid, kmlid ,download, upload, tech, type, userid, latency, category):
+def add_network_data(folderid, kmlid ,download, upload, tech, type, userid, latency, category, session):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category)
+        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session)
     elif type == 1: 
-        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category)
+        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session)
     return res 
 
 

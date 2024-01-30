@@ -19,7 +19,7 @@ from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
 from controllers.celery_controller.celery_config import app, celery 
-from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver
+from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
@@ -164,6 +164,11 @@ def taskstatus(task_id):
             'state': task.state,
             'status': str(task.result)
         }
+    elif task.state == 'SUCCESS':
+        response = {
+            'state': task.state,
+            'status': task.result
+        }
     else:
         response = {
             'state': task.state,
@@ -301,17 +306,18 @@ def exportChallenge():
     else:
         return jsonify({'Status': 'Failure'})
 
-@app.route("/tiles/<mbtile_id>/<username>/<zoom>/<x>/<y>.pbf")
-def serve_tile_withid(mbtile_id, username, zoom, x, y):
-    username = str(username)
+@app.route("/tiles/<mbtile_id>/<zoom>/<x>/<y>.pbf")
+@jwt_required()
+def serve_tile_withid(mbtile_id, zoom, x, y):
     mbtile_id = int(mbtile_id)
+    identity = get_jwt_identity()
 
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, username, mbtile_id)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['username'], mbtile_id)
 
     if tile is None:
         return Response('No tile found', status=404)
@@ -322,16 +328,17 @@ def serve_tile_withid(mbtile_id, username, zoom, x, y):
     return response
 
 
-@app.route("/tiles/<username>/<zoom>/<x>/<y>.pbf")
-def serve_tile(username, zoom, x, y):
-    username = str(username)
+@app.route("/tiles/<zoom>/<x>/<y>.pbf")
+@jwt_required()
+def serve_tile(zoom, x, y):
+    identity = get_jwt_identity()
 
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, username, None)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['username'], None)
 
     if tile is None:
         return Response('No tile found', status=404)
@@ -457,7 +464,7 @@ def compute_wireless_coverage():
         if isinstance(towerVal, str):  # In case create_tower returned an error message
             logger.debug(towerVal)
             return jsonify({'error': towerVal}), 400
-        outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(userid=identity['id'], towername=data['towername'])
+        outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(username=identity['username'], towername=data['towername'])
         del data['towername']
         command = runsig_command_builder(data, outfile_name)
         data['tower_id'] = towerVal.id
@@ -500,6 +507,34 @@ def get_raster_image(towername):
     finally:
         session.close()
 
+@app.route('/api/get-transparent-raster-image/<string:towername>', methods=['GET'])
+@jwt_required()
+def get_transparent_raster_image(towername):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
+        if isinstance(towerVal, str):  # In case create_tower returned an error 
+            logger.debug(towerVal)
+            return jsonify({'error': towerVal}), 400
+        
+        if not towerVal:
+            logger.debug('tower not found under towername')
+            return jsonify({'error': 'File not found'}), 404
+
+        rasterData = towerVal.raster_data
+        if rasterData:
+            image_io = io.BytesIO(rasterData.transparent_image_data)
+            image_io.seek(0)
+            response = send_file(image_io, mimetype='image/png')
+            return response
+        else:
+            return jsonify({'error': 'Raster data not found'}), 404
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
 @app.route('/api/get-raster-bounds/<string:towername>', methods=['GET'])
 @jwt_required()
 def get_raster_bounds(towername):
@@ -530,6 +565,29 @@ def get_raster_bounds(towername):
     finally:
         session.close()
 
+@app.route('/api/get-loss-color-mapping/<string:towername>', methods=['GET'])
+@jwt_required()
+def get_loss_color_mapping(towername):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
+        if not towerVal:
+            logger.debug('Tower not found under towername')
+            return jsonify({'error': 'Mapping not found'}), 404
+
+        rasterData = towerVal.raster_data
+        if rasterData and rasterData.loss_color_mapping:
+            # Now we can just return the JSON directly
+            return jsonify(rasterData.loss_color_mapping), 200
+        else:
+            return jsonify({'error': 'Loss to color mapping not found'}), 404
+
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
 @app.route('/api/upload-tower-csv', methods=['POST'])
 @jwt_required()
 def upload_csv():
@@ -542,7 +600,6 @@ def upload_csv():
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
 
-        logger.debug('reached file check')
         if file and file.filename.endswith('.csv'):
             # Read the file content
             tower_data = read_tower_csv(file)
@@ -552,6 +609,99 @@ def upload_csv():
                 return jsonify({'error': tower_data}), 400
         else:
             return jsonify({'error': 'Invalid file'}), 400
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    
+@app.route('/api/downloadexport/<int:fileid>', methods=['GET'])
+@jwt_required()
+def download_export(fileid):
+    fileid = int(fileid)
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
+        if not fileVal:
+            return jsonify({'error': 'File not found'}), 404
+        downfile = io.BytesIO(fileVal.data)
+        downfile.seek(0)
+        return send_file(
+                downfile,
+                download_name=fileVal.name,
+                as_attachment=True,
+                mimetype="text/csv"
+            )
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
+@app.route('/api/compute-wireless-prediction-fabric-coverage', methods=['POST'])
+@jwt_required()
+def compute_wireless_prediction_fabric_coverage():
+    try:
+        identity = get_jwt_identity()
+        data = request.json
+        outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(username=identity['username'], towername=data['towername'])
+        task = raster2vector.apply_async(args=[data, identity['id'], outfile_name]) # store the AsyncResult instance
+        kml_filename = outfile_name + '.kml'
+        return jsonify({'Status': "OK", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    
+@app.route('/api/preview-wireless-prediction-fabric-coverage', methods=['POST'])
+@jwt_required()
+def preview_wireless_prediction_fabric_coverage():
+    try:
+        identity = get_jwt_identity()
+        data = request.json
+        outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(username=identity['username'], towername=data['towername'])
+        task = preview_fabric_locaiton_coverage.apply_async(args=[data, identity['id'], outfile_name]) # store the AsyncResult instance
+        kml_filename = outfile_name + '.kml'
+        return jsonify({'Status': "OK", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+
+@app.route('/api/download-kmlfile/<string:kml_filename>', methods=['GET'])
+@jwt_required()
+def download_kmlfile(kml_filename):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        folderVal = folder_ops.get_upload_folder(userid=identity['id'], folderid=None, session=session)
+        fileVal = file_ops.get_file_with_name(filename=kml_filename, folderid=folderVal.id, session=session)
+        if isinstance(fileVal, str):  # In case create_tower returned an error message
+            logger.debug(fileVal)
+            return jsonify({'error': fileVal}), 400
+
+        if not fileVal:
+            return jsonify({'error': 'File not found'}), 404
+
+        
+        downfile = io.BytesIO(fileVal.data)
+        downfile.seek(0)
+        return send_file(
+                downfile,
+                download_name=fileVal.name,
+                as_attachment=True,
+                mimetype="text/kml"
+            )
+        
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
+@app.route('/api/get-preview-geojson/<string:filename>', methods=['GET'])
+@jwt_required()
+def get_preview_geojson(filename):
+    try:
+        identity = get_jwt_identity()
+        with open(filename, 'r') as file:
+            geojson_data = json.load(file)  # Read and parse the JSON file
+        os.remove(filename)
+        return jsonify(geojson_data)  # Return the JSON data
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 

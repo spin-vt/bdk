@@ -14,6 +14,7 @@ import Modal from '@mui/material/Modal';
 import { Box } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
+import DownloadIcon from '@mui/icons-material/Download';
 
 const Minimap = dynamic(
   () => import('../components/Minimap'),
@@ -160,6 +161,41 @@ const PreviousExport = () => {
   };
 
 
+  const handleDownload = async (period, fileIndex) => {
+    try {
+      const file = filesByPeriod[period][fileIndex];
+      const response = await fetch(`${backend_url}/api/downloadexport/${file.id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download report');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name || 'download.csv'; // Use the file's name or a default
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+    } catch (error) {
+      console.error(error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to delete the report. Please try again.'
+      });
+    }
+  };
+
+
   const handleEditMap = (period, fileIndex) => {
     const file = filesByPeriod[period][fileIndex];
     setMbtid(file.mbt_id);
@@ -202,17 +238,17 @@ const PreviousExport = () => {
               overflow: 'hidden' // add scrollbar if content is taller than maxHeight
             }}
           >
-            <IconButton sx={{backgroundColor: '#f76d9e'}} onClick={handleClose}><Typography>Close Map</Typography><CloseIcon /></IconButton>
+            <IconButton sx={{ backgroundColor: '#f76d9e' }} onClick={handleClose}><Typography>Close Map</Typography><CloseIcon /></IconButton>
             <Minimap id={viewonlymapid} />
           </Box>
         </Modal>
-        <FileTable filesByPeriod={filesByPeriod} handleDelete={handleDelete} handleViewOnMap={handleViewOnMap} handleEditMap={handleEditMap} />
+        <FileTable filesByPeriod={filesByPeriod} handleDelete={handleDelete} handleViewOnMap={handleViewOnMap} handleEditMap={handleEditMap} handleDownload={handleDownload} />
       </StyledContainer>
     </div>
   );
 };
 
-const FileTable = ({ filesByPeriod, handleDelete, handleViewOnMap, handleEditMap }) => {
+const FileTable = ({ filesByPeriod, handleDelete, handleViewOnMap, handleEditMap, handleDownload }) => {
   return (
     <>
       {Object.keys(filesByPeriod).map(period => (
@@ -238,19 +274,25 @@ const FileTable = ({ filesByPeriod, handleDelete, handleViewOnMap, handleEditMap
                       <StyledIconButton onClick={() => handleViewOnMap(period, fileIndex)}>
                         <MapIcon />
                         <Typography sx={{ marginLeft: "10px" }}>
-                          View report on map
+                          View
                         </Typography>
                       </StyledIconButton>
                       <StyledIconButton onClick={() => handleEditMap(period, fileIndex)}>
                         <EditIcon />
                         <Typography sx={{ marginLeft: '10px' }}>
-                          Edit report on map
+                          Edit
+                        </Typography>
+                      </StyledIconButton>
+                      <StyledIconButton onClick={() => handleDownload(period, fileIndex)}>
+                        <DownloadIcon />
+                        <Typography sx={{ marginLeft: "10px" }}>
+                          Download
                         </Typography>
                       </StyledIconButton>
                       <StyledIconButton onClick={() => handleDelete(period, fileIndex)}>
                         <DeleteIcon />
                         <Typography sx={{ marginLeft: "10px" }}>
-                          Delete this report
+                          Delete
                         </Typography>
                       </StyledIconButton>
                     </TableCell>
