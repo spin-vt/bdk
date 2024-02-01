@@ -359,7 +359,7 @@ const WirelessExtension = () => {
       .then((data) => {
         if (data) {
           const intervalId = setInterval(() => {
-            fetch(`${backend_url}/status/${data.task_id}`)
+            fetch(`${backend_url}/api/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
                 if (status.state !== "PENDING") {
@@ -438,7 +438,7 @@ const WirelessExtension = () => {
       .then((data) => {
         if (data) {
           const intervalId = setInterval(() => {
-            fetch(`${backend_url}/status/${data.task_id}`)
+            fetch(`${backend_url}/api/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
                 if (status.state !== "PENDING") {

@@ -147,7 +147,7 @@ const MyEdit = () => {
                 mbtid: mbtid || -1, // Set mbtid to -1 if it's null or undefined
             };
 
-            const response = await fetch(`${backend_url}/toggle-markers`, {
+            const response = await fetch(`${backend_url}/api/toggle-markers`, {
                 method: "POST",
                 credentials: "include", // Include cookies in the request
                 headers: {
@@ -175,7 +175,7 @@ const MyEdit = () => {
             if (data) {
                 const intervalId = setInterval(() => {
                     console.log(data.task_id);
-                    fetch(`${backend_url}/status/${data.task_id}`)
+                    fetch(`${backend_url}/api/status/${data.task_id}`)
                         .then((response) => response.json())
                         .then((status) => {
                             if (status.state !== "PENDING") {

@@ -33,7 +33,7 @@ function ChallengePage() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch(`${backend_url}/compute-challenge`);
+      const response = await fetch(`${backend_url}/api/compute-challenge`);
       const jsonData = await response.json();
       setData(jsonData);
     } catch (error) {

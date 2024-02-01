@@ -64,7 +64,7 @@ const WirelessCoveragemap = ({ imageUrl, transparentImageUrl, bounds, formData, 
       center: [(bounds.east + bounds.west) / 2, (bounds.north + bounds.south) / 2],
       zoom: 4, // Adjust the zoom level appropriately
       transformRequest: (url) => {
-        if (url.startsWith(`${backend_url}/tiles/`)) {
+        if (url.startsWith(`${backend_url}/api/tiles/`)) {
           return {
             url: url,
             credentials: 'include' // Include cookies for cross-origin requests
@@ -186,7 +186,7 @@ const WirelessCoveragemap = ({ imageUrl, transparentImageUrl, bounds, formData, 
       mapRef.current.removeSource("custom");
     }
 
-    const tilesURL = `${backend_url}/tiles/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/api/tiles/{z}/{x}/{y}.pbf`;
     mapRef.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -341,7 +341,7 @@ const WirelessCoveragemap = ({ imageUrl, transparentImageUrl, bounds, formData, 
         .then((data) => {
           if (data) {
             const intervalId = setInterval(() => {
-              fetch(`${backend_url}/status/${data.task_id}`)
+              fetch(`${backend_url}/api/status/${data.task_id}`)
                 .then((statusResponse) => statusResponse.json())
                 .then((status) => {
                   if (status.state === "SUCCESS") {

@@ -77,7 +77,7 @@ const Questionnaire = () => {
     };
     console.log(dataToSend)
 
-    fetch(`${backend_url}/submit-challenge`, {
+    fetch(`${backend_url}/api/submit-challenge`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
