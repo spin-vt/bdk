@@ -32,6 +32,7 @@ function HexidH3map() {
     const [basemapAnchorEl, setBasemapAnchorEl] = useState(null);
 
     const [activeLayer, setActiveLayer] = useState('count'); // 'count' or 'throughput'
+    const [colorMapping, setColorMapping] = useState([]);
 
 
     const baseMaps = {
@@ -47,8 +48,9 @@ function HexidH3map() {
         setBasemapAnchorEl(null);
     };
 
-    const toggleLayer = () => {
-        setActiveLayer(activeLayer === 'count' ? 'throughput' : 'count');
+    const handleLayerChange = (layerName) => {
+        setActiveLayer(layerName);
+        setLayerMenuAnchorEl(null); // Assuming you've added a state for the anchor of the layers' menu
     };
 
     const formatASNData = (asnData) => {
@@ -56,7 +58,7 @@ function HexidH3map() {
             // Parse the ASN data, assuming it's a JSON string
             const parsedData = JSON.parse(asnData);
             // Map the parsed data to a formatted string
-            return parsedData.map(asn => `${asn.ASName}: Count - ${asn.count}, Avg Throughput - ${asn.average_throughput}`).join('\n\n');
+            return parsedData.map(asn => `${asn.ASName}: Count - ${asn.count}, Avg Throughput - ${asn.average_throughput}, Standard Deviation - ${asn.std_dev_throughput}`).join('\n\n');
         } catch (error) {
             console.error('Error parsing ASN data:', error);
             return 'Invalid data';
@@ -72,7 +74,7 @@ function HexidH3map() {
     const handleMapClick = (e) => {
         // Use queryRenderedFeatures to get features at the click location
         const features = mapRef.current.queryRenderedFeatures(e.point, {
-            layers: ['hex-fill-tests', 'hex-fill-throughput'] // Use the layer id of your polygons
+            layers: ['hex-fill-tests', 'hex-fill-throughput', 'hex-fill-std-dev'] // Use the layer id of your polygons
         });
 
         // If there are features, display their properties
@@ -83,7 +85,8 @@ function HexidH3map() {
             const asnInfo = formatASNData(properties.ASNames);
             const content = `
                 <strong>Sum Count:</strong> ${properties.sum_count}<br>
-                <strong>Average Throughput:</strong> ${properties.average_throughput}<br>
+                <strong>Average Throughput:</strong> ${properties.sum_average_throughput}<br>
+                <strong>Throughput Standard Deviation:</strong> ${properties.sum_std_dev_throughput}<br>
                 <strong>ASN Info:</strong><br>${asnInfo.replace(/\n/g, '<br>')}`;
             // Create and show the popup
             new maplibregl.Popup({ closeOnClick: false })
@@ -144,7 +147,7 @@ function HexidH3map() {
                     'fill-color': [
                         'interpolate',
                         ['linear'],
-                        ['get', 'average_throughput'],
+                        ['get', 'sum_average_throughput'],
                         10, '#feedde',
                         50, '#fdbe85',
                         100, '#fd8d3c',
@@ -158,6 +161,30 @@ function HexidH3map() {
                 },
                 layout: {
                     'visibility': 'none' // Change to 'visible' to show this layer
+                }
+            });
+
+            map.addLayer({
+                id: 'hex-fill-std-dev',
+                type: 'fill',
+                source: 'geojson-layer',
+                paint: {
+                    'fill-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'sum_std_dev_throughput'],
+                        10, '#feedde',
+                        50, '#fdbe85',
+                        100, '#fd8d3c',
+                        150, '#e6550d',
+                        200, '#a63603',
+                        500, '#6a2100',
+                        2500, '#361100'
+                    ],
+                    'fill-opacity': 0.75
+                },
+                layout: {
+                    'visibility': 'none' // Initially hidden
                 }
             });
 
@@ -176,9 +203,18 @@ function HexidH3map() {
                     activeLayer === 'throughput' ? 'visible' : 'none'
                 );
             }
+            if (mapRef.current.getLayer('hex-fill-std-dev')) {
+                mapRef.current.setLayoutProperty(
+                    'hex-fill-std-dev',
+                    'visibility',
+                    activeLayer === 'std_dev' ? 'visible' : 'none'
+                );
+            }
+            mapRef.current.on('click', handleMapClick);
 
-            
+
         });
+
 
         return () => map.remove();
     }, [selectedBaseMap]);
@@ -199,33 +235,65 @@ function HexidH3map() {
                 activeLayer === 'throughput' ? 'visible' : 'none'
             );
         }
-        mapRef.current.on('click', handleMapClick);
+        if (mapRef.current.getLayer('hex-fill-std-dev')) {
+            mapRef.current.setLayoutProperty(
+                'hex-fill-std-dev',
+                'visibility',
+                activeLayer === 'std_dev' ? 'visible' : 'none'
+            );
+        }
+        let mapping;
+        if (activeLayer == 'count') {
+            mapping = [
+                'Number of Tests',
+                { color: '#ffffcc', range: '< 100' },
+                { color: '#ffeda0', range: '100 - 500' },
+                { color: '#fed976', range: '500 - 2000' },
+                { color: '#fd8d3c', range: '2000 - 5000' },
+                { color: '#fc4e2a', range: '5000 - 10000' },
+                { color: '#e31a1c', range: '10000 - 15000' },
+                { color: '#bd0026', range: '15000 - 20000' },
+                { color: '#800026', range: '20000 - 40000 ' },
+                { color: '#550019', range: '> 40000 ' },
+                // ... Add the rest of your color ranges here
+            ];
+        }
+        else if (activeLayer == 'throughput') {
+            mapping = [
+                'Average Throughput(Mbps)',
+                { color: '#feedde', range: '< 10' },
+                { color: '#fdbe85', range: '10 - 50' },
+                { color: '#fd8d3c', range: '50 - 100' },
+                { color: '#e6550d', range: '100 - 150' },
+                { color: '#a63603', range: '150 - 200' },
+                { color: '#6a2100', range: '200 - 500' },
+                { color: '#361100', range: '> 500' },
+                // ... Add the rest of your color ranges here
+            ];
+        }
+        else {
+            mapping = [
+                'Throughput Standard Deviation',
+                { color: '#feedde', range: '< 10' },
+                { color: '#fdbe85', range: '10 - 50' },
+                { color: '#fd8d3c', range: '50 - 100' },
+                { color: '#e6550d', range: '100 - 150' },
+                { color: '#a63603', range: '150 - 200' },
+                { color: '#6a2100', range: '200 - 500' },
+                { color: '#361100', range: '> 500' },
+                // ... Add the rest of your color ranges here
+            ];
+        }
+        setColorMapping(mapping);
+
     }, [activeLayer]);
 
-    const colorMapping = activeLayer == 'count' ? [
-        'Number of Tests',
-        { color: '#ffffcc', range: '< 100' },
-        { color: '#ffeda0', range: '100 - 500' },
-        { color: '#fed976', range: '500 - 2000' },
-        { color: '#fd8d3c', range: '2000 - 5000' },
-        { color: '#fc4e2a', range: '5000 - 10000' },
-        { color: '#e31a1c', range: '10000 - 15000' },
-        { color: '#bd0026', range: '15000 - 20000' },
-        { color: '#800026', range: '20000 - 40000 ' },
-        { color: '#550019', range: '> 40000 ' },
-        // ... Add the rest of your color ranges here
-    ] :
-        [
-            'Average Throughput(Mbps)',
-            { color: '#feedde', range: '< 10' },
-            { color: '#fdbe85', range: '10 - 50' },
-            { color: '#fd8d3c', range: '50 - 100' },
-            { color: '#e6550d', range: '100 - 150' },
-            { color: '#a63603', range: '150 - 200' },
-            { color: '#6a2100', range: '200 - 500' },
-            { color: '#361100', range: '> 500' },
-            // ... Add the rest of your color ranges here
-        ];
+
+        
+
+    const [layerMenuAnchorEl, setLayerMenuAnchorEl] = useState(null);
+    const handleLayerMenuOpen = (event) => setLayerMenuAnchorEl(event.currentTarget);
+
 
     return (
         <div>
@@ -245,9 +313,17 @@ function HexidH3map() {
                     </MenuItem>
                 ))}
             </Menu>
-            <Button onClick={toggleLayer}>
-                Toggle Layer
-            </Button>
+            <Button onClick={handleLayerMenuOpen}>Select Layer</Button>
+            <Menu
+                id="layer-menu"
+                anchorEl={layerMenuAnchorEl}
+                open={Boolean(layerMenuAnchorEl)}
+                onClose={() => setLayerMenuAnchorEl(null)}
+            >
+                <MenuItem onClick={() => handleLayerChange('count')}>Count</MenuItem>
+                <MenuItem onClick={() => handleLayerChange('throughput')}>Throughput</MenuItem>
+                <MenuItem onClick={() => handleLayerChange('std_dev')}>Standard Deviation</MenuItem>
+            </Menu>
             <HexidH3mapLegend colorMapping={colorMapping}/>
 
             <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />
