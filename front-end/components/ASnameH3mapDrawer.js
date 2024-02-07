@@ -8,21 +8,21 @@ import MenuItem from '@mui/material/MenuItem';
 import { cellToLatLng } from 'h3-js';
 import maplibregl from "maplibre-gl";
 
-function HexidH3mapDrawer({ mapRef }) {
+function ASnameH3mapDrawer({ mapRef, ASName }) {
     const [sortedData, setSortedData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [page, setPage] = useState(1);
     const pageSize = 100; // Set page size for infinite scrolling
     const distinctMarkerRef = useRef(null);
     const [sortType, setSortType] = useState({ field: 'count', order: 'desc' });
-
+    console.log(ASName);
     // Load initial data
     useEffect(() => {
-        const dataFile = `hexid_sorted_by_${sortType.field}_${sortType.order}.json`;
+        const dataFile = `/asgeojson/${ASName}/sorted_by_${sortType.field}_${sortType.order}.json`;
         setSortedData([]); // Clear existing data
         setPage(1); // Reset to first page
         loadSortedData(dataFile);
-    }, [sortType]);
+    }, [sortType, ASName]);
 
     const loadSortedData = async (file) => {
         setIsLoading(true);
@@ -45,10 +45,10 @@ function HexidH3mapDrawer({ mapRef }) {
 
     useEffect(() => {
         if (page > 1) {
-            const dataFile = `hexid_sorted_by_${sortType.field}_${sortType.order}.json`;
+            const dataFile = `/asgeojson/${ASName}/sorted_by_${sortType.field}_${sortType.order}.json`;
             loadSortedData(dataFile);
         }
-    }, [page]);
+    }, [page, ASName]);
 
     const goToHexagon = (hexId) => {
         const [latitude, longitude] = cellToLatLng(hexId);
@@ -78,7 +78,7 @@ function HexidH3mapDrawer({ mapRef }) {
                 onChange={handleSortFieldChange}
                 fullWidth
             >
-                <MenuItem value="count">Sort By: Number of Tests</MenuItem>
+                <MenuItem value="count">Sort By: Number of Test</MenuItem>
                 <MenuItem value="throughput">Sort By: Throughput</MenuItem>
                 <MenuItem value="stddev">Sort By: Standard Deviation</MenuItem>
             </Select>
@@ -90,9 +90,9 @@ function HexidH3mapDrawer({ mapRef }) {
                     <ListItem key={index}>
                         <div>
                             <div>Hex ID: {item.hexId}</div>
-                            <div>Number of Tests: {item.sum_count}</div>
-                            <div>Sum Average Throughput: {item.sum_average_throughput.toFixed(2)}</div>
-                            <div>Sum Standard Deviation Throughput: {item.sum_std_dev_throughput.toFixed(2)}</div>
+                            <div>Number of Tests: {item.count}</div>
+                            <div>Average Throughput: {item.average_throughput.toFixed(2)}</div>
+                            <div>Standard Deviation Throughput: {item.std_dev_throughput.toFixed(2)}</div>
                             <Button onClick={() => goToHexagon(item.hexId)}>Go to Hexagon</Button>
                         </div>
                     </ListItem>
@@ -108,4 +108,4 @@ function HexidH3mapDrawer({ mapRef }) {
     );
 }
 
-export default HexidH3mapDrawer;
+export default ASnameH3mapDrawer;
