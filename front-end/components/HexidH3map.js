@@ -58,7 +58,7 @@ function HexidH3map() {
             // Parse the ASN data, assuming it's a JSON string
             const parsedData = JSON.parse(asnData);
             // Map the parsed data to a formatted string
-            return parsedData.map(asn => `${asn.ASName}: Count - ${asn.count}, Avg Throughput - ${asn.average_throughput}, Standard Deviation - ${asn.std_dev_throughput}`).join('\n\n');
+            return parsedData.map(asn => `${asn.ASName}: Count : ${asn.count}, Avg Throughput : ${asn.average_throughput}, Standard Deviation : ${asn.std_dev_throughput}, Avg Error Radius : ${asn.avg_error_radius_km}`).join('\n\n');
         } catch (error) {
             console.error('Error parsing ASN data:', error);
             return 'Invalid data';
@@ -66,7 +66,7 @@ function HexidH3map() {
     };
 
     const loadGeoJSONData = async () => {
-        const response = await fetch('data.geojson');
+        const response = await fetch('hexid_data.geojson');
         const data = await response.json();
         return data;
     };
@@ -74,7 +74,7 @@ function HexidH3map() {
     const handleMapClick = (e) => {
         // Use queryRenderedFeatures to get features at the click location
         const features = mapRef.current.queryRenderedFeatures(e.point, {
-            layers: ['hex-fill-tests', 'hex-fill-throughput', 'hex-fill-std-dev'] // Use the layer id of your polygons
+            layers: ['hex-fill-tests', 'hex-fill-throughput', 'hex-fill-std-dev', 'hex-fill-error-radius'] // Use the layer id of your polygons
         });
 
         // If there are features, display their properties
@@ -87,6 +87,8 @@ function HexidH3map() {
                 <strong>Sum Count:</strong> ${properties.sum_count}<br>
                 <strong>Average Throughput:</strong> ${properties.sum_average_throughput}<br>
                 <strong>Throughput Standard Deviation:</strong> ${properties.sum_std_dev_throughput}<br>
+                <strong>Avg Error Radius:</strong> ${properties.sum_avg_error_radius_km}<br>
+                <strong>Sparseness:</strong> ${properties.sparseness_km}<br>
                 <strong>ASN Info:</strong><br>${asnInfo.replace(/\n/g, '<br>')}`;
             // Create and show the popup
             new maplibregl.Popup({ closeOnClick: false })
@@ -120,19 +122,19 @@ function HexidH3map() {
                 source: 'geojson-layer',
                 paint: {
                     'fill-color': [
-                        'step',
+                        'interpolate',
+                        ['linear'],
                         ['get', 'sum_count'],
-                        '#ffffcc',    // color for sum_count < first cutoff (e.g., 500)
                         100, '#ffeda0', // next color at the next cutoff (e.g., 500-2,000)
                         500, '#fed976', // and so on
                         2000, '#feb24c',
                         5000, '#fd8d3c',
-                        10000, '#fc4e2a', // last color for the condensed range
+                        20000, '#fc4e2a', // last color for the condensed range
                         // Beyond 20,000, the color changes are more spread out
-                        15000, '#e31a1c',
-                        20000, '#bd0026',
-                        40000, '#800026',
-                        200000, '#550019'
+                        50000, '#e31a1c',
+                        200000, '#bd0026',
+                        500000, '#800026',
+                        5000000, '#550019'
                     ],
                     'fill-opacity': 0.75
                 }
@@ -188,6 +190,32 @@ function HexidH3map() {
                 }
             });
 
+            map.addLayer({
+                id: 'hex-fill-error-radius',
+                type: 'fill',
+                source: 'geojson-layer',
+                paint: {
+                    'fill-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'sum_avg_error_radius_km'],
+                        10, '#ffeda0', // next color at the next cutoff (e.g., 500-2,000)
+                        50, '#fed976', // and so on
+                        100, '#feb24c',
+                        200, '#fd8d3c',
+                        400, '#fc4e2a', // last color for the condensed range
+                        // Beyond 20,000, the color changes are more spread out
+                        600, '#e31a1c',
+                        800, '#bd0026',
+                        1500, '#800026'
+                    ],
+                    'fill-opacity': 0.75
+                },
+                layout: {
+                    'visibility': 'none' // Initially hidden
+                }
+            });
+
             if (mapRef.current.getLayer('hex-fill-tests')) {
                 mapRef.current.setLayoutProperty(
                     'hex-fill-tests',
@@ -210,6 +238,13 @@ function HexidH3map() {
                     activeLayer === 'std_dev' ? 'visible' : 'none'
                 );
             }
+            if (mapRef.current.getLayer('hex-fill-error-radius')) {
+                mapRef.current.setLayoutProperty(
+                    'hex-fill-error-radius',
+                    'visibility',
+                    activeLayer === 'error_radius' ? 'visible' : 'none'
+                );
+            }
             mapRef.current.on('click', handleMapClick);
 
 
@@ -220,6 +255,7 @@ function HexidH3map() {
     }, [selectedBaseMap]);
 
     useEffect(() => {
+        console.log(activeLayer);
         if (mapRef.current.getLayer('hex-fill-tests')) {
             mapRef.current.setLayoutProperty(
                 'hex-fill-tests',
@@ -242,19 +278,26 @@ function HexidH3map() {
                 activeLayer === 'std_dev' ? 'visible' : 'none'
             );
         }
+        if (mapRef.current.getLayer('hex-fill-error-radius')) {
+            mapRef.current.setLayoutProperty(
+                'hex-fill-error-radius',
+                'visibility',
+                activeLayer === 'error_radius' ? 'visible' : 'none'
+            );
+        }
         let mapping;
         if (activeLayer == 'count') {
             mapping = [
                 'Number of Tests',
-                { color: '#ffffcc', range: '< 100' },
-                { color: '#ffeda0', range: '100 - 500' },
-                { color: '#fed976', range: '500 - 2000' },
+                { color: '#ffeda0', range: '< 100' },
+                { color: '#fed976', range: '100 - 500' },
+                { color: '#feb24c', range: '500 - 2000' },
                 { color: '#fd8d3c', range: '2000 - 5000' },
-                { color: '#fc4e2a', range: '5000 - 10000' },
-                { color: '#e31a1c', range: '10000 - 15000' },
-                { color: '#bd0026', range: '15000 - 20000' },
-                { color: '#800026', range: '20000 - 40000 ' },
-                { color: '#550019', range: '> 40000 ' },
+                { color: '#fc4e2a', range: '5000 - 20000' },
+                { color: '#e31a1c', range: '20000 - 5000' },
+                { color: '#bd0026', range: '50000 - 200000' },
+                { color: '#800026', range: '200000 - 500000 ' },
+                { color: '#550019', range: '> 500000 ' },
                 // ... Add the rest of your color ranges here
             ];
         }
@@ -271,7 +314,7 @@ function HexidH3map() {
                 // ... Add the rest of your color ranges here
             ];
         }
-        else {
+        else if (activeLayer == 'std_dev') {
             mapping = [
                 'Throughput Standard Deviation',
                 { color: '#feedde', range: '< 10' },
@@ -281,6 +324,20 @@ function HexidH3map() {
                 { color: '#a63603', range: '150 - 200' },
                 { color: '#6a2100', range: '200 - 500' },
                 { color: '#361100', range: '> 500' },
+                // ... Add the rest of your color ranges here
+            ];
+        }
+        else {
+            mapping = [
+                'Average Error Radius',
+                { color: '#ffeda0', range: '< 10' },
+                { color: '#fed976', range: '10 - 50' },
+                { color: '#feb24c', range: '50 - 100' },
+                { color: '#fd8d3c', range: '100 - 200' },
+                { color: '#fc4e2a', range: '200 - 400' },
+                { color: '#e31a1c', range: '400 - 600' },
+                { color: '#bd0026', range: '600 - 800' },
+                { color: '#800026', range: '800 - 1000 '},
                 // ... Add the rest of your color ranges here
             ];
         }
@@ -323,6 +380,7 @@ function HexidH3map() {
                 <MenuItem onClick={() => handleLayerChange('count')}>Count</MenuItem>
                 <MenuItem onClick={() => handleLayerChange('throughput')}>Throughput</MenuItem>
                 <MenuItem onClick={() => handleLayerChange('std_dev')}>Standard Deviation</MenuItem>
+                <MenuItem onClick={() => handleLayerChange('error_radius')}>Error Radius</MenuItem>
             </Menu>
             <HexidH3mapLegend colorMapping={colorMapping}/>
 

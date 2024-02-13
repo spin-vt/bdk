@@ -42,4 +42,4 @@ README.md
 color/
 back-end/DEM
 front-end/public/*.json
-front-end/public/asgeojson/
+front-end/public/

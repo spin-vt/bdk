@@ -81,6 +81,7 @@ function HexidH3mapDrawer({ mapRef }) {
                 <MenuItem value="count">Sort By: Number of Tests</MenuItem>
                 <MenuItem value="throughput">Sort By: Throughput</MenuItem>
                 <MenuItem value="stddev">Sort By: Standard Deviation</MenuItem>
+                <MenuItem value="errorradius">Sort By: Error Radius</MenuItem>
             </Select>
             <Button onClick={handleSortOrderToggle}>
                 Sort Order: {sortType.order === 'desc' ? 'Descending' : 'Ascending'}
@@ -93,6 +94,8 @@ function HexidH3mapDrawer({ mapRef }) {
                             <div>Number of Tests: {item.sum_count}</div>
                             <div>Sum Average Throughput: {item.sum_average_throughput.toFixed(2)}</div>
                             <div>Sum Standard Deviation Throughput: {item.sum_std_dev_throughput.toFixed(2)}</div>
+                            <div>Sum Average Error Radius (KM): {item.sum_avg_error_radius_km.toFixed(2)}</div>
+                            <div>Sparseness (KM): {item.sparseness_km.toFixed(2)}</div>
                             <Button onClick={() => goToHexagon(item.hexId)}>Go to Hexagon</Button>
                         </div>
                     </ListItem>
