@@ -79,7 +79,7 @@ function Map() {
       map.current.removeSource("custom");
     }
 
-    const tilesURL = `${backend_url}/tiles/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/api/tiles/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -511,7 +511,7 @@ function Map() {
       center: currentCenter,
       zoom: currentZoom,
       transformRequest: (url) => {
-        if (url.startsWith(`${backend_url}/tiles/`)) {
+        if (url.startsWith(`${backend_url}/api/tiles/`)) {
           return {
             url: url,
             credentials: 'include' // Include cookies for cross-origin requests

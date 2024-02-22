@@ -150,11 +150,11 @@ export default function Navbar({
   };
 
   const downloadFiling = () => {
-    window.location.href = `${backend_url}/exportFiling`;
+    window.location.href = `${backend_url}/api/exportFiling`;
   };
 
   const downloadChallenge = () => {
-    window.location.href = `${backend_url}/exportChallenge`;
+    window.location.href = `${backend_url}/api/exportChallenge`;
   };
 
   const handleMenuOpen = (event) => {

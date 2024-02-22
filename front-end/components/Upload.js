@@ -148,7 +148,7 @@ export default function Upload({ generateChallenge }) {
 
     setIsLoading(true);
 
-    fetch(`${backend_url}/compute-challenge`, {
+    fetch(`${backend_url}/api/compute-challenge`, {
       method: "POST",
       body: formData,
       credentials: "include",
@@ -208,7 +208,7 @@ export default function Upload({ generateChallenge }) {
 
     setIsLoading(true);
 
-    fetch(`${backend_url}/submit-data`, {
+    fetch(`${backend_url}/api/submit-data`, {
       method: "POST",
       body: formData,
       credentials: "include",
@@ -241,7 +241,7 @@ export default function Upload({ generateChallenge }) {
         if (data) {
           const intervalId = setInterval(() => {
             console.log(data.task_id);
-            fetch(`${backend_url}/status/${data.task_id}`)
+            fetch(`${backend_url}/api/status/${data.task_id}`)
               .then((response) => response.json())
               .then((status) => {
                 if (status.state !== "PENDING") {

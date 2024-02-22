@@ -236,7 +236,7 @@ const MyFile = () => {
       if (data) {
         const intervalId = setInterval(() => {
           console.log(data.task_id);
-          fetch(`${backend_url}/status/${data.task_id}`)
+          fetch(`${backend_url}/api/status/${data.task_id}`)
             .then((response) => response.json())
             .then((status) => {
               if (status.state !== "PENDING") {

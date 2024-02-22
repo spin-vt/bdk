@@ -94,8 +94,8 @@ function Editmap() {
     console.log(mbtid);
 
     const tilesURL = mbtid
-      ? `${backend_url}/tiles/${mbtid}/{z}/{x}/{y}.pbf`
-      : `${backend_url}/tiles/{z}/{x}/{y}.pbf`;
+      ? `${backend_url}/api/tiles/${mbtid}/{z}/{x}/{y}.pbf`
+      : `${backend_url}/api/tiles/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -494,8 +494,8 @@ function Editmap() {
     ) {
       setIsLoadingForUntimedEffect(true);
       const url = mbtid
-        ? `${backend_url}/served-data/${mbtid}`
-        : `${backend_url}/served-data/None`;
+        ? `${backend_url}/api/served-data/${mbtid}`
+        : `${backend_url}/api/served-data/None`;
 
       return fetch(url, {
         method: "GET",
@@ -559,7 +559,7 @@ function Editmap() {
       center: currentCenter,
       zoom: currentZoom,
       transformRequest: (url) => {
-        if (url.startsWith(`${backend_url}/tiles/`)) {
+        if (url.startsWith(`${backend_url}/api/tiles/`)) {
           return {
             url: url,
             credentials: 'include' // Include cookies for cross-origin requests

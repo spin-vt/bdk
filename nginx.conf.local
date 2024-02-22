@@ -20,7 +20,7 @@ server {
     }
 
     # Backend routes
-    location / {
+    location /api/ {
         proxy_pass http://backend:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

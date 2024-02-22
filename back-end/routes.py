@@ -51,7 +51,7 @@ db_password = os.environ.get("POSTGRES_PASSWORD")
 db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
 
-@app.route("/served-data/<mbtid>", methods=['GET'])
+@app.route("/api/served-data/<mbtid>", methods=['GET'])
 @jwt_required()
 def get_number_records(mbtid):
     mbtid = str(mbtid)
@@ -68,7 +68,7 @@ def get_number_records(mbtid):
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
-@app.route('/submit-data', methods=['POST', 'GET'])
+@app.route('/api/submit-data', methods=['POST', 'GET'])
 @jwt_required()
 def submit_data():
     session = Session()
@@ -150,7 +150,7 @@ def submit_data():
         session.close()  # Always close the session at the end
 
 
-@app.route('/status/<task_id>')
+@app.route('/api/status/<task_id>')
 def taskstatus(task_id):
     task = AsyncResult(task_id, app=celery)
 
@@ -176,7 +176,7 @@ def taskstatus(task_id):
         }
     return jsonify(response)
 
-@app.route('/')
+@app.route('/api')
 def home():
     response_body = {
         "name": "Success!",
@@ -264,7 +264,7 @@ def get_user_info():
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
-@app.route('/exportFiling', methods=['GET'])
+@app.route('/api/exportFiling', methods=['GET'])
 @jwt_required()
 def exportFiling():
     try:
@@ -294,7 +294,7 @@ def exportFiling():
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
     
-@app.route('/exportChallenge', methods=['GET'])
+@app.route('/api/exportChallenge', methods=['GET'])
 def exportChallenge():
     csv_output = challenge_ops.export()
     if csv_output:
@@ -306,7 +306,7 @@ def exportChallenge():
     else:
         return jsonify({'Status': 'Failure'})
 
-@app.route("/tiles/<mbtile_id>/<zoom>/<x>/<y>.pbf")
+@app.route("/api/tiles/<mbtile_id>/<zoom>/<x>/<y>.pbf")
 @jwt_required()
 def serve_tile_withid(mbtile_id, zoom, x, y):
     mbtile_id = int(mbtile_id)
@@ -328,7 +328,7 @@ def serve_tile_withid(mbtile_id, zoom, x, y):
     return response
 
 
-@app.route("/tiles/<zoom>/<x>/<y>.pbf")
+@app.route("/api/tiles/<zoom>/<x>/<y>.pbf")
 @jwt_required()
 def serve_tile(zoom, x, y):
     identity = get_jwt_identity()
@@ -348,7 +348,7 @@ def serve_tile(zoom, x, y):
     response.headers['Content-Encoding'] = 'gzip'  
     return response
 
-@app.route('/toggle-markers', methods=['POST'])
+@app.route('/api/toggle-markers', methods=['POST'])
 @jwt_required()
 def toggle_markers():
     try:
@@ -425,13 +425,13 @@ def get_exported_folders():
     finally:
         session.close()
     
-@app.route('/submit-challenge', methods=['POST'])
+@app.route('/api/submit-challenge', methods=['POST'])
 def submit_challenge():
     data = request.json  # This will give you the entire JSON payload
     challenge_ops.writeToDB(data)
     return jsonify({"message": "Data processed!"}), 200
 
-@app.route('/compute-challenge', methods=['GET', 'POST'])
+@app.route('/api/compute-challenge', methods=['GET', 'POST'])
 def compute_challenge():
     #this will be a POST request in the future, but for now we just use files in our file system for testing
     challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", db_name, db_user, db_password, db_host)
