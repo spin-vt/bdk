@@ -116,7 +116,13 @@ function Minimap({ id }) {
                 "fill-color": fillColor,
                 "fill-opacity": 0.5,
             },
-            filter: ["==", ["get", "feature_type"], "Polygon"], // Only apply this layer to polygons
+            filter: [
+                "all",
+                ["any", // Use the "any" logical operator
+                  ["==", ["get", "feature_type"], "Polygon"],
+                  ["==", ["get", "feature_type"], "MultiPolygon"]
+                ],
+            ], // Only apply this layer to polygons
             "source-layer": "data",
         });
         map.current.addLayer({

@@ -25,8 +25,19 @@ from .folder_ops import get_upload_folder, get_export_folder
 from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles, get_mbtiles_with_id
 from .user_ops import get_user_with_id, get_user_with_username
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
+from utils.logger_config import logger
+
 
 db_lock = Lock()
+
+def extract_geometry(placemark):
+    geometries = []
+    # if hasattr(placemark.geometry, 'geoms'):  # Check if this is a MultiGeometry
+    #     for geom in placemark.geometry.geoms:
+    #         geometries.append(geom.__geo_interface__)
+    # else:
+    geometries.append(placemark.geometry.__geo_interface__)
+    return geometries
 
 def recursive_placemarks(folder):
     for feature in folder.features():
@@ -35,14 +46,11 @@ def recursive_placemarks(folder):
         elif isinstance(feature, kml.Folder):
             yield from recursive_placemarks(feature)
 
-
 def read_kml(fileid, session):
-# Now you can extract all placemarks from the root KML object
-    # geojson_array= [
     file_record = get_file_with_id(fileid, session)
 
     if not file_record:
-        raise ValueError(f"No file found with name {file_record.name}")
+        raise ValueError(f"No file found with ID {fileid}")
     
     kml_obj = kml.KML()
     doc = file_record.data
@@ -54,25 +62,29 @@ def read_kml(fileid, session):
     root_feature = list(kml_obj.features())[0]
     geojson_features = []
     for placemark in recursive_placemarks(root_feature):
-        if placemark.geometry.geom_type == 'Point':
-            continue
-        # Use the placemark object here
-        geojson_feature = {
-            "type": "Feature",
-            "geometry": placemark.geometry.__geo_interface__,  # This gets the GeoJSON geometry
-            "properties": {"feature_type": placemark.geometry.geom_type,
-                           'network_coverages': file_record.name,} # add the geometry type
-        }
-        geojson_features.append(geojson_feature)
-        if placemark.geometry.geom_type == "Polygon":
-            network_type = "wireless"
-            polygon_encountered = True
-        elif placemark.geometry.geom_type == "LineString" and not polygon_encountered:
-            network_type = "wired"
+        geometries = extract_geometry(placemark)
+        for geometry in geometries:
+            geom_type = geometry['type']
+            if geom_type == 'Point':
+                continue
+            geojson_feature = {
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": {
+                    "feature_type": geom_type,
+                    "network_coverages": file_record.name
+                }  # No properties extracted
+            }
+            geojson_features.append(geojson_feature)
+            if geom_type == "Polygon" or geom_type == "MultiPolygon":
+                network_type = "wireless"
+                polygon_encountered = True
+            elif geom_type == "LineString" and not polygon_encountered:
+                network_type = "wired"
 
     update_file_type(fileid, network_type)
-
     return geojson_features
+
 
 def read_geojson(fileid, session):
     file_record = get_file_with_id(fileid, session)
@@ -84,10 +96,10 @@ def read_geojson(fileid, session):
     geojson_data = geopandas.read_file(StringIO(file_record.data.decode()))
 
     # Filter only polygons and linestrings
-    desired_geometries = geojson_data[geojson_data.geometry.geom_type.isin(['Polygon', 'LineString'])]
+    desired_geometries = geojson_data[geojson_data.geometry.geom_type.isin(['Polygon', 'LineString', 'MultiPolygon'])]
 
     # Determine the network type
-    if 'Polygon' in desired_geometries.geometry.geom_type.tolist():
+    if 'Polygon' or 'MultiPolygon' in desired_geometries.geometry.geom_type.tolist():
         network_type = "wireless"
     else:
         network_type = "wired"
@@ -233,7 +245,7 @@ def create_tiles(geojson_array, userid, folderid, session):
         
         outputFile = "output" + str(userid) + ".mbtiles"
         command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
-        run_tippecanoe(command, folderid, outputFile) 
+        run_tippecanoe(command, folderid, outputFile)
 
 def retrieve_tiles(zoom, x, y, username, mbtileid=None):
     session = Session()

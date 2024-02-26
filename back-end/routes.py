@@ -381,6 +381,73 @@ def get_files():
         return jsonify({'error': 'Token is invalid or expired'}), 401
     finally:
         session.close()
+
+
+@app.route('/api/networkfiles/<int:folder_id>', methods=['GET'])
+@jwt_required()
+def get_network_files(folder_id):
+    try:
+        identity = get_jwt_identity()
+        session = Session()
+        # Not using folder_id for now, it can be implemented along with
+        # multi-filing support
+        folder_id = int(folder_id) 
+
+        temp_folderVal = folder_ops.get_upload_folder(userid=identity['id'], folderid=None, session=session)
+        files = file_ops.get_all_network_files_for_edit_table(temp_folderVal.id, session)
+        files_data = []
+        for file in files:
+            # Assuming each file has at least one kml_data or it's an empty list
+            kml_data = file.kml_data[0] if file.kml_data else None
+            file_info = {
+                'id': file.id,
+                'name': file.name,
+                'type': file.type,
+            }
+            if kml_data:
+                file_info['network_info'] = {
+                    'maxDownloadNetwork': kml_data.maxDownloadNetwork,
+                    'maxDownloadSpeed': kml_data.maxDownloadSpeed,
+                    'maxUploadSpeed': kml_data.maxUploadSpeed,
+                    'techType': kml_data.techType,
+                    'latency': kml_data.latency,
+                    'category': kml_data.category
+                }
+            files_data.append(file_info)
+        return jsonify(files_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/updateNetworkFile/<int:file_id>', methods=['POST'])
+@jwt_required()
+def update_network_file(file_id):
+    try:
+        data = request.json
+        identity = get_jwt_identity()
+        session = Session()
+        file_id = int(file_id)
+        file = file_ops.get_file_with_id(file_id, session)
+        if not file:
+            return jsonify({'error': 'File not found'}), 404
+
+        kml_update = data.get('network_info', [])
+        kml_entries = kml_ops.get_kml_data_by_file(file_id, session)
+        for kml_entry in kml_entries:
+            kml_entry.maxDownloadSpeed = kml_update['maxDownloadSpeed']
+            kml_entry.maxUploadSpeed = kml_update['maxUploadSpeed']
+            kml_entry.techType = kml_update['techType']
+            kml_entry.latency = kml_update['latency']
+            kml_entry.category = kml_update['category']
+
+        session.commit()
+        return jsonify({'success': True, 'message': 'File and its KML data updated successfully'})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
     
 @app.route('/api/delfiles/<int:fileid>', methods=['DELETE'])
 @jwt_required()

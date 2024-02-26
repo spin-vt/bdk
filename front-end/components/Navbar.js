@@ -11,7 +11,7 @@ import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import Link from "next/link";
-import { Menu, MenuItem } from "@mui/material";
+import { Menu, MenuItem, Modal } from "@mui/material";
 import { useRouter } from "next/router";
 import { styled } from "@mui/material/styles";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -31,6 +31,20 @@ import { backend_url } from "../utils/settings";
 import HistoryIcon from '@mui/icons-material/History';
 import Swal from "sweetalert2";
 
+
+const modalStyle = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 400,
+  bgcolor: 'background.paper',
+  boxShadow: 24,
+  p: 4,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+};
 
 const StyledAppBar = styled(AppBar)({
   backgroundImage: "linear-gradient(to right, #3A7BD5, #3A6073)",
@@ -99,7 +113,7 @@ export default function Navbar({
         console.error(error);
         Swal.fire('Error', 'Oops, looks like we hit an error on our end, please try again later', 'error');
 
-        
+
         return initialValue;
       }
     });
@@ -127,6 +141,11 @@ export default function Navbar({
     return [storedValue, setValue];
   }
 
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const handleModalOpen = () => setModalOpen(true);
+  const handleModalClose = () => setModalOpen(false);
+
   const searchInputRef = React.useRef(null);
   const buttonRef = React.useRef(null);
   const [username, setUsername] = useLocalStorage("username", null);
@@ -139,14 +158,13 @@ export default function Navbar({
     setAnchorEl(event.currentTarget);
   };
 
-  const handleClose = (option) => {
-    setAnchorEl(null);
-
+  const handleOptionClick = (option) => {
     if (option === 1) {
-      downloadFiling();
+      router.push('/editnetworkfileinfo'); // Navigate to review page
     } else if (option === 2) {
-      downloadChallenge();
+      downloadFiling(); // Directly download the report
     }
+    handleModalClose(); // Close the modal
   };
 
   const downloadFiling = () => {
@@ -288,6 +306,11 @@ export default function Navbar({
       icon: <HomeIcon />,
     },
     {
+      text: "Edit Network Files Information",
+      href: "/editnetworkfileinfo",
+      icon: <EditIcon />,
+    },
+    {
       text: "Wireless Coverage Calculation",
       href: "/wirelessextension",
       icon: <CellTowerIcon />,
@@ -358,14 +381,14 @@ export default function Navbar({
             </IconButton>
           )}
 
-          {!isEditingMap && (
+          {showOnHome && !isEditingMap && (
             <IconButton onClick={handleMyFileOpen}>
               <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
               <Typography sx={{ color: "white" }}>Your Files</Typography>
             </IconButton>
           )}
 
-          {!isEditingMap && (
+          {showOnHome && !isEditingMap && (
             <IconButton onClick={handleUploadOpen}>
               <UploadIcon sx={{ color: "white", marginRight: "5px" }} />
               <Typography sx={{ color: "white" }}>Upload</Typography>
@@ -374,22 +397,30 @@ export default function Navbar({
 
           <div>
             {!isEditingMap && (
-              <IconButton onClick={handleDownloadClick}>
+              <IconButton onClick={handleModalOpen}>
                 <DownloadIcon sx={{ color: "white", marginRight: "5px" }} />
-                <Typography sx={{ color: "white" }}>Export</Typography>
+                <Typography sx={{ color: "white" }}>Export Filing</Typography>
               </IconButton>
             )}
 
-            <Menu
-              anchorEl={anchorEl}
-              open={isMenuOpen}
-              onClose={() => handleClose()}
+            <Modal
+              open={modalOpen}
+              onClose={handleModalClose}
+              aria-labelledby="modal-modal-title"
+              aria-describedby="modal-modal-description"
             >
-              <MenuItem onClick={() => handleClose(1)}>BDC Filing</MenuItem>
-              <MenuItem onClick={() => handleClose(2)}>
-                BDC Bulk Challenge
-              </MenuItem>
-            </Menu>
+              <Box sx={modalStyle}>
+                <Typography id="modal-modal-title" variant="h6" component="h2">
+                  Filing Download Options
+                </Typography>
+                <Button variant="contained" onClick={() => handleOptionClick(1)}>
+                  Review Network Information In Filing
+                </Button>
+                <Button color="secondary" variant="contained" onClick={() => handleOptionClick(2)}>
+                  I Already Verify Network Information, Download Filing
+                </Button>
+              </Box>
+            </Modal>
           </div>
 
           <Box display="flex" alignItems="center">

@@ -147,6 +147,19 @@ def get_kml_data(userid, folderid, session=None):
 
         return data
 
+
+def get_kml_data_by_file(fileid, session=None): 
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+    try:
+        kml_entries = session.query(kml_data).filter_by(file_id=fileid).all()
+        return kml_entries
+    finally:
+        if owns_session:
+            session.close()
+
 def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category, session):
     batch = [] 
 

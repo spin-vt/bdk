@@ -42,6 +42,21 @@ def get_files_with_postfix(folderid, postfix, session=None):
         if owns_session:
             session.close()
 
+
+def get_all_network_files_for_edit_table(folderid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
+    try:
+        kml_files = get_files_with_postfix(folderid, '.kml', session)
+        geojson_files = get_files_with_postfix(folderid, '.geojson', session)
+        return kml_files + geojson_files
+    finally:
+        if owns_session:
+            session.close()
+
 def get_files_by_type(folderid, filetype, session=None):
     owns_session = False
     if session is None:

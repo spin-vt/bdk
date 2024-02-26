@@ -39,5 +39,7 @@ README.md
 *.hgt
 *.sdf
 *.gpkg
+*.json
 color/
 back-end/DEM
+front-end/public/asgeojson
