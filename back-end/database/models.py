@@ -60,18 +60,20 @@ class rasterdata(Base):
     tower_id = Column(Integer, ForeignKey('tower.id', ondelete='CASCADE'))
     tower = relationship('tower', back_populates='raster_data', uselist=False)
 
-class folder(Base): #This is essentially a filing
+class folder(Base): #filing, will change the name later for less confusion when reading
     __tablename__ = 'folder'
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    type = Column(String, default='upload') # Currently upload or exportj
+    type = Column(String, default='upload') # Currently upload or export
+    deadline = Column(DateTime) #the deadline for the filing
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user = relationship('user', back_populates='folders')
     deadline = Column(String) #This deadline makes it a filing for the current period
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
     kmzs = relationship('kmz', back_populates='folder', cascade='all, delete')
+
 
     def copy(self, session, name=None, type=None):
         name = name if name is not None else self.name

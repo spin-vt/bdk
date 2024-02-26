@@ -131,6 +131,7 @@ export default function Upload({ generateChallenge }) {
         .toLowerCase();
 
       if (!allowedExtensions.includes(fileExtension)) {
+        console.log(fileExtension);
         toast.error(
           "Invalid File Format. Please upload a KML, GeoJSON, CSV, or KMZ file.",
           {

@@ -58,6 +58,25 @@ def get_upload_folder(userid, folderid=None, session=None):
         if owns_session:
             session.close()
 
+def get_folder_by_deadline(user_id, deadline, session=None): #This allows for user to make call for specific deadline folder
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session= True
+    
+    try:
+        folder = session.query(folder).filter(folder.user_id = user_id, folder.deadline == deadline).one()
+        return folder
+    except NoResultFound:
+        return None
+    except MultipleResultsFound:
+        return "Multiple results found for the given user ID and deadline"
+    except Exception as e:
+        return str(e)
+    finally:
+        if owns_session:
+            session.close()
+
 def create_folder(foldername, userid, filingDeadline, foldertype, session=None):
     owns_session = False
     if session is None:

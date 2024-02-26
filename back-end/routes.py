@@ -150,6 +150,30 @@ def submit_data():
     finally:
         session.close()  # Always close the session at the end
 
+@app.route('/api/get-folder-by-deadline', methods=['GET']) ##Will allow user to get the folder based on the deadline
+@jwt_required()
+def get_folder_by_deadline():
+    try:
+        identity = get_jwt_identity()
+        user_id = identity['id']
+        deadline = request.args.get('deadline') 
+
+        folder = folder_ops.get_folder_by_deadline(user_id, deadline, session=session)
+
+        if folder is not None:
+            # Return folder details as JSON
+            return jsonify({'Status': "OK", 'folder_id': folder.id, 'name': folder.name, 'type': folder.type, 'deadline': folder.deadline})
+        else:
+            return jsonify({'Status': "Folder not found"}), 404
+
+    except Exception as e:
+        return jsonify({'Status': "Error", 'error_message': str(e)}), 500
+    finally:
+        session.close()
+
+#Will need to create a route to create a folder with a deadline
+
+
 
 @app.route('/api/status/<task_id>')
 def taskstatus(task_id):
