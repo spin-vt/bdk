@@ -349,6 +349,7 @@ function Editmap() {
     selectedSingleMarkersRef.current.forEach((marker) => {
       // Check if the marker is not in the selectedPoints
       if (!selectedPoints.some(point => point.id === marker.id)) {
+        marker.served = true;
         // If it's not in selectedPoints, set served back to true
         map.current.setFeatureState(
           {
@@ -370,11 +371,12 @@ function Editmap() {
 
   useEffect(() => {
     // Loop through each polygon in selectedPolygonsRef
-    for (let i = 0; i < selectedPolygonsRef.current.length; i++) {
-      const refPolygon = selectedPolygonsRef.current[i];
-      if (selectedPolygons === undefined || selectedPolygons.length === 0) {
+    if (selectedPolygons === undefined || selectedPolygons.length === 0) {
+      for (let i = 0; i < selectedPolygonsRef.current.length; i++) {
+        const refPolygon = selectedPolygonsRef.current[i];
         refPolygon.forEach(marker => {
           console.log(marker);
+          marker.served = true;
           map.current.setFeatureState(
             {
               source: "custom",
@@ -386,47 +388,54 @@ function Editmap() {
             }
           );
         });
-        break;
       }
-      // If the entire polygon is missing in selectedPolygons, process all its markers
-      if (refPolygon[0] !== selectedPolygons[i][0]) {
-        refPolygon.forEach(marker => {
-          console.log(marker);
-          map.current.setFeatureState(
-            {
-              source: "custom",
-              sourceLayer: "data",
-              id: marker.id,
-            },
-            {
-              served: true,
-            }
-          );
-        });
+    }
+    else {
+      for (let i = 0; i < selectedPolygonsRef.current.length; i++) {
+        const refPolygon = selectedPolygonsRef.current[i];
 
-        // Skip further processing for this polygon
-        break;
-      }
+        // If the entire polygon is missing in selectedPolygons, process all its markers
+        if (refPolygon[0] !== selectedPolygons[i][0]) {
+          refPolygon.forEach(marker => {
+            console.log(marker);
+            marker.served = true;
+            map.current.setFeatureState(
+              {
+                source: "custom",
+                sourceLayer: "data",
+                id: marker.id,
+              },
+              {
+                served: true,
+              }
+            );
+          });
 
-      // If the polygon exists but has different points, check each point
-      for (let j = 1; j < refPolygon.length; j++) {
-        const marker = refPolygon[j];
-        if (!selectedPolygons[i].some(point => point.id === marker.id)) {
-          console.log(marker);
-          map.current.setFeatureState(
-            {
-              source: "custom",
-              sourceLayer: "data",
-              id: marker.id,
-            },
-            {
-              served: true,
-            }
-          );
-
+          // Skip further processing for this polygon
+          break;
         }
-      }
 
+        // If the polygon exists but has different points, check each point
+        for (let j = 1; j < refPolygon.length; j++) {
+          const marker = refPolygon[j];
+          if (!selectedPolygons[i].some(point => point.id === marker.id)) {
+            console.log(marker);
+            marker.served = true;
+            map.current.setFeatureState(
+              {
+                source: "custom",
+                sourceLayer: "data",
+                id: marker.id,
+              },
+              {
+                served: true,
+              }
+            );
+            break;
+          }
+        }
+
+      }
     }
 
     // Sync ref with the current state
