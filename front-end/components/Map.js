@@ -419,7 +419,10 @@ function Map() {
         },
         filter: [
           "all",
-          ["==", ["get", "feature_type"], "Polygon"],
+          ["any", // Use the "any" logical operator
+              ["==", ["get", "feature_type"], "Polygon"],
+              ["==", ["get", "feature_type"], "MultiPolygon"]
+            ],
           ["==", ["get", "network_coverages"], layername],
         ], // Only apply this layer to polygons
         "source-layer": "data",

@@ -226,6 +226,8 @@ def toggle_tiles(self, markers, userid, mbtid):
                 kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
                 for kml_data_entry in kml_data_entries:
                     kml_file = file_ops.get_file_with_id(fileid=kml_data_entry.file_id, session=session)
+                    if kml_file.type == 'edit':
+                        continue
                     # Count files with .edit prefix in the folder
                     edit_count = len(file_ops.get_files_with_prefix(folderid=user_last_folder.id, prefix=f"{kml_file.name}-edit", session=session))
                     if kml_data_entry.file_id not in kml_set:

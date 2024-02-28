@@ -6,6 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Predefined options for dropdowns
 const techTypesOptions = {
+    "Not Entered": '',
     "Copper Wire": 10,
     "Coaxial Cable / HFC": 40,
     "Optical Carrier / Fiber to the Premises": 50,
@@ -17,10 +18,12 @@ const techTypesOptions = {
     "Other": 0,
 };
 const latencyOptions = {
+    "Not Entered": '',
     "<= 100 ms": 1,
     "> 100 ms": 0,
 };
 const categoryOptions = {
+    "Not Entered": '',
     Business: "B",
     Residential: "R",
     Both: "X",
@@ -39,12 +42,14 @@ function FileEditTable({ folderId }) {
         fetch(`${backend_url}/api/networkfiles/${folderId}`, requestOptions)
             .then(response => response.json())
             .then(data => {
-                setFiles(data);
-                const originalDataCopy = data.map(file => ({
+                const dataWithDefaultNetworkInfo = data.map(file => ({
                     ...file,
-                    network_info: { ...file.network_info }
+                    // Ensure network_info is an object
+                    network_info: file.network_info || {}
                 }));
-                setOriginalNetworkInfo(originalDataCopy);
+                setFiles(dataWithDefaultNetworkInfo);
+                setOriginalNetworkInfo(JSON.parse(JSON.stringify(dataWithDefaultNetworkInfo)));
+
             })
             .catch(error => console.error("There was an error!", error));
 
@@ -58,15 +63,15 @@ function FileEditTable({ folderId }) {
     const handleSubmit = (file) => {
         const originalFile = originalNetworkInfo.find(origFile => origFile.id === file.id);
         const hasChanges = Object.keys(file.network_info).some(key =>
-            file.network_info[key] !== originalFile.network_info[key]
+            (file.network_info[key] || '') !== (originalFile.network_info[key] || '')
         );
-    
+
         if (!hasChanges) {
             console.log("No changes detected, no update required.");
             toast.info("No changes detected."); // Display an info toast
             return; // Exit if no changes were detected
         }
-    
+
         const requestOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -79,7 +84,7 @@ function FileEditTable({ folderId }) {
                 if (data.success) {
                     console.log('Update successful');
                     // Update originalNetworkInfo to reflect the changes
-                    const updatedOriginalNetworkInfo = originalNetworkInfo.map(origFile => 
+                    const updatedOriginalNetworkInfo = originalNetworkInfo.map(origFile =>
                         origFile.id === file.id ? { ...origFile, network_info: { ...file.network_info } } : origFile
                     );
                     setOriginalNetworkInfo(updatedOriginalNetworkInfo);
@@ -93,7 +98,7 @@ function FileEditTable({ folderId }) {
                 toast.error(`Error updating file: ${error.message}`); // Display an error toast
             });
     };
-    
+
 
     // Update the files state to reflect the changes locally
     const handleChange = (event, index, field) => {
@@ -149,7 +154,7 @@ function EditableCell({ file, field, onChange }) {
     const renderDropdown = (options) => (
         <FormControl fullWidth size="small">
             <Select
-                value={file.network_info ? file.network_info[field] : ''}
+                value={file.network_info && file.network_info[field] !== undefined ? file.network_info[field] : ''}
                 onChange={onChange}
                 displayEmpty
             >
