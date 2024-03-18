@@ -105,7 +105,8 @@ const MyFile = () => {
   const [fabricFiles, setFabricFiles] = useState([]);
   const [networkDataFiles, setNetworkDataFiles] = useState([]);
   const [manualEditFiles, setManualEditFiles] = useState([]);
-
+  const [folders, setFolders] = useState([]);
+  const [deadline, setDeadline] = useState(0);
   const { setLayers } = useContext(LayerVisibilityContext);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -129,8 +130,37 @@ const MyFile = () => {
     }
   }
 
-  const fetchFiles = async () => {
-    const response = await fetch(`${backend_url}/api/files`, {
+
+
+  const fetchFolders = async () => {
+    try {
+      const response = await fetch(`${backend_url}/api/folders-with-deadlines`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+
+      if (response.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "Session expired, please log in again!",
+        });
+        router.push("/login");
+        return;
+      }
+
+      const data = await response.json();
+      setFolders(data);
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+    }
+  };
+
+  const fetchFiles = async (deadline) => {
+    const response = await fetch(`${backend_url}/api/files?deadline=${deadline}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -192,9 +222,13 @@ const MyFile = () => {
     }
   };
 
-  useEffect(() => {
-    fetchFiles();
+  useEffect(()=>{
+    fetchFolders();
   }, []);
+
+  useEffect(() => {
+    fetchFiles(deadline);
+  }, [deadline]);
 
   const handleDelete = async (id, setFiles) => {
     setIsLoading(true);
@@ -259,6 +293,10 @@ const MyFile = () => {
     }
   };
 
+  const handleDeadlineSelect = (newDeadline) =>{
+    setDeadline(newDeadline);
+    
+  }
 
   return (
     <div>
@@ -272,7 +310,16 @@ const MyFile = () => {
       </div>
       <StyledContainer component="main" maxWidth="md">
         <StyledTypography component="h1" variant="h5">
-          Your Uploaded Files
+          <div>
+            <select onChange={(e)=> handleDeadlineSelect(e.target.value)}>
+              <option value="">Select a Filing</option>
+              {folders.map((folder)=>(
+                <option key={folder.id} value={folder}>
+                   {folder.deadline}
+                </option>
+              ))}
+            </select>
+          </div>
         </StyledTypography>
         {/* Fabric Files Table */}
         <StyledTypography component="h2" variant="h6">

@@ -393,8 +393,9 @@ def toggle_markers():
 def get_files():
     try:
         identity = get_jwt_identity()
+        deadline = request.args.get('deadline')
         session = Session()
-        folderVal = folder_ops.get_upload_folder(identity['id'], None, session=session)
+        folderVal = folder_ops.get_folder_by_deadline(identity['id'], deadline, session=session)
         if folderVal:
             filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id, session=session)
             if not filesinfo:
@@ -406,6 +407,21 @@ def get_files():
         return jsonify({'error': 'Token is invalid or expired'}), 401
     finally:
         session.close()
+
+@app.route('/api/folders-with-deadlines', methods=['GET'])
+@jwt_required()
+def get_folders_with_deadlines():
+    try:
+        identity = get_jwt_identity()
+        user_id = identity['id']
+        
+        folders = folder_ops.get_folders_with_deadlines(user_id)
+        
+        folder_info = [{'folder_id': folder.id, 'name': folder.name, 'deadline': folder.deadline} for folder in folders]
+
+        return jsonify(folder_info), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/networkfiles/<int:folder_id>', methods=['GET'])
