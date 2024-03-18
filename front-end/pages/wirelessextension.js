@@ -46,6 +46,9 @@ const fieldGroups = {
     { key: 'antennaHeight', label: 'Antenna Height', unit: 'meters' },
     { key: 'antennaTilt', label: 'Antenna Tilt', unit: 'degrees' },
     { key: 'horizontalFacing', label: 'Horizontal Facing', unit: 'degrees' },
+    { key: 'effectiveRadPower', label: 'Effective Radiated Power', unit: 'dBd'},
+    { key: 'downtilt', label: 'Downtilt', unit: 'degrees'},
+    { key: 'downtiltDirection', label: 'Downtilt Direction', unit: 'degrees'}
     // ... other antenna information fields
   ],
   filterOptions: [
@@ -135,13 +138,16 @@ const WirelessExtension = () => {
     towername: '',
     latitude: '',
     longitude: '',
-    // erp: '',
     frequency: '',
     radius: '',
     antennaHeight: '',
     antennaTilt: '',
     horizontalFacing: '',
     floorLossRate: 150,
+    effectiveRadPower: '',
+    downtilt: '',
+    downtiltDirection: ''
+
     // ... include other default values as necessary
   });
   const [inPreviewMode, setInPreviewMode] = useState(false);
@@ -516,7 +522,10 @@ const WirelessExtension = () => {
             antennaHeight: data[0].antennaHeight || '',
             antennaTilt: data[0].antennaTilt || '',
             horizontalFacing: data[0].horizontalFacing || '',
-            floorLossRate: data[0].floorLossRate || 150
+            floorLossRate: data[0].floorLossRate || 150,
+            effectiveRadPower: data[0].effectiveRadPower || '',
+            downtilt: data[0].downtilt || '',
+            downtiltDirection: data[0].downtilt || ''
           }));
         })
         .catch(error => {

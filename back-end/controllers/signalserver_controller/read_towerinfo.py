@@ -20,7 +20,11 @@ def read_tower_csv(csv_file):
                 'antennaHeight': float(row['Antenna Height(meters)']),
                 'antennaTilt': float(row['Antenna Tilt(degrees)']),
                 'horizontalFacing': float(row['Horizontal Facing(degrees)']),
-                'floorLossRate': int(row['Floor Loss Rate(dB)'])
+                'floorLossRate': int(row['Floor Loss Rate(dB)']),
+                'effectiveRadPower': float(row['Effective Radiated Power(dBd)']),
+                'downtilt': float(row["Downtilt(degrees)"]),
+                'downtiltDirection': float(row['Downtilt Direction(degrees)'])
+
             }
             towers_data.append(tower_info)
         except ValueError as e:
