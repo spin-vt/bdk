@@ -324,7 +324,7 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
             print("SignalServer stderr:", result.stderr.decode())
         
         bbox = read_rasterkmz(outfile_name + '.kmz')
-        filter_image_by_loss(outfile_name + '.png', int(data['floorLossRate']), outfile_name + '.lcf', outfile_name + '.png')
+        filter_image_by_loss(outfile_name + '.png', int(data['floorLossRate']), outfile_name + '.scf', outfile_name + '.png')
         with open(outfile_name + '.png', 'rb') as img_file:
             img_data = img_file.read()
 
@@ -334,7 +334,7 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
         with open(transparent_image_name, 'rb') as transparent_img_file:
             transparent_img_data = transparent_img_file.read()
         logger.debug("Generated trans image")
-        loss_color_mapping = load_loss_to_color_mapping(outfile_name + '.lcf')
+        loss_color_mapping = load_loss_to_color_mapping(outfile_name + '.scf')
         # Assume we have some way to get raster data after running the command
         raster_data_val = create_rasterdata(tower_id=tower_id, 
                                             image_data=img_data,

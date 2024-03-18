@@ -39,7 +39,9 @@ class towerinfo(Base):
     antennaTilt = Column(String)
     horizontalFacing = Column(String)
     floorLossRate = Column(String)
-    
+    effectiveRadiatedPower = Column(String)
+    downtilt = Column(String)
+    downtiltDirection = Column(String)
     # One-to-one relationship with Tower
     tower_id = Column(Integer, ForeignKey('tower.id', ondelete='CASCADE'))
     tower = relationship('tower', back_populates='tower_info', uselist=False)
