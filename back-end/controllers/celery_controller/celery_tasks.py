@@ -446,7 +446,8 @@ def raster2vector(self, data, userid, outfile_name):
         if folderVal is None:
             num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
             folder_name = f"{userVal.username}-{num_folders + 1}"
-            folderVal = folder_ops.create_folder(folder_name, userVal.id, 'upload', session=session)
+            deadline = datetime(2024, 9, 2)
+            folderVal = folder_ops.create_folder(folder_name, userVal.id, deadline, 'upload', session=session)
             session.commit()
 
         vector_file_name = outfile_name + '.kml'
