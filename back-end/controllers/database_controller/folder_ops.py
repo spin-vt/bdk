@@ -58,14 +58,14 @@ def get_upload_folder(userid, folderid=None, session=None):
         if owns_session:
             session.close()
 
-def create_folder(foldername, userid, foldertype, session=None):
+def create_folder(foldername, userid, filingDeadline, foldertype, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        new_folder = folder(name=foldername, user_id=userid, type=foldertype)
+        new_folder = folder(name=foldername, user_id=userid, deadline = filingDeadline, type=foldertype)
         session.add(new_folder)
         if owns_session:
             session.commit()

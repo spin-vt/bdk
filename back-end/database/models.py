@@ -60,7 +60,7 @@ class rasterdata(Base):
     tower_id = Column(Integer, ForeignKey('tower.id', ondelete='CASCADE'))
     tower = relationship('tower', back_populates='raster_data', uselist=False)
 
-class folder(Base):
+class folder(Base): #This is essentially a filing
     __tablename__ = 'folder'
 
     id = Column(Integer, primary_key=True)
@@ -68,6 +68,7 @@ class folder(Base):
     type = Column(String, default='upload') # Currently upload or exportj
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user = relationship('user', back_populates='folders')
+    deadline = Column(DateTime) #This deadline makes it a filing for the current period
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
     kmzs = relationship('kmz', back_populates='folder', cascade='all, delete')
