@@ -37,7 +37,6 @@ const fieldGroups = {
     // ... other tower location fields
   ],
   signalStrength: [
-    // { key: 'erp', label: 'Effective Radiated Power', unit: 'dBd' },
     { key: 'frequency', label: 'Frequency', unit: 'MHz' },
     { key: 'radius', label: 'Coverage Radius', unit: 'Km' },
     // ... other signal strength fields
@@ -46,7 +45,7 @@ const fieldGroups = {
     { key: 'antennaHeight', label: 'Antenna Height', unit: 'meters' },
     { key: 'antennaTilt', label: 'Antenna Tilt', unit: 'degrees' },
     { key: 'horizontalFacing', label: 'Horizontal Facing', unit: 'degrees' },
-    { key: 'effectiveRadPower', label: 'Effective Radiated Power', unit: 'dBd'},
+    { key: 'effectiveRadiatedPower', label: 'Effective Radiated Power', unit: 'dBd'},
     { key: 'downtilt', label: 'Downtilt', unit: 'degrees'},
     { key: 'downtiltDirection', label: 'Downtilt Direction', unit: 'degrees'}
     // ... other antenna information fields
@@ -144,7 +143,7 @@ const WirelessExtension = () => {
     antennaTilt: '',
     horizontalFacing: '',
     floorLossRate: 150,
-    effectiveRadPower: '',
+    effectiveRadiatedPower: '',
     downtilt: '',
     downtiltDirection: ''
 
@@ -523,7 +522,7 @@ const WirelessExtension = () => {
             antennaTilt: data[0].antennaTilt || '',
             horizontalFacing: data[0].horizontalFacing || '',
             floorLossRate: data[0].floorLossRate || 150,
-            effectiveRadPower: data[0].effectiveRadPower || '',
+            effectiveRadiatedPower: data[0].effectiveRadiatedPower || '',
             downtilt: data[0].downtilt || '',
             downtiltDirection: data[0].downtilt || ''
           }));

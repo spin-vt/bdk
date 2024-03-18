@@ -469,6 +469,7 @@ def compute_wireless_coverage():
         command = runsig_command_builder(data, outfile_name)
         data['tower_id'] = towerVal.id
 
+        logger.debug(data)
         tower_info_val = create_towerinfo(tower_info_data=data)
         if isinstance(tower_info_val, str):  # In case create_towerinfo returned an error message
             logger.debug(tower_info_val)
