@@ -61,6 +61,7 @@ class rasterdata(Base):
     tower = relationship('tower', back_populates='raster_data', uselist=False)
 
 class folder(Base): #This is essentially a filing
+class folder(Base): #This is essentially a filing
     __tablename__ = 'folder'
 
     id = Column(Integer, primary_key=True)
