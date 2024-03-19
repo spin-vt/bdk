@@ -1,36 +1,18 @@
 from celery import Celery
-from flask import Flask
-from flask_cors import CORS
+from utils.config import Config
 
-
-
-def make_celery(app):
-    celery = Celery(
-        app.import_name,
-        backend=app.config['CELERY_RESULT_BACKEND'],
-        broker=app.config['CELERY_BROKER_URL'],
-        include=['controllers.celery_controller.celery_tasks']
+def make_celery():
+    celery = Celery(__name__,
+                    backend=Config.CELERY_RESULT_BACKEND,
+                    broker=Config.CELERY_BROKER_URL,
+                    include=['controllers.celery_controller.celery_tasks'])
+    celery.conf.update(
+        # Any specific Celery configuration options
     )
-    celery.conf.update(app.config)
-
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-
-    celery.Task = ContextTask
     return celery
 
-app = Flask(__name__)
+celery = make_celery()
 
-app.config.update(
-    CELERY_BROKER_URL='redis://redis:6379/0',
-    CELERY_RESULT_BACKEND='redis://redis:6379/0'
-)
-
-CORS(app, supports_credentials=True)
-
-celery = make_celery(app)
 
 
 # app = Flask(__name__)

@@ -18,7 +18,8 @@ from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
-from controllers.celery_controller.celery_config import app, celery 
+from utils.flask_app import app, jwt
+from controllers.celery_controller.celery_config import celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
@@ -31,17 +32,16 @@ import json
 # logger = logging.getLogger(__name__)
 
 
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 
-logging.basicConfig(level=logging.DEBUG)
-
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET').encode())
-app.config["JWT_TOKEN_LOCATION"] = [os.getenv('JWT_TOKEN_LOCATION')]
-app.config['JWT_ACCESS_COOKIE_NAME'] = os.getenv('JWT_ACCESS_COOKIE_NAME')
-app.config['JWT_COOKIE_CSRF_PROTECT'] = False
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = COOKIE_EXP_TIME
-jwt = JWTManager(app)
+# logging.basicConfig(level=logging.DEBUG)
+# app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+# app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
+# app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET').encode())
+# app.config["JWT_TOKEN_LOCATION"] = [os.getenv('JWT_TOKEN_LOCATION')]
+# app.config['JWT_ACCESS_COOKIE_NAME'] = os.getenv('JWT_ACCESS_COOKIE_NAME')
+# app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+# app.config['JWT_ACCESS_TOKEN_EXPIRES'] = COOKIE_EXP_TIME
+# jwt = JWTManager(app)
 
 
 
