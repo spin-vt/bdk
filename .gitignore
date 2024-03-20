@@ -21,7 +21,7 @@ front-end/Map_marker.svg:Zone.Identifier
 *.pmtiles
 *.mbtiles-journal
 .env
-back-end/alembic/versions/
+
 pushgateway-*/
 profiling_data/
 data/

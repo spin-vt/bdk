@@ -68,7 +68,7 @@ class folder(Base): #This is essentially a filing
     type = Column(String, default='upload') # Currently upload or exportj
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user = relationship('user', back_populates='folders')
-    deadline = Column(DateTime) #This deadline makes it a filing for the current period
+    deadline = Column(String) #This deadline makes it a filing for the current period
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
     kmzs = relationship('kmz', back_populates='folder', cascade='all, delete')
