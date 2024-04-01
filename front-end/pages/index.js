@@ -11,8 +11,10 @@ import EditMapContext from "../contexts/EditMapContext";
 import MyEdit from "../components/MyEdit";
 import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
 import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
+import {DeadlineProvider} from '../contexts/DeadlineContext';
 import { styled } from '@mui/material/styles';
 import { Typography } from "@mui/material";
+
 
 const DynamicMap = dynamic(() => import("../components/Map"), { ssr: false });
 const Editmap = dynamic(() => import("../components/Editmap"), { ssr: false });
@@ -46,6 +48,7 @@ const HomePage = () => {
 
   return (
     <div>
+      <DeadlineProvider>
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
           <SelectedPointsProvider>
@@ -56,7 +59,8 @@ const HomePage = () => {
               handleUploadOpen={handleDrawerOpen2}
               showOnHome={true}
             />
-            {isEditingMap ? <Editmap /> : <DynamicMap />}
+            {isEditingMap ? <Editmap /> : <DynamicMap />} 
+            {/* This is where I will add filing logic */}
             <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
               {isEditingMap ? <MyEdit /> : <MyFile />}
             </CustomDrawer>
@@ -75,6 +79,7 @@ const HomePage = () => {
           </SelectedPointsProvider>
         </SelectedLocationProvider>
       </LayerVisibilityProvider>
+      </DeadlineProvider>
     </div>
   );
 };

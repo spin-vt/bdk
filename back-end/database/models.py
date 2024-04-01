@@ -66,7 +66,6 @@ class folder(Base): #filing, will change the name later for less confusion when 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     type = Column(String, default='upload') # Currently upload or export
-    deadline = Column(DateTime) #the deadline for the filing
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user = relationship('user', back_populates='folders')
     deadline = Column(String) #This deadline makes it a filing for the current period

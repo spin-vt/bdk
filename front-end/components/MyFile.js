@@ -22,6 +22,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { styled } from '@mui/material/styles';
+import {useDeadline} from '../contexts/DeadlineContext';
 
 
 // useStyles is replaced by the styled utility in v5
@@ -106,7 +107,7 @@ const MyFile = () => {
   const [networkDataFiles, setNetworkDataFiles] = useState([]);
   const [manualEditFiles, setManualEditFiles] = useState([]);
   const [folders, setFolders] = useState([]);
-  const [deadline, setDeadline] = useState(0);
+  const {deadline, setDeadline} = useDeadline();
   const { setLayers } = useContext(LayerVisibilityContext);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -160,6 +161,9 @@ const MyFile = () => {
   };
 
   const fetchFiles = async (deadline) => {
+    setFabricFiles([]);
+    setNetworkDataFiles([]);
+    setManualEditFiles([]);
     const response = await fetch(`${backend_url}/api/files?deadline=${deadline}`, {
       method: "GET",
       headers: {
@@ -182,21 +186,21 @@ const MyFile = () => {
     const data = await response.json();
     if (!Array.isArray(data)) {
       console.error("Error: Expected data to be an array, but received:", data);
-      Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: "Error on our end, please try again later",
-      });
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Oops...",
+      //   text: "Error on our end, please try again later",
+      // });
       return;
     }
 
     if (!data || data.length === 0) {
       console.log("Error: Empty response received from server");
-      Swal.fire({
-        icon: "error",
-        title: "Oops...",
-        text: "Error on our end, please try again later",
-      });
+      // Swal.fire({
+      //   icon: "error",
+      //   title: "Oops...",
+      //   text: "Error on our end, please try again later",
+      // });
     } else {
       data.forEach((file) => {
         console.log(file);
@@ -227,6 +231,9 @@ const MyFile = () => {
   }, []);
 
   useEffect(() => {
+    console.log(deadline)
+    console.log(typeof(deadline))
+    
     fetchFiles(deadline);
   }, [deadline]);
 
@@ -311,10 +318,10 @@ const MyFile = () => {
       <StyledContainer component="main" maxWidth="md">
         <StyledTypography component="h1" variant="h5">
           <div>
-            <select onChange={(e)=> handleDeadlineSelect(e.target.value)}>
+            <select value={deadline} onChange={(e)=> handleDeadlineSelect(e.target.value)}>
               <option value="">Select a Filing</option>
               {folders.map((folder)=>(
-                <option key={folder.id} value={folder}>
+                <option key={folder.id} value={folder.deadline}>
                    {folder.deadline}
                 </option>
               ))}

@@ -11,6 +11,7 @@ import LayersIcon from "@mui/icons-material/Layers";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
+import {useDeadline} from '../contexts/DeadlineContext';
 import Swal from "sweetalert2";
 import { backend_url } from "../utils/settings";
 
@@ -39,11 +40,12 @@ function Map() {
   const [isDataReady, setIsDataReady] = useState(false);
   const loadingTimeInMs = 3.5 * 60 * 1000;
 
+  const {deadline, setDeadline} = useDeadline();
 
   const { layers } = useContext(LayerVisibilityContext);
   const allKmlLayerRef = useRef({});
 
-  // Use mbtiles to determine which tiles to fetc
+  // Use mbtiles to determine which tiles to fetch
 
   const router = useRouter();
 
@@ -287,7 +289,7 @@ function Map() {
       allKmlLayerRef.current === null ||
       Object.keys(allKmlLayerRef.current).length === 0
     ) {
-      return fetch(`${backend_url}/api/files`, {
+      return fetch(`${backend_url}/api/files?deadline=${deadline}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -331,6 +333,9 @@ function Map() {
 
   const addVectorTiles = () => {
     removeVectorTiles();
+    if(deadline === ""){
+      return
+    }
 
     fetch(`${backend_url}/api/user`, {
       method: "GET",
@@ -537,7 +542,7 @@ function Map() {
       addVectorTiles();
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap]);
+  }, [selectedBaseMap, deadline]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);

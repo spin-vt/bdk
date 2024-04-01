@@ -394,8 +394,11 @@ def get_files():
     try:
         identity = get_jwt_identity()
         deadline = request.args.get('deadline')
+        
         session = Session()
         folderVal = folder_ops.get_folder_by_deadline(identity['id'], deadline, session=session)
+        print("FolderVal:", folderVal)
+        logger.debug("FolderVal: %s", folderVal) 
         if folderVal:
             filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id, session=session)
             if not filesinfo:

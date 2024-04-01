@@ -67,8 +67,8 @@ def get_folder_by_deadline(user_id, deadline, session=None): #This allows for us
         owns_session= True
     
     try:
-        folder = session.query(folder).filter(folder.user_id == user_id, folder.deadline == deadline).one()
-        return folder
+        folderVal = session.query(folder).filter(folder.user_id == user_id, folder.deadline == deadline).one()
+        return folderVal
     except NoResultFound:
         return None
     except MultipleResultsFound:
