@@ -418,7 +418,7 @@ def get_folders_with_deadlines():
         identity = get_jwt_identity()
         user_id = identity['id']
         
-        folders = folder_ops.get_folders_with_deadlines(user_id)
+        folders = folder_ops.get_folders_by_type_for_user(user_id, 'upload')
         
         folder_info = [{'folder_id': folder.id, 'name': folder.name, 'deadline': folder.deadline} for folder in folders]
 

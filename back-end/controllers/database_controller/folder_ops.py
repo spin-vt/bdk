@@ -79,21 +79,38 @@ def get_folder_by_deadline(user_id, deadline, session=None): #This allows for us
         if owns_session:
             session.close()
 
-def get_folders_with_deadlines(user_id, session=None):
+# def get_folders_with_deadlines(user_id, session=None):
+#     owns_session = False
+#     if session is None:
+#         session = Session()
+#         owns_session = True
+
+#     try:
+#         folders = session.query(folder).filter(folder.user_id == user_id, folder.type == 'upload').all()
+#         return folders
+#     except Exception as e:
+#         return str(e)
+#     finally:
+#         if owns_session:
+#             session.close()
+
+def get_folders_by_type_for_user(userid, foldertype, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        folders = session.query(folder).filter(folder.user_id == user_id).all()
+        folders = session.query(folder).filter(folder.user_id == userid, folder.type == foldertype).all()
         return folders
+
+    except NoResultFound:
+        return None
     except Exception as e:
         return str(e)
     finally:
         if owns_session:
             session.close()
-
 
 
 def create_folder(foldername, userid, filingDeadline, foldertype, session=None):
@@ -130,23 +147,6 @@ def get_number_of_folders_for_user(userid, session=None):
         if owns_session:
             session.close()
 
-def get_folders_by_type_for_user(userid, foldertype, session=None):
-    owns_session = False
-    if session is None:
-        session = Session()
-        owns_session = True
-
-    try:
-        folders = session.query(folder).filter(folder.user_id == userid, folder.type == foldertype).all()
-        return folders
-
-    except NoResultFound:
-        return None
-    except Exception as e:
-        return str(e)
-    finally:
-        if owns_session:
-            session.close()
 
 
 def delete_folder(folderid, session=None):
