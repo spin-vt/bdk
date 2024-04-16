@@ -177,6 +177,7 @@ def update_file_type(file_id, filetype, session=None):
             session.rollback()
         return {"error": str(e)}
 
+#pass in a folderid
 def get_filesinfo_in_folder(folderid, session=None):
     owns_session = False
     if session is None:

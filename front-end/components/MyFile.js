@@ -22,8 +22,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { styled } from '@mui/material/styles';
-import {useDeadline} from '../contexts/DeadlineContext';
-
+import {useFolder} from '../contexts/FolderContext';
 
 // useStyles is replaced by the styled utility in v5
 const StyledContainer = styled(Container)(({ }) => ({
@@ -107,7 +106,7 @@ const MyFile = () => {
   const [networkDataFiles, setNetworkDataFiles] = useState([]);
   const [manualEditFiles, setManualEditFiles] = useState([]);
   const [folders, setFolders] = useState([]);
-  const {deadline, setDeadline} = useDeadline();
+  const {folderID, setFolderID} = useFolder();
   const { setLayers } = useContext(LayerVisibilityContext);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -160,11 +159,14 @@ const MyFile = () => {
     }
   };
 
-  const fetchFiles = async (deadline) => {
+  const fetchFiles = async (folderIdentity) => {
     setFabricFiles([]);
     setNetworkDataFiles([]);
     setManualEditFiles([]);
-    const response = await fetch(`${backend_url}/api/files?deadline=${deadline}`, {
+    if (folderIdentity === -1){
+      return;
+    }
+    const response = await fetch(`${backend_url}/api/files?folder_ID=${folderIdentity}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -231,11 +233,9 @@ const MyFile = () => {
   }, []);
 
   useEffect(() => {
-    console.log(deadline)
-    console.log(typeof(deadline))
     
-    fetchFiles(deadline);
-  }, [deadline]);
+    fetchFiles(folderID);
+  }, [folderID]);
 
   const handleDelete = async (id, setFiles) => {
     setIsLoading(true);
@@ -300,9 +300,10 @@ const MyFile = () => {
     }
   };
 
-  const handleDeadlineSelect = (newDeadline) =>{
-    setDeadline(newDeadline);
-    
+  const handleDeadlineSelect = (newFolderID) =>{
+    console.log(newFolderID);
+    console.log(typeof(newFolderID))
+    setFolderID(newFolderID);
   }
 
   return (
@@ -318,10 +319,10 @@ const MyFile = () => {
       <StyledContainer component="main" maxWidth="md">
         <StyledTypography component="h1" variant="h5">
           <div>
-            <select value={deadline} onChange={(e)=> handleDeadlineSelect(e.target.value)}>
-              <option value="">Select a Filing</option>
+            <select value={folderID} onChange={(e)=> handleDeadlineSelect(e.target.value)}>
+              <option value={-1}>Select a Filing</option>
               {folders.map((folder)=>(
-                <option key={folder.id} value={folder.deadline}>
+                <option key={folder.deadline} value={folder.folder_id}>
                    {folder.deadline}
                 </option>
               ))}

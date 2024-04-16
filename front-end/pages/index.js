@@ -12,6 +12,7 @@ import MyEdit from "../components/MyEdit";
 import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
 import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
 import {DeadlineProvider} from '../contexts/DeadlineContext';
+import { FolderProvider } from "../contexts/FolderContext";
 import { styled } from '@mui/material/styles';
 import { Typography } from "@mui/material";
 
@@ -48,7 +49,8 @@ const HomePage = () => {
 
   return (
     <div>
-      <DeadlineProvider>
+      <FolderProvider>
+     
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
           <SelectedPointsProvider>
@@ -79,7 +81,8 @@ const HomePage = () => {
           </SelectedPointsProvider>
         </SelectedLocationProvider>
       </LayerVisibilityProvider>
-      </DeadlineProvider>
+     
+      </FolderProvider>
     </div>
   );
 };

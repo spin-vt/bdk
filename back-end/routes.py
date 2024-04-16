@@ -387,20 +387,40 @@ def toggle_markers():
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
+#This will get me the files with the corresponding folderVal id
+# @app.route('/api/files', methods=['GET'])
+# @jwt_required()
+# def get_files():
+#     try:
+#         identity = get_jwt_identity()
+#         deadline = request.args.get('deadline')
+        
+#         session = Session()
+#         folderVal = folder_ops.get_folder_by_deadline(identity['id'], deadline, session=session)
+#         print("FolderVal:", folderVal)
+#         logger.debug("FolderVal: %s", folderVal) 
+#         if folderVal:
+#             filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id, session=session)
+#             if not filesinfo:
+#                 return jsonify({'error': 'No files found'}), 404
+#             return jsonify(filesinfo), 200
+#         else:
+#             return jsonify({'error': 'No files found'}), 404
+#     except NoAuthorizationError:
+#         return jsonify({'error': 'Token is invalid or expired'}), 401
+#     finally:
+#         session.close()
+
 
 @app.route('/api/files', methods=['GET'])
 @jwt_required()
 def get_files():
     try:
         identity = get_jwt_identity()
-        deadline = request.args.get('deadline')
-        
+        folder_ID = int(request.args.get('folder_ID'))
         session = Session()
-        folderVal = folder_ops.get_folder_by_deadline(identity['id'], deadline, session=session)
-        print("FolderVal:", folderVal)
-        logger.debug("FolderVal: %s", folderVal) 
-        if folderVal:
-            filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id, session=session)
+        if folder_ID:
+            filesinfo = file_ops.get_filesinfo_in_folder(folder_ID, session=session)
             if not filesinfo:
                 return jsonify({'error': 'No files found'}), 404
             return jsonify(filesinfo), 200

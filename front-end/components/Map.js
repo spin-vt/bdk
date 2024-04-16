@@ -11,7 +11,8 @@ import LayersIcon from "@mui/icons-material/Layers";
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
-import {useDeadline} from '../contexts/DeadlineContext';
+
+import {useFolder} from "../contexts/FolderContext.js";
 import Swal from "sweetalert2";
 import { backend_url } from "../utils/settings";
 
@@ -40,7 +41,8 @@ function Map() {
   const [isDataReady, setIsDataReady] = useState(false);
   const loadingTimeInMs = 3.5 * 60 * 1000;
 
-  const {deadline, setDeadline} = useDeadline();
+
+  const {folderID, setFolderID} = useFolder();
 
   const { layers } = useContext(LayerVisibilityContext);
   const allKmlLayerRef = useRef({});
@@ -289,7 +291,7 @@ function Map() {
       allKmlLayerRef.current === null ||
       Object.keys(allKmlLayerRef.current).length === 0
     ) {
-      return fetch(`${backend_url}/api/files?deadline=${deadline}`, {
+      return fetch(`${backend_url}/api/files?folder_ID=${folderID}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -333,7 +335,7 @@ function Map() {
 
   const addVectorTiles = () => {
     removeVectorTiles();
-    if(deadline === ""){
+    if(folderID == -1){
       return
     }
 
@@ -542,7 +544,7 @@ function Map() {
       addVectorTiles();
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap, deadline]);
+  }, [selectedBaseMap, folderID]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
