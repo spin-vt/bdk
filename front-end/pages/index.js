@@ -11,10 +11,9 @@ import EditMapContext from "../contexts/EditMapContext";
 import MyEdit from "../components/MyEdit";
 import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
 import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
-import {DeadlineProvider} from '../contexts/DeadlineContext';
 import { FolderProvider } from "../contexts/FolderContext";
 import { styled } from '@mui/material/styles';
-import { Typography } from "@mui/material";
+import { Typography, Container, Box } from "@mui/material";
 
 
 const DynamicMap = dynamic(() => import("../components/Map"), { ssr: false });
@@ -56,8 +55,8 @@ const HomePage = () => {
           <SelectedPointsProvider>
             <SelectedPolygonProvider>
             <Navbar
-              sx={{ height: "10vh" }}
-              handleMyFileOpen={handleDrawerOpen}
+              sx={{ height: "10%" }}
+              handleMyFilingOpen={handleDrawerOpen}
               handleUploadOpen={handleDrawerOpen2}
               showOnHome={true}
             />
@@ -66,7 +65,7 @@ const HomePage = () => {
             <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
               {isEditingMap ? <MyEdit /> : <MyFile />}
             </CustomDrawer>
-
+ 
             <Drawer
               anchor="right"
               open={uploadOpen}

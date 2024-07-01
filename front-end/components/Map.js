@@ -77,6 +77,35 @@ function Map() {
     setBasemapAnchorEl(null);
   };
 
+
+  const fetchLastFolder = async () => {
+    try {
+      const response = await fetch(`${backend_url}/api/get-last-folder`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+  
+      if (response.status === 401) {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "Session expired, please log in again!",
+        });
+        router.push("/login");
+        return;
+      }
+  
+      const data = await response.json();
+  
+      setFolderID(data); // Set the maximum folder_id as the default
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+    }
+  };
+
   const addSource = () => {
     const existingSource = map.current.getSource("custom");
     if (existingSource) {
@@ -506,6 +535,10 @@ function Map() {
     });
   }, [layers]);
 
+  useEffect(()=>{
+    fetchLastFolder();
+  }, []);
+
   useEffect(() => {
     const initialStyle = baseMaps[selectedBaseMap];
     console.log(initialStyle);
@@ -605,7 +638,7 @@ function Map() {
         </Menu>
       </div>
 
-      <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />
+      <div ref={mapContainer} style={{ height: "95vh", width: "100%"}} />
     </div>
   );
 }

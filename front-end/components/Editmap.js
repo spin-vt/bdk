@@ -685,7 +685,7 @@ function Editmap() {
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} message={"Getting the editing tool ready..."} />}
       </div>
 
-      <div ref={mapContainer} style={{ height: "100vh", width: "100%" }} />
+      <div ref={mapContainer} style={{ height: "95vh", width: "100%" }} />
     </div>
   );
 }

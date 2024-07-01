@@ -84,7 +84,7 @@ const TitleTypography = styled(Typography)({
 });
 
 export default function Navbar({
-  handleMyFileOpen,
+  handleMyFilingOpen,
   handleUploadOpen,
   showOnHome,
   uploadChallenge
@@ -373,7 +373,7 @@ export default function Navbar({
           )}
 
           {isEditingMap && (
-            <IconButton onClick={handleMyFileOpen}>
+            <IconButton onClick={handleMyFilingOpen}>
               <FolderIcon
                 sx={{ fontWeight: "700", color: "white", marginRight: "5px" }}
               />
@@ -382,9 +382,9 @@ export default function Navbar({
           )}
 
           {showOnHome && !isEditingMap && (
-            <IconButton onClick={handleMyFileOpen}>
+            <IconButton onClick={handleMyFilingOpen}>
               <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
-              <Typography sx={{ color: "white" }}>Your Files</Typography>
+              <Typography sx={{ color: "white" }}>Your Filings</Typography>
             </IconButton>
           )}
 

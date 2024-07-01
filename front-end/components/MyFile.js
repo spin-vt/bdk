@@ -141,7 +141,7 @@ const MyFile = () => {
         },
         credentials: "include",
       });
-
+  
       if (response.status === 401) {
         Swal.fire({
           icon: "error",
@@ -151,13 +151,15 @@ const MyFile = () => {
         router.push("/login");
         return;
       }
-
+  
       const data = await response.json();
       setFolders(data);
+
     } catch (error) {
       console.error("Error fetching folders:", error);
     }
   };
+  
 
   const fetchFiles = async (folderIdentity) => {
     setFabricFiles([]);

@@ -150,26 +150,6 @@ def submit_data():
     finally:
         session.close()  # Always close the session at the end
 
-@app.route('/api/get-folder-by-deadline', methods=['GET']) ##Will allow user to get the folder based on the deadline
-@jwt_required()
-def get_folder_by_deadline():
-    try:
-        identity = get_jwt_identity()
-        user_id = identity['id']
-        deadline = request.args.get('deadline') 
-
-        folder = folder_ops.get_folder_by_deadline(user_id, deadline, session=session)
-
-        if folder is not None:
-            # Return folder details as JSON
-            return jsonify({'Status': "OK", 'folder_id': folder.id, 'name': folder.name, 'type': folder.type, 'deadline': folder.deadline})
-        else:
-            return jsonify({'Status': "Folder not found"}), 404
-
-    except Exception as e:
-        return jsonify({'Status': "Error", 'error_message': str(e)}), 500
-    finally:
-        session.close()
 
 #Will need to create a route to create a folder with a deadline
 
@@ -331,6 +311,7 @@ def exportChallenge():
     else:
         return jsonify({'Status': 'Failure'})
 
+# Change this to use folder id
 @app.route("/api/tiles/<mbtile_id>/<zoom>/<x>/<y>.pbf")
 @jwt_required()
 def serve_tile_withid(mbtile_id, zoom, x, y):
@@ -387,36 +368,13 @@ def toggle_markers():
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
-#This will get me the files with the corresponding folderVal id
-# @app.route('/api/files', methods=['GET'])
-# @jwt_required()
-# def get_files():
-#     try:
-#         identity = get_jwt_identity()
-#         deadline = request.args.get('deadline')
-        
-#         session = Session()
-#         folderVal = folder_ops.get_folder_by_deadline(identity['id'], deadline, session=session)
-#         print("FolderVal:", folderVal)
-#         logger.debug("FolderVal: %s", folderVal) 
-#         if folderVal:
-#             filesinfo = file_ops.get_filesinfo_in_folder(folderVal.id, session=session)
-#             if not filesinfo:
-#                 return jsonify({'error': 'No files found'}), 404
-#             return jsonify(filesinfo), 200
-#         else:
-#             return jsonify({'error': 'No files found'}), 404
-#     except NoAuthorizationError:
-#         return jsonify({'error': 'Token is invalid or expired'}), 401
-#     finally:
-#         session.close()
-
 
 @app.route('/api/files', methods=['GET'])
 @jwt_required()
 def get_files():
     try:
         identity = get_jwt_identity()
+        # Verify user own this folder
         folder_ID = int(request.args.get('folder_ID'))
         session = Session()
         if folder_ID:
@@ -446,6 +404,18 @@ def get_folders_with_deadlines():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/get-last-folder', methods=['GET'])
+@jwt_required()
+def get_last_folder():
+    try:
+        identity = get_jwt_identity()
+        user_id = identity['id']
+        
+        folderVal = folder_ops.get_upload_folder(userid=user_id)
+        
+        return jsonify(folderVal.id), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/networkfiles/<int:folder_id>', methods=['GET'])
 @jwt_required()
