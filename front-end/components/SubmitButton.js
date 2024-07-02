@@ -10,7 +10,7 @@ export default function ExportButton({ onClick, challenge }) {
           onClick={onClick}
           style={{ marginRight: "10px" }}
         >
-          {challenge ? "Compute Challenges" : "Submit"}
+          Submit
         </Button>
       </div>
     </Box>

@@ -87,13 +87,19 @@ def submit_data():
 
         userVal = user_ops.get_user_with_id(identity['id'], session=session)
         # Retrieve the last folder of the user, if any, otherwise create a new one
-        folderVal = folder_ops.get_upload_folder(userVal.id, session=session)
-        if folderVal is None:
-            num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
-            folder_name = f"{userVal.username}-{num_folders + 1}"
-            deadline = "September 2024" #This is manually being changed at the moment to next filing deadline. New users will be working on this filing
-            folderVal = folder_ops.create_folder(folder_name, userVal.id, deadline, 'upload', session=session)
-            session.commit()
+        deadline = request.form.get('deadline')
+        if not deadline:
+            return jsonify({'Status': "Failed, no deadline provided"}), 400
+
+        # Attempt to parse the deadline to ensure it's valid
+        try:
+            deadline_date = datetime.strptime(deadline, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'Status': "Failed, invalid deadline format"}), 400
+        
+        folder_name = f"Filing for Deadline {deadline_date}"
+        folderVal = folder_ops.create_folder(folder_name, userVal.id, deadline_date, 'upload', session=session)
+        session.commit()
         file_names = []
         matching_file_data_list = []
 
@@ -398,7 +404,11 @@ def get_folders_with_deadlines():
         
         folders = folder_ops.get_folders_by_type_for_user(user_id, 'upload')
         
-        folder_info = [{'folder_id': folder.id, 'name': folder.name, 'deadline': folder.deadline} for folder in folders]
+        folder_info = [{
+            'folder_id': folder.id,
+            'name': folder.name,
+            'deadline': folder.deadline.strftime('%Y-%m-%d') if folder.deadline else None
+        } for folder in folders]
 
         return jsonify(folder_info), 200
     except Exception as e:

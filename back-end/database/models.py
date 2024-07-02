@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime, JSON
+from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime, JSON, Date
 from database.base import Base
 from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -68,7 +68,7 @@ class folder(Base): #filing, will change the name later for less confusion when 
     type = Column(String, default='upload') # Currently upload or export
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user = relationship('user', back_populates='folders')
-    deadline = Column(String) #This deadline makes it a filing for the current period
+    deadline = Column(Date) #This deadline makes it a filing for the current period
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
     kmzs = relationship('kmz', back_populates='folder', cascade='all, delete')

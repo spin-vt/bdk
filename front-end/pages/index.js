@@ -74,7 +74,7 @@ const HomePage = () => {
               <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
                 Upload Network Files Below:
               </StyledTypography>
-              <Upload generateChallenge={false}/> {/*Set it to always false for now to upload files for filling*/}
+              <Upload/>
             </Drawer>
             </SelectedPolygonProvider>
           </SelectedPointsProvider>
@@ -97,8 +97,10 @@ const CustomDrawer = ({ isOpen, children, onClose }) => {
         right: 0,
         width: "750px",
         height: "100%",
-        backgroundColor: "white",
-        overflowY: "scroll",
+        backgroundColor: "#f9f9f9", // Changed to a lighter grey shade
+        overflowY: "auto", // Use auto to only show scrollbar when necessary
+        boxShadow: "0px 0px 10px rgba(0,0,0,0.5)", // Adds shadow for depth
+        transition: "right 0.3s ease", // Smooth transition for sliding effect
       }}
     >
       <button
@@ -108,24 +110,15 @@ const CustomDrawer = ({ isOpen, children, onClose }) => {
           top: "10px",
           right: "10px",
           padding: "8px 16px",
-          background: "red",
+          background: "#d32f2f", // A more subdued shade of red
           color: "white",
           border: "none",
-          borderRadius: "4px",
+          borderRadius: "8px", // More rounded corners
           cursor: "pointer",
           fontSize: "16px",
-          zIndex: "1000",
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          padding: '8px 16px',
-          background: 'red',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '16px',
-          zIndex: '2000'
+          zIndex: "2000",
+          boxShadow: "0px 2px 4px rgba(0,0,0,0.3)", // Subtle shadow for the button
+          transition: "background 0.2s", // Transition effect for hover
         }}
       >
         Close
@@ -134,5 +127,6 @@ const CustomDrawer = ({ isOpen, children, onClose }) => {
     </div>
   );
 };
+
 
 export default HomePage;

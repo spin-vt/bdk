@@ -12,6 +12,10 @@ import {
   Paper,
   IconButton,
   Switch,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from "@mui/material";
 import Swal from "sweetalert2";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -22,16 +26,17 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { styled } from '@mui/material/styles';
-import {useFolder} from '../contexts/FolderContext';
+import { useFolder } from '../contexts/FolderContext';
+import { format } from "date-fns";
 
-// useStyles is replaced by the styled utility in v5
 const StyledContainer = styled(Container)(({ }) => ({
   zIndex: 1000,
   position: "relative",
   minWidth: "80%",
-  maxHeight: "90vh",
-  marginTop: "20px",
-  overflow: "auto"
+  maxHeight: "100vh",
+  marginTop: "40px",
+  overflow: "auto",
+  padding: "20px" // Added padding to ensure content inside has enough space
 }));
 
 const StyledTypography = styled(Typography)(({ }) => ({
@@ -106,7 +111,7 @@ const MyFile = () => {
   const [networkDataFiles, setNetworkDataFiles] = useState([]);
   const [manualEditFiles, setManualEditFiles] = useState([]);
   const [folders, setFolders] = useState([]);
-  const {folderID, setFolderID} = useFolder();
+  const { folderID, setFolderID } = useFolder();
   const { setLayers } = useContext(LayerVisibilityContext);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -141,7 +146,7 @@ const MyFile = () => {
         },
         credentials: "include",
       });
-  
+
       if (response.status === 401) {
         Swal.fire({
           icon: "error",
@@ -151,7 +156,7 @@ const MyFile = () => {
         router.push("/login");
         return;
       }
-  
+
       const data = await response.json();
       setFolders(data);
 
@@ -159,13 +164,13 @@ const MyFile = () => {
       console.error("Error fetching folders:", error);
     }
   };
-  
+
 
   const fetchFiles = async (folderIdentity) => {
     setFabricFiles([]);
     setNetworkDataFiles([]);
     setManualEditFiles([]);
-    if (folderIdentity === -1){
+    if (folderIdentity === -1) {
       return;
     }
     const response = await fetch(`${backend_url}/api/files?folder_ID=${folderIdentity}`, {
@@ -230,12 +235,12 @@ const MyFile = () => {
     }
   };
 
-  useEffect(()=>{
+  useEffect(() => {
     fetchFolders();
   }, []);
 
   useEffect(() => {
-    
+
     fetchFiles(folderID);
   }, [folderID]);
 
@@ -302,9 +307,7 @@ const MyFile = () => {
     }
   };
 
-  const handleDeadlineSelect = (newFolderID) =>{
-    console.log(newFolderID);
-    console.log(typeof(newFolderID))
+  const handleDeadlineSelect = (newFolderID) => {
     setFolderID(newFolderID);
   }
 
@@ -319,18 +322,23 @@ const MyFile = () => {
         )}
       </div>
       <StyledContainer component="main" maxWidth="md">
-        <StyledTypography component="h1" variant="h5">
-          <div>
-            <select value={folderID} onChange={(e)=> handleDeadlineSelect(e.target.value)}>
-              <option value={-1}>Select a Filing</option>
-              {folders.map((folder)=>(
-                <option key={folder.deadline} value={folder.folder_id}>
-                   {folder.deadline}
-                </option>
-              ))}
-            </select>
-          </div>
-        </StyledTypography>
+        <FormControl style={{ width: '250px' }}>
+          <InputLabel id="filing-select-label">You are working on filing for deadline:</InputLabel>
+          <Select
+            labelId="filing-select-label"
+            id="filing-select"
+            value={folderID}
+            label="You are working on Filing for Deadline:"
+            onChange={(e) => handleDeadlineSelect(e.target.value)}
+          >
+            <MenuItem value={-1}><em>Select Filing</em></MenuItem>
+            {folders.map((folder) => (
+              <MenuItem key={folder.deadline} value={folder.folder_id}>
+                {format(new Date(folder.deadline), 'MMMM yyyy')}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         {/* Fabric Files Table */}
         <StyledTypography component="h2" variant="h6">
           Fabric Files
@@ -437,7 +445,7 @@ const FileTable = ({
                 >
                   <DeleteIcon />
                   <Typography sx={{ marginLeft: "10px" }}>
-                    Delete File
+                    Delete
                   </Typography>
                 </StyledIconButton>
               </TableCell>
@@ -500,7 +508,7 @@ const ManualEditFilesTable = ({
                 >
                   <DeleteIcon />
                   <Typography sx={{ marginLeft: "10px" }}>
-                    Delete File
+                    Delete
                   </Typography>
                 </StyledIconButton>
               </TableCell>

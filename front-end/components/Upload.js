@@ -1,20 +1,16 @@
 import * as React from "react";
-import Button from "@mui/material/Button";
 import ButtonGroup from "@mui/material/ButtonGroup";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Grow from "@mui/material/Grow";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
-import MenuItem from "@mui/material/MenuItem";
 import MenuList from "@mui/material/MenuList";
-import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
 import Input from "@mui/material/Input";
 import ExportButton from "./SubmitButton";
 import { DataGrid } from "@mui/x-data-grid";
-import Select from "@mui/material/Select";
-import FormControl from "@mui/material/FormControl";
+import { FormControl, InputLabel, MenuItem, Select, Button, Dialog, DialogActions, DialogTitle, Box } from '@mui/material';
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
 import Swal from "sweetalert2";
@@ -26,6 +22,10 @@ import styles from "../styles/Map.module.css";
 
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useFolder } from '../contexts/FolderContext';
+import { format } from "date-fns";
+
+
 
 const StyledFormControl = styled(FormControl)({
   margin: "4px",
@@ -94,7 +94,7 @@ const bus_codes = {
   Both: "X",
 };
 
-export default function Upload({ generateChallenge }) {
+export default function Upload() {
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef(null);
   const buttonGroupRef = React.useRef(null);
@@ -106,10 +106,6 @@ export default function Upload({ generateChallenge }) {
   const [latency, setLatency] = React.useState("");
   const [categoryCode, setCategoryCode] = React.useState("");
   const idCounterRef = React.useRef(1); // Counter for generating unique IDs
-  const [exportSuccess, setExportSuccess] = React.useState(
-    localStorage.getItem("exportSuccess") === "true" || false
-  );
-  const [buttonGroupWidth, setButtonGroupWidth] = React.useState(null);
 
   const [files, setFiles] = React.useState([]);
 
@@ -118,72 +114,52 @@ export default function Upload({ generateChallenge }) {
   const loadingTimeInMs = 3.5 * 60 * 1000;
   const router = useRouter();
 
-  const handleChallengeClick = (event) => {
-    event.preventDefault();
+  const { folderID, setFolderID } = useFolder();
+  const [folders, setFolders] = React.useState([]);
 
-    const formData = new FormData();
+  const [newDeadline, setNewDeadline] = React.useState({ month: '', year: '' });
+  const [openConfirmDialog, setOpenConfirmDialog] = React.useState(false);
 
-    files.forEach((fileDetails) => {
-      const allowedExtensions = ["kml", "geojson", "csv", "kmz"];
-      const fileExtension = fileDetails.file.name
-        .split(".")
-        .pop()
-        .toLowerCase();
+  const months = Array.from({ length: 12 }, (_, i) => i + 1); // Months 1-12
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
-      if (!allowedExtensions.includes(fileExtension)) {
-        console.log(fileExtension);
-        toast.error(
-          "Invalid File Format. Please upload a KML, GeoJSON, CSV, or KMZ file.",
-          {
-            position: toast.POSITION.TOP_RIGHT,
-            autoClose: 10000,
-          }
-        );
 
-        setIsLoading(false);
-        return;
-      }
-      formData.append("fileData", JSON.stringify(fileDetails));
-      formData.append("file", fileDetails.file);
-    });
 
-    setIsLoading(true);
+  const fetchFolders = async () => {
+    try {
+      const response = await fetch(`${backend_url}/api/folders-with-deadlines`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
 
-    fetch(`${backend_url}/api/compute-challenge`, {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    })
-      .then((response) => {
-        if (response.status === 401) {
-          Swal.fire({
-            icon: "error",
-            title: "Oops...",
-            text: "Session expired, please log in again!",
-          });
-          // Redirect to login page
-          router.push("/login");
-          // setIsLoading(false);
-          return;
-        } else if (response.status === 200) {
-          return response.json();
-        }
-      })
-      .catch((error) => {
+      if (response.status === 401) {
         Swal.fire({
           icon: "error",
           title: "Oops...",
-          text: "There is an error on our end, please try again later",
+          text: "Session expired, please log in again!",
         });
-        setIsLoading(false);
-      });
+        router.push("/login");
+        return;
+      }
+
+      const data = await response.json();
+      setFolders(data);
+
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+    }
   };
+
 
   const handleFilingClick = (event) => {
     event.preventDefault();
 
     const formData = new FormData();
-
+    formData.append("deadline", `${newDeadline.year}-${newDeadline.month}-01`);
     files.forEach((fileDetails) => {
       const allowedExtensions = ["kml", "geojson", "csv", "kmz"];
       const fileExtension = fileDetails.file.name
@@ -247,7 +223,6 @@ export default function Upload({ generateChallenge }) {
               .then((status) => {
                 if (status.state !== "PENDING") {
                   clearInterval(intervalId);
-                  setExportSuccess(true);
                   setIsDataReady(true);
                   setIsLoading(false);
                   setTimeout(() => {
@@ -271,18 +246,9 @@ export default function Upload({ generateChallenge }) {
       });
   };
 
-  // Call fetchMarkers when the Export button is clicked
   React.useEffect(() => {
-    if (exportSuccess) {
-      const dynamicMap = document.getElementById("dynamic-map");
-      if (dynamicMap) {
-        dynamicMap.fetchMarkers(); // Call fetchMarkers function in the DynamicMap component
-      }
-    }
-    if (buttonGroupRef.current) {
-      setButtonGroupWidth(buttonGroupRef.current.offsetWidth);
-    }
-  }, [exportSuccess, buttonGroupRef]);
+    fetchFolders();
+  }, []);
 
   const handleFileChange = (event) => {
     const newFileDetails = Object.values(event.target.files).map((file) => ({
@@ -327,13 +293,52 @@ export default function Upload({ generateChallenge }) {
     setFiles((prevFiles) =>
       prevFiles.filter((fileDetails) => fileDetails.id !== id)
     );
-    setExportSuccess(false); // Set the export success state to true
 
     // Reset the file input element
     const fileInput = anchorRef.current;
     if (fileInput) {
       fileInput.value = "";
     }
+  };
+
+  const handleDeadlineSelect = (newFolderID) => {
+    if (newFolderID === folderID) {
+      return;
+    }
+    if (newFolderID === -1) {
+      // Reset deadline selection
+      setNewDeadline({ month: '', year: '' });
+    }
+    else {
+      const selectedFolder = folders.find(folder => folder.folder_id === newFolderID);
+        if (selectedFolder) {
+            // Parse the deadline date of the selected folder
+            const date = new Date(selectedFolder.deadline);
+            const month = date.getMonth() + 1;  // getMonth() is zero-indexed, so add 1
+            const year = date.getFullYear();
+            // Set newDeadline to reflect the selected folder's deadline
+            setNewDeadline({ month: month.toString(), year: year.toString() });
+        }
+    }
+    setFolderID(newFolderID);
+  };
+
+
+  const handleNewDeadlineChange = ({ month, year }) => {
+    const formattedDeadline = `${month}/${year}`;
+    // Check if the deadline exists
+    const exists = folders.some(folder => folder.deadline === formattedDeadline);
+    if (exists) {
+      setOpenConfirmDialog(true); // Open confirmation dialog if exists
+    } else {
+      setNewDeadline({ month, year });
+    }
+  };
+
+  const confirmCreation = () => {
+    // Logic to add the new folder
+    // setFolders([...folders, { folder_id: folders.length, deadline: `${newDeadline.month}/${newDeadline.year}` }]);
+    setOpenConfirmDialog(false);
   };
 
   const columns = [
@@ -393,10 +398,6 @@ export default function Upload({ generateChallenge }) {
     },
   ];
 
-  React.useEffect(() => {
-    // Store the exportSuccess state in local storage whenever it changes
-    localStorage.setItem("exportSuccess", exportSuccess);
-  }, [exportSuccess]);
 
   return (
     <React.Fragment>
@@ -419,6 +420,67 @@ export default function Upload({ generateChallenge }) {
           position: "relative",
         }}
       >
+        <div>
+      <FormControl style={{ width: '300px', marginBottom: '20px' }}>
+        <InputLabel id="filing-select-label">You are working on filing for deadline:</InputLabel>
+        <Select
+          labelId="filing-select-label"
+          id="filing-select"
+          value={folderID}
+          label="You are working on Filing for Deadline:"
+          onChange={(e) => handleDeadlineSelect(e.target.value)}
+        >
+          <MenuItem value={-1}><em>Create New Filing for Deadline:</em></MenuItem>
+          {folders.map((folder) => (
+            <MenuItem key={folder.deadline} value={folder.folder_id}>
+              {format(new Date(folder.deadline), 'MMMM yyyy')}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      {folderID === -1 && (
+        <>
+          <FormControl style={{ width: '120px', marginRight: '10px' }}>
+            <InputLabel id="month-select-label">Month</InputLabel>
+            <Select
+              labelId="month-select-label"
+              id="month-select"
+              value={newDeadline.month}
+              label="Month"
+              onChange={e => handleNewDeadlineChange({ ...newDeadline, month: e.target.value })}
+            >
+              {months.map(month => (
+                <MenuItem key={month} value={month}>{month}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl style={{ width: '120px' }}>
+            <InputLabel id="year-select-label">Year</InputLabel>
+            <Select
+              labelId="year-select-label"
+              id="year-select"
+              value={newDeadline.year}
+              label="Year"
+              onChange={e => handleNewDeadlineChange({ ...newDeadline, year: e.target.value })}
+            >
+              {years.map(year => (
+                <MenuItem key={year} value={year}>{year}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </>
+      )}
+      <Dialog open={openConfirmDialog} onClose={() => setOpenConfirmDialog(false)}>
+        <DialogTitle>Confirm</DialogTitle>
+        <div>
+          A filing for this deadline already exists. Are you sure you want to create another?
+        </div>
+        <DialogActions>
+          <Button onClick={() => setOpenConfirmDialog(false)}>Cancel</Button>
+          <Button onClick={confirmCreation}>Confirm</Button>
+        </DialogActions>
+      </Dialog>
+    </div>
         <ButtonGroup
           variant="contained"
           ref={buttonGroupRef}
@@ -454,7 +516,7 @@ export default function Upload({ generateChallenge }) {
                   placement === "bottom" ? "center top" : "center bottom",
               }}
             >
-              <Paper style={{ width: buttonGroupWidth }}>
+              <Paper>
                 <ClickAwayListener onClickAway={handleClose}>
                   <MenuList id="split-button-menu" autoFocusItem>
                     {options.map((option, index) => (
@@ -629,22 +691,11 @@ export default function Upload({ generateChallenge }) {
             checkboxSelection
           />
         </Box>
-        {!generateChallenge && (
-          <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-            <ExportButton
-              onClick={handleFilingClick}
-              challenge={generateChallenge}
-            />
-          </Box>
-        )}
-        {generateChallenge && (
-          <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-            <ExportButton
-              onClick={handleChallengeClick}
-              challenge={generateChallenge}
-            />
-          </Box>
-        )}
+        <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
+          <ExportButton
+            onClick={handleFilingClick}
+          />
+        </Box>
       </Box>
     </React.Fragment>
   );
