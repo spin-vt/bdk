@@ -185,7 +185,7 @@ export default function Upload() {
 
     setIsLoading(true);
 
-    fetch(`${backend_url}/api/submit-data`, {
+    fetch(`${backend_url}/api/submit-data/${folderID}`, {
       method: "POST",
       body: formData,
       credentials: "include",

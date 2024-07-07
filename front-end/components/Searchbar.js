@@ -10,6 +10,7 @@ import { stateList } from "../utils/FactSheets";
 import { styled } from '@mui/material/styles';
 import Box from "@mui/material/Box";
 import { backend_url } from "../utils/settings";
+import {useFolder} from "../contexts/FolderContext.js";
 
 
 const IOSSwitch = styled((props) => (
@@ -73,6 +74,9 @@ function Searchbar() {
 
   const [searchByState, setSearchByState] = useState(false);
 
+  const {folderID, setFolderID} = useFolder();
+
+
 
   // handle switch change
   const handleSwitchChange = (event) => {
@@ -118,7 +122,8 @@ function Searchbar() {
           setIsLoading(false);
         }, 0);
       } else {
-        const response = await fetch(`${backend_url}/api/search?query=${nextValue}`, {
+        // Modified URL to include folderID in the request
+        const response = await fetch(`${backend_url}/api/search/${folderID}?query=${nextValue}`, {
           credentials: 'include'
         });
         const data = await response.json();
@@ -127,12 +132,11 @@ function Searchbar() {
           setIsLoading(false);
         }, 0);
       }
-
     } else {
       setOptions([]); // Clear the search results list
       setIsLoading(false);
     }
-  };
+};
 
   React.useEffect(() => {
     if (!open) {

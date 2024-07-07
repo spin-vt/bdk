@@ -1,14 +1,17 @@
 import '../styles/globals.css'
 import EditMapProvider from '../contexts/EditMapProvider'
-import MbtilesProvider from '../contexts/MbtilesProvider'
+import { FolderProvider } from "../contexts/FolderContext";
+
 
 function MyApp({ Component, pageProps }) {
   return (
+    <FolderProvider>
+
     <EditMapProvider>
-      <MbtilesProvider>
       <Component {...pageProps} />
-      </MbtilesProvider>
     </EditMapProvider>
+    </FolderProvider>
+
   )
 }
 

@@ -80,7 +80,7 @@ function Map() {
 
   const fetchLastFolder = async () => {
     try {
-      const response = await fetch(`${backend_url}/api/get-last-folder`, {
+      const response = await fetch(`${backend_url}/api/get-last-upload-folder`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -112,7 +112,7 @@ function Map() {
       map.current.removeSource("custom");
     }
 
-    const tilesURL = `${backend_url}/api/tiles/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/api/tiles/${folderID}/{z}/{x}/{y}.pbf`;
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -140,7 +140,6 @@ function Map() {
         lineColor = "#888";
         fillColor = "#42004F";
     }
-
 
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
       if (allKmlLayerRef.current[layer][0] === "wired") {
@@ -315,11 +314,11 @@ function Map() {
     }
   };
   const fetchFiles = () => {
-    if (
-      allKmlLayerRef.current === undefined ||
-      allKmlLayerRef.current === null ||
-      Object.keys(allKmlLayerRef.current).length === 0
-    ) {
+    // if (
+    //   allKmlLayerRef.current === undefined ||
+    //   allKmlLayerRef.current === null ||
+    //   Object.keys(allKmlLayerRef.current).length === 0
+    // ) {
       return fetch(`${backend_url}/api/files?folder_ID=${folderID}`, {
         method: "GET",
         headers: {
@@ -357,9 +356,9 @@ function Map() {
         .catch((error) => {
           console.log(error);
         });
-    } else {
-      return Promise.resolve();
-    }
+    // } else {
+    //   return Promise.resolve();
+    // }
   };
 
   const addVectorTiles = () => {

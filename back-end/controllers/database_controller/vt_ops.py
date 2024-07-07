@@ -21,7 +21,7 @@ from controllers.celery_controller.celery_config import celery
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import desc
 from .file_ops import get_files_by_type, get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
-from .folder_ops import get_upload_folder, get_export_folder
+from .folder_ops import get_upload_folder, get_export_folder, get_folder_with_id
 from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles, get_mbtiles_with_id
 from .user_ops import get_user_with_id, get_user_with_username
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
@@ -247,117 +247,21 @@ def create_tiles(geojson_array, userid, folderid, session):
         command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
         run_tippecanoe(command, folderid, outputFile)
 
-def retrieve_tiles(zoom, x, y, username, mbtileid=None):
+def retrieve_tiles(zoom, x, y, userid, folderid):
     session = Session()
     try:
-        user = get_user_with_username(user_name=username, session=session)
+        user = get_user_with_id(userid=userid, session=session)
         if not user:
             return None
 
-        if mbtileid:
-            tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
-                vector_tiles.zoom_level == int(zoom),
-                vector_tiles.tile_column == int(x),
-                vector_tiles.tile_row == int(y),
-                mbtiles.id == mbtileid
-            ).first()
-        else:
-            folder = get_upload_folder(userid=user.id, folderid=None, session=session)
-            if not folder:
-                return None
-            tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
-                vector_tiles.zoom_level == int(zoom),
-                vector_tiles.tile_column == int(x),
-                vector_tiles.tile_row == int(y),
-                mbtiles.folder_id == folder.id
-            ).order_by(desc(mbtiles.timestamp)).first()
+        tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
+            vector_tiles.zoom_level == int(zoom),
+            vector_tiles.tile_column == int(x),
+            vector_tiles.tile_row == int(y),
+            mbtiles.folder_id == folderid
+        ).order_by(desc(mbtiles.timestamp)).first()
+       
 
         return tile
     finally:
         session.close()
-
-def toggle_tiles(markers, userid, mbtid):
-    message = ''
-    status_code = 0
-    session = Session()
-    try:
-        # Get the last folder of the user
-        if mbtid != -1:
-            mbtiles_entry = get_mbtiles_with_id(mbtid=mbtid, session=session)
-            user_last_folder = get_export_folder(userid=userid, folderid=mbtiles_entry.folder_id, session=session)
-        else:
-            user_last_folder = get_upload_folder(userid=userid, folderid=None, session=session)
-        if user_last_folder:
-            
-            kml_set = set()
-            for marker in markers:
-                # Retrieve all kml_data entries where location_id equals to marker['id']
-                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
-                for kml_data_entry in kml_data_entries:
-                    kml_file = get_file_with_id(fileid=kml_data_entry.file_id, session=session)
-                    # Count files with .edit prefix in the folder
-                    edit_count = len(get_files_with_prefix(folderid=user_last_folder.id, prefix=f"{kml_file.name}-edit", session=session))
-                    if kml_data_entry.file_id not in kml_set:
-                        new_file = create_file(filename=f"{kml_file.name}-edit{edit_count+1}/", content=None, folderid=user_last_folder.id, filetype='edit', session=session)
-                        session.add(new_file)
-                        session.commit()
-                        kml_set.add(kml_file.id)
-                    else:
-                        new_file = get_file_with_name(filename=f"{kml_file.name}-edit{edit_count}/", folderid=user_last_folder.id, session=session)
-                    
-                    # Update each entry
-                    kml_data_entry.file_id = new_file.id
-                    kml_data_entry.served = marker['served']
-                    kml_data_entry.coveredLocations = new_file.name
-                    session.add(kml_data_entry)
-                    session.commit()
-
-        else:
-            raise Exception('No last folder for the user')
-        
-        geojson_data = []
-        all_kmls = get_files_with_postfix(user_last_folder.id, '.kml', session)
-        for kml_f in all_kmls:
-            geojson_data.append(read_kml(kml_f.id, session))
-        
-        all_geojsons = get_files_with_postfix(folderid=user_last_folder.id, postfix='.geojson', session=session)
-        for geojson_f in all_geojsons:
-            geojson_data.append(read_geojson(geojson_f.id, session))
-
-        delete_mbtiles(user_last_folder.id, session)
-        create_tiles(geojson_data, userid, user_last_folder.id, session)
-        if mbtid != -1:
-            existing_csvs = get_files_by_type(folderid=user_last_folder.id, filetype='export', session=session)
-            for csv_file in existing_csvs:
-                session.delete(csv_file)
-
-            userVal = get_user_with_id(userid=userid, session=session)
-            # Generate and save a new CSV
-            all_file_ids = [file.id for file in get_files_with_postfix(user_last_folder.id, '.kml', session) + get_files_with_postfix(user_last_folder.id, '.geojson', session)]
-
-            results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
-            availability_csv = generate_csv_data(results, userVal.provider_id, userVal.brand_name)
-
-            csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datime=datetime.now().strftime(DATETIME_FORMAT))
-            csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
-            new_csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=user_last_folder.id, filetype='export', session=session)
-            session.add(new_csv_file)
-
-        
-
-        message = 'Markers toggled successfully'
-        status_code = 200
-        
-        
-        
-
-    except Exception as e:
-        session.rollback()  # rollback transaction on error
-        message = str(e)  # send the error message to client
-        status_code = 500
-
-    finally:
-        session.commit()
-        session.close()
-
-    return (message, status_code)

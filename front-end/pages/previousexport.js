@@ -5,7 +5,6 @@ import { styled } from "@mui/material/styles";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MapIcon from "@mui/icons-material/Map";
 import Swal from "sweetalert2";
-import MbtilesContext from "../contexts/MbtilesContext";
 import { backend_url } from "../utils/settings";
 import dynamic from 'next/dynamic';
 import Navbar from '../components/Navbar';
@@ -15,6 +14,8 @@ import { Box } from '@mui/system';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import DownloadIcon from '@mui/icons-material/Download';
+import {useFolder} from "../contexts/FolderContext.js";
+
 
 const Minimap = dynamic(
   () => import('../components/Minimap'),
@@ -52,8 +53,6 @@ const PreviousExport = () => {
   const [filesByPeriod, setFilesByPeriod] = useState({});
   const router = useRouter();
 
-  // Inside your component
-  const { setMbtid } = useContext(MbtilesContext);
 
   const { setEditingMap } = useContext(EditMapContext);
 
@@ -63,6 +62,9 @@ const PreviousExport = () => {
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
+
+  const {folderID, setFolderID} = useFolder();
+
 
   const fetchExportedFiles = async () => {
     try {
@@ -198,15 +200,14 @@ const PreviousExport = () => {
 
   const handleEditMap = (period, fileIndex) => {
     const file = filesByPeriod[period][fileIndex];
-    setMbtid(file.mbt_id);
-    console.log(file.mbt_id);
+    setFolderID(file.folder_id);
     setEditingMap(true);
     router.push("/");
   };
 
   const handleViewOnMap = (period, fileIndex) => {
     const file = filesByPeriod[period][fileIndex];
-    setViewonlymapid(file.mbt_id);
+    setViewonlymapid(file.folder_id);
     handleOpen();
   };
 

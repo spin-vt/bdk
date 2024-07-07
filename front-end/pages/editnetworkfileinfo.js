@@ -4,6 +4,8 @@ import { useContext, useState } from "react";
 import { styled } from '@mui/material/styles';
 import { Typography } from "@mui/material";
 import dynamic from "next/dynamic";
+import {useFolder} from "../contexts/FolderContext.js";
+
 
 const FileEditTable = dynamic(() => import("../components/FileEditTable"), { ssr: false });
 
@@ -14,12 +16,12 @@ const StyledTypography = styled(Typography)({
 
 
 const editfileinfo = () => {
+    const {folderID, setFolderID} = useFolder();
 
     return (
         <div>
             <Navbar />
-            {/* Set folder id to 1 for now, adjust when user can choose multiple filings */}
-            <FileEditTable folderId={1} sx={{marginTop:'30px'}}/>
+            <FileEditTable folderId={folderID} sx={{marginTop:'30px'}}/>
         </div>
     );
 };

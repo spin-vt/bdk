@@ -16,8 +16,8 @@ import { useRouter } from "next/router";
 import Swal from 'sweetalert2';
 import { backend_url } from "../utils/settings";
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
-import MbtilesContext from "../contexts/MbtilesContext";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
+import {useFolder} from "../contexts/FolderContext.js";
 
 
 const StyledBaseMapIconButton = styled(IconButton)({
@@ -53,7 +53,9 @@ function Editmap() {
   const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
   const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
 
-  const { mbtid } = useContext(MbtilesContext);
+
+  const {folderID, setFolderID} = useFolder();
+
 
   const router = useRouter();
 
@@ -91,11 +93,8 @@ function Editmap() {
       map.current.removeSource("custom");
     }
 
-    console.log(mbtid);
 
-    const tilesURL = mbtid
-      ? `${backend_url}/api/tiles/${mbtid}/{z}/{x}/{y}.pbf`
-      : `${backend_url}/api/tiles/{z}/{x}/{y}.pbf`;
+    const tilesURL = `${backend_url}/api/tiles/${folderID}/{z}/{x}/{y}.pbf`
     map.current.addSource("custom", {
       type: "vector",
       tiles: [tilesURL],
@@ -508,9 +507,8 @@ function Editmap() {
       allMarkersRef.current.length === 0
     ) {
       setIsLoadingForUntimedEffect(true);
-      const url = mbtid
-        ? `${backend_url}/api/served-data/${mbtid}`
-        : `${backend_url}/api/served-data/None`;
+      const url = `${backend_url}/api/served-data/${folderID}`
+
 
       return fetch(url, {
         method: "GET",
@@ -620,7 +618,7 @@ function Editmap() {
       addVectorTiles();
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap, mbtid]);
+  }, [selectedBaseMap, folderID]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);

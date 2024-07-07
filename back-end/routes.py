@@ -51,30 +51,28 @@ db_password = os.environ.get("POSTGRES_PASSWORD")
 db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
 
-@app.route("/api/served-data/<mbtid>", methods=['GET'])
+@app.route("/api/served-data/<folderid>", methods=['GET'])
 @jwt_required()
-def get_number_records(mbtid):
-    mbtid = str(mbtid)
+def get_number_records(folderid):
+    folderid = int(folderid)
     session = Session()
     try:
         identity = get_jwt_identity()
-        if mbtid != 'None':
-            mbtid = int(mbtid)
-            mbt_entry = mbtiles_ops.get_mbtiles_with_id(mbtid=mbtid, session=session)
-            folderVal = folder_ops.get_export_folder(userid=identity['id'], folderid=mbt_entry.folder_id, session=session)
+        if folderid == -1:
+            return jsonify({'error': 'Folder ID is invalid'}), 400
         else:
-            folderVal = folder_ops.get_upload_folder(userid=identity['id'], folderid=None, session=session)
+            folderVal = folder_ops.get_folder_with_id(userid=identity['id'], folderid=folderid, session=session)
         return jsonify(kml_ops.get_kml_data(userid=identity['id'], folderid=folderVal.id, session=session)), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
-@app.route('/api/submit-data', methods=['POST', 'GET'])
+@app.route('/api/submit-data/<folderid>', methods=['POST', 'GET'])
 @jwt_required()
-def submit_data():
+def submit_data(folderid):
     session = Session()
     try:
         identity = get_jwt_identity()
-        
+        folderid = int(folderid)
             
         if 'file' not in request.files:
             return jsonify({'Status': "Failed, no file uploaded"}), 400
@@ -86,20 +84,23 @@ def submit_data():
         file_data_list = request.form.getlist('fileData')
 
         userVal = user_ops.get_user_with_id(identity['id'], session=session)
-        # Retrieve the last folder of the user, if any, otherwise create a new one
-        deadline = request.form.get('deadline')
-        if not deadline:
-            return jsonify({'Status': "Failed, no deadline provided"}), 400
-
-        # Attempt to parse the deadline to ensure it's valid
-        try:
-            deadline_date = datetime.strptime(deadline, '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({'Status': "Failed, invalid deadline format"}), 400
         
-        folder_name = f"Filing for Deadline {deadline_date}"
-        folderVal = folder_ops.create_folder(folder_name, userVal.id, deadline_date, 'upload', session=session)
-        session.commit()
+        if folderid == -1:
+            deadline = request.form.get('deadline')
+            if not deadline:
+                return jsonify({'Status': "Failed, no deadline provided"}), 400
+
+            # Attempt to parse the deadline to ensure it's valid
+            try:
+                deadline_date = datetime.strptime(deadline, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'Status': "Failed, invalid deadline format"}), 400
+            folder_name = f"Filing for Deadline {deadline_date}"
+            folderVal = folder_ops.create_folder(folder_name, userVal.id, deadline_date, 'upload', session=session)
+            session.commit()
+        else:
+            folderVal = folder_ops.get_folder_with_id(userid=userVal.id, folderid=folderid, session=session)
+        
         file_names = []
         matching_file_data_list = []
 
@@ -157,8 +158,6 @@ def submit_data():
         session.close()  # Always close the session at the end
 
 
-#Will need to create a route to create a folder with a deadline
-
 
 
 @app.route('/api/status/<task_id>')
@@ -197,16 +196,18 @@ def home():
     return response_body
 
 
-@app.route('/api/search', methods=['GET'])
+@app.route('/api/search/<folderid>', methods=['GET'])
 @jwt_required()
-def search_location():
+def search_location(folderid):
     query = request.args.get('query').upper()
+    folderid = int(folderid)
     try:
         identity = get_jwt_identity()
         session = Session()
         try:
             userVal = user_ops.get_user_with_id(identity['id'], session)
-            folderVal = folder_ops.get_upload_folder(userVal.id, None, session)
+            folderVal = folder_ops.get_folder_with_id(userVal.id, folderid, session)
+
             results_dict = fabric_ops.address_query(folderVal.id, query, session)
             return jsonify(results_dict)
         except Exception as e:
@@ -275,16 +276,16 @@ def get_user_info():
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
 
-@app.route('/api/exportFiling', methods=['GET'])
+@app.route('/api/exportFiling/<folderid>', methods=['GET'])
 @jwt_required()
-def exportFiling():
+def exportFiling(folderid):
     try:
         identity = get_jwt_identity()
-
+        folderid = int(folderid)
         session = Session()
         try:
             userVal = user_ops.get_user_with_id(identity['id'], session)
-            folderVal = folder_ops.get_upload_folder(userVal.id, None, session)
+            folderVal = folder_ops.get_folder_with_id(userVal.id, folderid, session)
             
             csv_output = kml_ops.export(userVal.id, folderVal.id, userVal.provider_id, userVal.brand_name, session)
 
@@ -317,11 +318,11 @@ def exportChallenge():
     else:
         return jsonify({'Status': 'Failure'})
 
-# Change this to use folder id
-@app.route("/api/tiles/<mbtile_id>/<zoom>/<x>/<y>.pbf")
+
+@app.route("/api/tiles/<folder_id>/<zoom>/<x>/<y>.pbf")
 @jwt_required()
-def serve_tile_withid(mbtile_id, zoom, x, y):
-    mbtile_id = int(mbtile_id)
+def serve_tile_with_folderid(folder_id, zoom, x, y):
+    folder_id = int(folder_id)
     identity = get_jwt_identity()
 
     zoom = int(zoom)
@@ -329,7 +330,7 @@ def serve_tile_withid(mbtile_id, zoom, x, y):
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['username'], mbtile_id)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['id'], folder_id)
 
     if tile is None:
         return Response('No tile found', status=404)
@@ -340,25 +341,6 @@ def serve_tile_withid(mbtile_id, zoom, x, y):
     return response
 
 
-@app.route("/api/tiles/<zoom>/<x>/<y>.pbf")
-@jwt_required()
-def serve_tile(zoom, x, y):
-    identity = get_jwt_identity()
-
-    zoom = int(zoom)
-    x = int(x)
-    y = int(y)
-    y = (2**zoom - 1) - y
-
-    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['username'], None)
-
-    if tile is None:
-        return Response('No tile found', status=404)
-        
-    response = make_response(bytes(tile[0]))    
-    response.headers['Content-Type'] = 'application/x-protobuf'
-    response.headers['Content-Encoding'] = 'gzip'  
-    return response
 
 @app.route('/api/toggle-markers', methods=['POST'])
 @jwt_required()
@@ -366,9 +348,11 @@ def toggle_markers():
     try:
         request_data = request.json
         markers = request_data['marker']
-        mbtid = request_data['mbtid']
+        folderid = request_data['folderid']
+        if folderid == -1:
+            return jsonify({'error': 'Invalid folder id'}), 400
         identity = get_jwt_identity()
-        task = toggle_tiles.apply_async(args=[markers, identity['id'], mbtid])
+        task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid])
 
         return jsonify({'Status': "OK", 'task_id': task.id}), 200
     except NoAuthorizationError:
@@ -414,19 +398,20 @@ def get_folders_with_deadlines():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/get-last-folder', methods=['GET'])
+@app.route('/api/get-last-upload-folder', methods=['GET'])
 @jwt_required()
 def get_last_folder():
     try:
         identity = get_jwt_identity()
         user_id = identity['id']
-        
+        # Hackey way to use this method to get the lastest filing of user
         folderVal = folder_ops.get_upload_folder(userid=user_id)
         
         return jsonify(folderVal.id), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Change database schema to fix bug of not able to edit file info for file with no coverage
 @app.route('/api/networkfiles/<int:folder_id>', methods=['GET'])
 @jwt_required()
 def get_network_files(folder_id):
@@ -437,8 +422,8 @@ def get_network_files(folder_id):
         # multi-filing support
         folder_id = int(folder_id) 
 
-        temp_folderVal = folder_ops.get_upload_folder(userid=identity['id'], folderid=None, session=session)
-        files = file_ops.get_all_network_files_for_edit_table(temp_folderVal.id, session)
+        folderVal = folder_ops.get_folder_with_id(userid=identity['id'], folderid=folder_id, session=session)
+        files = file_ops.get_all_network_files_for_edit_table(folderVal.id, session)
         files_data = []
         for file in files:
             # Assuming each file has at least one kml_data or it's an empty list
@@ -516,7 +501,6 @@ def get_exported_folders():
         for fldr in folders:
             exportcsv_in_folder = file_ops.get_files_by_type(folderid=fldr.id, filetype='export', session=session)
             # exportcsv_in_folder = file_ops.get_files_in_folder(folderid=fldr.id, session=session)
-            mbt_in_folder = mbtiles_ops.get_latest_mbtiles(folderid=fldr.id, session=session)
 
             # print(exportcsv_in_folder)
             for f in exportcsv_in_folder:
@@ -525,7 +509,7 @@ def get_exported_folders():
                     "name": f.name,
                     "timestamp": f.timestamp,
                     "type": f.type,
-                    "mbt_id": mbt_in_folder.id
+                    "folder_id": f.folder_id
                 }
                 response_data.append(file_data)
 

@@ -249,14 +249,6 @@ def export(userid, folderid, providerid, brandname, session):
     availability_csv.to_csv(output, index=False, encoding='utf-8')
     csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
 
-    # original_folder = get_upload_folder(userid=userid, folderid=folderid, session=session)
-    # new_folder = original_folder.copy(name=folder_name,type='export', session=session)
-
-    # csv_file = create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
-    
-    # session.add(csv_file)
-    # session.commit()
-
     async_folder_copy_for_export.apply_async(args=[userid, folderid, csv_data_str])
 
     return output

@@ -207,36 +207,32 @@ def deleteFiles(self, fileid, userid):
         session.close()
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def toggle_tiles(self, markers, userid, mbtid):
+def toggle_tiles(self, markers, userid, folderid):
     message = ''
     status_code = 0
     session = Session()
     try:
-        # Get the last folder of the user
-        if mbtid != -1:
-            mbtiles_entry = mbtiles_ops.get_mbtiles_with_id(mbtid=mbtid, session=session)
-            user_last_folder = folder_ops.get_export_folder(userid=userid, folderid=mbtiles_entry.folder_id, session=session)
-        else:
-            user_last_folder = folder_ops.get_upload_folder(userid=userid, folderid=None, session=session)
-        if user_last_folder:
+        
+        user_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
+        if user_folder:
             
             kml_set = set()
             for marker in markers:
                 # Retrieve all kml_data entries where location_id equals to marker['id']
-                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_last_folder.id).all()
+                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_folder.id).all()
                 for kml_data_entry in kml_data_entries:
                     kml_file = file_ops.get_file_with_id(fileid=kml_data_entry.file_id, session=session)
                     if kml_file.type == 'edit':
                         continue
                     # Count files with .edit prefix in the folder
-                    edit_count = len(file_ops.get_files_with_prefix(folderid=user_last_folder.id, prefix=f"{kml_file.name}-edit", session=session))
+                    edit_count = len(file_ops.get_files_with_prefix(folderid=user_folder.id, prefix=f"{kml_file.name}-edit", session=session))
                     if kml_data_entry.file_id not in kml_set:
-                        new_file = file_ops.create_file(filename=f"{kml_file.name}-edit{edit_count+1}/", content=None, folderid=user_last_folder.id, filetype='edit', session=session)
+                        new_file = file_ops.create_file(filename=f"{kml_file.name}-edit{edit_count+1}/", content=None, folderid=user_folder.id, filetype='edit', session=session)
                         session.add(new_file)
                         session.commit()
                         kml_set.add(kml_file.id)
                     else:
-                        new_file = file_ops.get_file_with_name(filename=f"{kml_file.name}-edit{edit_count}/", folderid=user_last_folder.id, session=session)
+                        new_file = file_ops.get_file_with_name(filename=f"{kml_file.name}-edit{edit_count}/", folderid=user_folder.id, session=session)
                     
                     # Update each entry
                     kml_data_entry.file_id = new_file.id
@@ -249,31 +245,31 @@ def toggle_tiles(self, markers, userid, mbtid):
             raise Exception('No last folder for the user')
         
         geojson_data = []
-        all_kmls = file_ops.get_files_with_postfix(user_last_folder.id, '.kml', session)
+        all_kmls = file_ops.get_files_with_postfix(user_folder.id, '.kml', session)
         for kml_f in all_kmls:
             geojson_data.append(vt_ops.read_kml(kml_f.id, session))
         
-        all_geojsons = file_ops.get_files_with_postfix(folderid=user_last_folder.id, postfix='.geojson', session=session)
+        all_geojsons = file_ops.get_files_with_postfix(folderid=user_folder.id, postfix='.geojson', session=session)
         for geojson_f in all_geojsons:
             geojson_data.append(vt_ops.read_geojson(geojson_f.id, session))
 
-        mbtiles_ops.delete_mbtiles(user_last_folder.id, session)
-        vt_ops.create_tiles(geojson_data, userid, user_last_folder.id, session)
-        if mbtid != -1:
-            existing_csvs = file_ops.get_files_by_type(folderid=user_last_folder.id, filetype='export', session=session)
+        mbtiles_ops.delete_mbtiles(user_folder.id, session)
+        vt_ops.create_tiles(geojson_data, userid, user_folder.id, session)
+        if user_folder.type == 'export':
+            existing_csvs = file_ops.get_files_by_type(folderid=user_folder.id, filetype='export', session=session)
             for csv_file in existing_csvs:
                 session.delete(csv_file)
 
             userVal = user_ops.get_user_with_id(userid=userid, session=session)
             # Generate and save a new CSV
-            all_file_ids = [file.id for file in file_ops.get_files_with_postfix(user_last_folder.id, '.kml', session) + file_ops.get_files_with_postfix(user_last_folder.id, '.geojson', session)]
+            all_file_ids = [file.id for file in file_ops.get_files_with_postfix(user_folder.id, '.kml', session) + file_ops.get_files_with_postfix(user_folder.id, '.geojson', session)]
 
             results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
-            availability_csv = file_ops.generate_csv_data(results, userVal.provider_id, userVal.brand_name)
+            availability_csv = kml_ops.generate_csv_data(results, userVal.provider_id, userVal.brand_name)
 
             csv_name = f"availability-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.csv"
             csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
-            new_csv_file = file_ops.create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=user_last_folder.id, filetype='export', session=session)
+            new_csv_file = file_ops.create_file(filename=csv_name, content=csv_data_str.encode('utf-8'), folderid=user_folder.id, filetype='export', session=session)
             session.add(new_csv_file)
 
         
@@ -306,7 +302,7 @@ def async_folder_copy_for_export(self, userid, folderid, serialized_csv):
 
     csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datetime=current_datetime)
 
-    original_folder = folder_ops.get_upload_folder(userid=userid, folderid=folderid, session=session)
+    original_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
     new_folder = original_folder.copy(name=newfolder_name,type='export', session=session)
     csv_file = file_ops.create_file(filename=csv_name, content=serialized_csv.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
     session.add(csv_file)

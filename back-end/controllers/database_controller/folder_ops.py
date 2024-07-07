@@ -58,6 +58,24 @@ def get_upload_folder(userid, folderid=None, session=None):
         if owns_session:
             session.close()
 
+def get_folder_with_id(userid, folderid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+    try:
+        folderVal = session.query(folder).filter(folder.id == folderid, folder.user_id == userid).one()
+        return folderVal
+
+    except NoResultFound:
+        return None
+    except MultipleResultsFound:
+        return "Multiple results found for the given user ID"
+    except Exception as e:
+        return str(e)
+    finally:
+        if owns_session:
+            session.close()
 
 def get_folders_by_type_for_user(userid, foldertype, session=None):
     owns_session = False

@@ -24,10 +24,11 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import UndoIcon from '@mui/icons-material/Undo';
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
-import MbtilesContext from "../contexts/MbtilesContext";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import {useFolder} from "../contexts/FolderContext.js";
+
 
 const HeaderText = styled(Typography)({
     marginBottom: "20px",
@@ -65,8 +66,10 @@ const MyEdit = () => {
 
     const { setLocation } = useContext(SelectedLocationContext);
     const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
-    const { mbtid } = useContext(MbtilesContext);
     const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
+
+
+    const {folderID, setFolderID} = useFolder();
 
     const handleLocateOnMap = (option) => {
         if (option !== undefined && option !== null) {
@@ -144,7 +147,7 @@ const MyEdit = () => {
     
             const requestBody = {
                 marker: combinedPoints,
-                mbtid: mbtid || -1, // Set mbtid to -1 if it's null or undefined
+                folderid: folderID
             };
 
             const response = await fetch(`${backend_url}/api/toggle-markers`, {

@@ -11,7 +11,6 @@ import EditMapContext from "../contexts/EditMapContext";
 import MyEdit from "../components/MyEdit";
 import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
 import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
-import { FolderProvider } from "../contexts/FolderContext";
 import { styled } from '@mui/material/styles';
 import { Typography, Container, Box } from "@mui/material";
 
@@ -48,7 +47,6 @@ const HomePage = () => {
 
   return (
     <div>
-      <FolderProvider>
      
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
@@ -81,7 +79,6 @@ const HomePage = () => {
         </SelectedLocationProvider>
       </LayerVisibilityProvider>
      
-      </FolderProvider>
     </div>
   );
 };

@@ -28,8 +28,11 @@ import EditIcon from "@mui/icons-material/Edit";
 import CellTowerIcon from '@mui/icons-material/CellTower';
 import EditMapContext from "../contexts/EditMapContext";
 import { backend_url } from "../utils/settings";
+import ViewListIcon from '@mui/icons-material/ViewList';
 import HistoryIcon from '@mui/icons-material/History';
 import Swal from "sweetalert2";
+import {useFolder} from "../contexts/FolderContext.js";
+
 
 
 const modalStyle = {
@@ -95,6 +98,8 @@ export default function Navbar({
   const isMenuOpen = Boolean(anchorEl);
 
   const { isEditingMap, setEditingMap } = React.useContext(EditMapContext);
+  const {folderID, setFolderID} = useFolder();
+
 
   const handleEditToolClick = () => {
     setEditingMap(!isEditingMap); // <-- toggle isEditing state
@@ -168,7 +173,7 @@ export default function Navbar({
   };
 
   const downloadFiling = () => {
-    window.location.href = `${backend_url}/api/exportFiling`;
+    window.location.href = `${backend_url}/api/exportFiling/${folderID}`;
   };
 
   const downloadChallenge = () => {
@@ -372,15 +377,16 @@ export default function Navbar({
             </IconButton>
           )}
 
-          {isEditingMap && (
+          {showOnHome && isEditingMap && (
             <IconButton onClick={handleMyFilingOpen}>
-              <FolderIcon
+              <ViewListIcon
                 sx={{ fontWeight: "700", color: "white", marginRight: "5px" }}
               />
               <Typography sx={{ color: "white" }}>Your Edits</Typography>
             </IconButton>
           )}
 
+          {/* Potentially show this on edit map view */}
           {showOnHome && !isEditingMap && (
             <IconButton onClick={handleMyFilingOpen}>
               <FolderIcon sx={{ color: "white", marginRight: "5px" }} />
