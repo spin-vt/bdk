@@ -17,7 +17,8 @@ import Swal from 'sweetalert2';
 import { backend_url } from "../utils/settings";
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
-import {useFolder} from "../contexts/FolderContext.js";
+import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
+import { useFolder } from "../contexts/FolderContext.js";
 
 
 const StyledBaseMapIconButton = styled(IconButton)({
@@ -52,9 +53,9 @@ function Editmap() {
 
   const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
   const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
+  const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
-
-  const {folderID, setFolderID} = useFolder();
+  const { folderID, setFolderID } = useFolder();
 
 
   const router = useRouter();
@@ -220,7 +221,7 @@ function Editmap() {
 
     map.current.on("draw.create", (event) => {
       const polygon = event.features[0];
-
+      console.log(polygon);
       // Convert drawn polygon to turf polygon
       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
@@ -240,6 +241,11 @@ function Editmap() {
 
         selectedPolygonsRef.current.push(selected);
         setSelectedPolygons(selectedPolygonsRef.current);
+        
+        setSelectedPolygonsArea((prevAreas) => [
+          ...prevAreas, polygon
+        ]);
+
       }
     });
 
@@ -370,7 +376,7 @@ function Editmap() {
 
   useEffect(() => {
     // Loop through each polygon in selectedPolygonsRef
-    if (selectedPolygons === undefined || selectedPolygons.length === 0) {
+    if (selectedPolygons === undefined || selectedPolygons === null || selectedPolygons.length === 0) {
       for (let i = 0; i < selectedPolygonsRef.current.length; i++) {
         const refPolygon = selectedPolygonsRef.current[i];
         refPolygon.forEach(marker => {
@@ -441,7 +447,6 @@ function Editmap() {
     selectedPolygonsRef.current = [...selectedPolygons];
 
   }, [selectedPolygons]); // Dependency on selectedPolygons
-
 
 
 

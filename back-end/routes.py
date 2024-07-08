@@ -349,11 +349,11 @@ def toggle_markers():
         request_data = request.json
         markers = request_data['marker']
         folderid = request_data['folderid']
+        polygonfeatures = request_data['polygonfeatures']
         if folderid == -1:
             return jsonify({'error': 'Invalid folder id'}), 400
         identity = get_jwt_identity()
         task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid])
-
         return jsonify({'Status': "OK", 'task_id': task.id}), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401

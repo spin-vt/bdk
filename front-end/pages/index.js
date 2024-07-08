@@ -11,6 +11,7 @@ import EditMapContext from "../contexts/EditMapContext";
 import MyEdit from "../components/MyEdit";
 import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
 import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
+import SelectedPolygonAreaProvider from "../contexts/SelectedPolygonAreaProvider";
 import { styled } from '@mui/material/styles';
 import { Typography, Container, Box } from "@mui/material";
 
@@ -47,38 +48,40 @@ const HomePage = () => {
 
   return (
     <div>
-     
+
       <LayerVisibilityProvider>
         <SelectedLocationProvider>
           <SelectedPointsProvider>
             <SelectedPolygonProvider>
-            <Navbar
-              sx={{ height: "10%" }}
-              handleMyFilingOpen={handleDrawerOpen}
-              handleUploadOpen={handleDrawerOpen2}
-              showOnHome={true}
-            />
-            {isEditingMap ? <Editmap /> : <DynamicMap />} 
-            {/* This is where I will add filing logic */}
-            <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
-              {isEditingMap ? <MyEdit /> : <MyFile />}
-            </CustomDrawer>
- 
-            <Drawer
-              anchor="right"
-              open={uploadOpen}
-              onClose={handleDrawerClose2}
-            >
-              <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
-                Upload Network Files Below:
-              </StyledTypography>
-              <Upload/>
-            </Drawer>
+              <SelectedPolygonAreaProvider>
+                <Navbar
+                  sx={{ height: "10%" }}
+                  handleMyFilingOpen={handleDrawerOpen}
+                  handleUploadOpen={handleDrawerOpen2}
+                  showOnHome={true}
+                />
+                {isEditingMap ? <Editmap /> : <DynamicMap />}
+                {/* This is where I will add filing logic */}
+                <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
+                  {isEditingMap ? <MyEdit /> : <MyFile />}
+                </CustomDrawer>
+
+                <Drawer
+                  anchor="right"
+                  open={uploadOpen}
+                  onClose={handleDrawerClose2}
+                >
+                  <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
+                    Upload Network Files Below:
+                  </StyledTypography>
+                  <Upload />
+                </Drawer>
+              </SelectedPolygonAreaProvider>
             </SelectedPolygonProvider>
           </SelectedPointsProvider>
         </SelectedLocationProvider>
       </LayerVisibilityProvider>
-     
+
     </div>
   );
 };

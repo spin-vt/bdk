@@ -25,6 +25,7 @@ import { backend_url } from "../utils/settings";
 import UndoIcon from '@mui/icons-material/Undo';
 import SelectedPointsContext from "../contexts/SelectedPointsContext";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
+import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import {useFolder} from "../contexts/FolderContext.js";
@@ -67,7 +68,7 @@ const MyEdit = () => {
     const { setLocation } = useContext(SelectedLocationContext);
     const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
     const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
-
+    const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
     const {folderID, setFolderID} = useFolder();
 
@@ -96,6 +97,10 @@ const MyEdit = () => {
         const updatedPolygons = [...selectedPolygons];
         updatedPolygons.splice(index, 1);
         setSelectedPolygons(updatedPolygons);
+
+        const updatedPolygonsArea = [...selectedPolygonsArea];
+        updatedPolygons.splice(index, 1);
+        setSelectedPolygonsArea(updatedPolygonsArea);
     };
 
     const handleUndoSinglePointWithinPolygon = (polygonIndex, pointIndex) => {
@@ -147,6 +152,7 @@ const MyEdit = () => {
     
             const requestBody = {
                 marker: combinedPoints,
+                polygonfeatures: selectedPolygonsArea,
                 folderid: folderID
             };
 
