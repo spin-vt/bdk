@@ -17,7 +17,7 @@ import shortuuid
 from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
-from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, kmz_ops
+from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops
 from utils.flask_app import app, jwt
 from controllers.celery_controller.celery_config import celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage
@@ -109,34 +109,18 @@ def submit_data(folderid):
             if existing_file is not None:
                 # If file already exists, append its name to file_names and skip to next file
                 continue
-            existing_file = kmz_ops.get_kmz_with_name(f.filename, folderVal.id, session=session)
-            if existing_file is not None:
-                # If file already exists, append its name to file_names and skip to next file
-                continue
+            
             
             data = f.read()
             if (f.filename.endswith('.csv')):
-                file_ops.create_file(f.filename, data, folderVal.id, None, 'fabric', session=session)
+                file_ops.create_file(f.filename, data, folderVal.id, 'fabric', session=session)
                 file_names.append(f.filename)
                 matching_file_data_list.append(file_data_list[index])
             elif (f.filename.endswith('.kml') or f.filename.endswith('.geojson')):
-                file_ops.create_file(f.filename, data, folderVal.id, None, None, session=session)
+                file_ops.create_file(f.filename, data, folderVal.id,None, session=session)
                 file_names.append(f.filename)
                 matching_file_data_list.append(file_data_list[index])
-            elif f.filename.endswith('.kmz'):
-                kmz_entry = kmz_ops.create_kmz(f.filename, folderVal.id, session)
-                session.commit()
-                kml_entries = kmz_ops.extract_kml_from_kmz(data)
-                prefix = f.filename.rsplit('.', 1)[0]  # This will give you the filename without the .kmz extension
-                
-                for entry in kml_entries:
-                    kml_data = entry['data']
-                    kml_filename = entry['filename']
-                    new_kml_name = prefix + '-' + kml_filename
-                    file_ops.create_file(new_kml_name, kml_data, folderVal.id, kmz_entry.id, None, session=session)
-                    file_names.append(new_kml_name)
-                    # Reuse the KMZ's associated data for each extracted KML
-                    matching_file_data_list.append(file_data_list[index])
+            
                 
 
             session.commit()
@@ -322,6 +306,10 @@ def exportChallenge():
 @app.route("/api/tiles/<folder_id>/<zoom>/<x>/<y>.pbf")
 @jwt_required()
 def serve_tile_with_folderid(folder_id, zoom, x, y):
+    if not folder_id:
+        return Response('No tile found', status=404)
+    if folder_id == -1:
+        return Response('No tile found', status=404)
     folder_id = int(folder_id)
     identity = get_jwt_identity()
 
@@ -350,6 +338,7 @@ def toggle_markers():
         markers = request_data['marker']
         folderid = request_data['folderid']
         polygonfeatures = request_data['polygonfeatures']
+        logger.info(polygonfeatures)
         if folderid == -1:
             return jsonify({'error': 'Invalid folder id'}), 400
         identity = get_jwt_identity()
@@ -406,8 +395,11 @@ def get_last_folder():
         user_id = identity['id']
         # Hackey way to use this method to get the lastest filing of user
         folderVal = folder_ops.get_upload_folder(userid=user_id)
-        
-        return jsonify(folderVal.id), 200
+        if not folderVal:
+            folderid = -1
+        else:
+            folderid = folderVal.id
+        return jsonify(folderid), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

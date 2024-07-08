@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime, JSON, Date
+from sqlalchemy import Column, Integer, Float, Boolean, String, LargeBinary, DateTime, JSON, Date, Table
 from database.base import Base
 from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -71,8 +71,7 @@ class folder(Base): #filing, will change the name later for less confusion when 
     deadline = Column(Date) #This deadline makes it a filing for the current period
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
-    kmzs = relationship('kmz', back_populates='folder', cascade='all, delete')
-
+    editfiles = relationship('editfile', back_populates='folder', cascade='all,delete')
 
     def copy(self, session, name=None, type=None):
         name = name if name is not None else self.name
@@ -81,33 +80,20 @@ class folder(Base): #filing, will change the name later for less confusion when 
         session.add(new_folder)
         session.flush()  # To generate an ID for the new folder
         
-        # Copy related files, mbtiles, and kmzs
+        # Copy related files, mbtiles
         for file in self.files:
             file.copy(session=session, new_folder_id=new_folder.id)
+        for edit_file in self.edit_files:
+            edit_file.copy(session=session, new_folder_id=new_folder.id)
         for mbtile in self.mbtiles:
             mbtile.copy(session=session, new_folder_id=new_folder.id)
-        for kmz in self.kmzs:
-            kmz.copy(session=session, new_folder_id=new_folder.id)
 
         return new_folder
 
-class kmz(Base):
-    __tablename__ = 'kmz'
-    
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
-    kml_files = relationship('file', back_populates='kmz', cascade='all, delete')  # Assuming kml_data is your KML model
-    folder = relationship('folder', back_populates='kmzs')  # Add this new back_populates to your Folder model
-    def copy(self, session, new_folder_id):
-        new_kmz = kmz(name=self.name, folder_id=new_folder_id)
-        session.add(new_kmz)
-        session.flush()
-        
-        for kml_file in self.kml_files:
-            kml_file.copy(session=session, new_kmz_id=new_kmz.id, new_folder_id=new_folder_id)
-
-        return new_kmz
+file_editfile_association_table = Table('file_editfile_association', Base.metadata,
+    Column('file_id', Integer, ForeignKey('file.id')),
+    Column('editfile_id', Integer, ForeignKey('editfile.id'))
+)
 
 class file(Base):
     __tablename__ = 'file'
@@ -116,20 +102,18 @@ class file(Base):
     name = Column(String, nullable=False)
     data = Column(LargeBinary)
     folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
-    kmz_id = Column(Integer, ForeignKey('kmz.id', ondelete='CASCADE'), nullable=True)
-    timestamp = Column(DateTime)  # this will add a timestamp column
+    timestamp = Column(DateTime) 
     type = Column(String)
     computed = Column(Boolean, default=False)
-    kmz = relationship('kmz', back_populates='kml_files')
     folder = relationship('folder', back_populates='files')
     fabric_data = relationship('fabric_data', back_populates='file', cascade='all, delete')  # Use fabric_data instead of data_entries
     kml_data = relationship('kml_data', back_populates='file', cascade='all, delete')
+    editfiles = relationship("editfile", secondary=file_editfile_association_table, back_populates="files")
 
-    def copy(self, session, new_kmz_id=None, new_folder_id=None):
+    def copy(self, session, new_folder_id=None):
         new_file = file(name=self.name, 
                         data=self.data, 
-                        folder_id=new_folder_id, 
-                        kmz_id=new_kmz_id, 
+                        folder_id=new_folder_id,
                         timestamp=datetime.now(), 
                         type=self.type, 
                         computed=self.computed)
@@ -186,6 +170,26 @@ class file(Base):
         session.bulk_insert_mappings(kml_data, kml_data_copies)
 
         return new_file
+    
+
+class editfile(Base):
+    __tablename__ = 'editfile'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    data = Column(LargeBinary)
+    folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
+    timestamp = Column(DateTime) 
+    folder = relationship('folder', back_populates='editfiles')
+    files = relationship("file", secondary=file_editfile_association_table, back_populates="editfiles")
+
+    def copy(self, session, new_folder_id=None):
+        new_edit_file = editfile(name=self.name, 
+                        data=self.data, 
+                        folder_id=new_folder_id,
+                        timestamp=datetime.now(), 
+                        )
+        session.add(new_edit_file)
+        session.flush()
 
 class fabric_data(Base):
     __tablename__ = 'fabric_data'

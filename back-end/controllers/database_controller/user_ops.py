@@ -2,6 +2,8 @@ from database.models import user
 from database.sessions import Session
 from werkzeug.security import generate_password_hash
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+from utils.logger_config import logger
+
 
 def get_user_with_id(userid, session=None):
     owns_session = False
@@ -46,6 +48,7 @@ def create_user_in_db(username, password, providerid, brandname):
     try:
         existing_user = get_user_with_username(username, session)
         if existing_user:
+            logger.debug(existing_user)
             return {"error": "Username already exists"}
 
         hashed_password = generate_password_hash(password, method='sha256')

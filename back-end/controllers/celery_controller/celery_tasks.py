@@ -449,7 +449,7 @@ def raster2vector(self, data, userid, outfile_name):
         vector_file_name = outfile_name + '.kml'
         with open(vector_file_name, 'rb') as vector_file:
             kml_binarydata = vector_file.read()
-            fileVal = file_ops.create_file(vector_file_name, kml_binarydata, folderVal.id, None, 'wireless', session=session)
+            fileVal = file_ops.create_file(vector_file_name, kml_binarydata, folderVal.id, 'wireless', session=session)
             fileVal.computed = True
             session.commit()
             downloadSpeed = data['downloadSpeed']

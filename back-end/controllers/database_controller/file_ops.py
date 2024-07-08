@@ -1,6 +1,6 @@
 import psycopg2
 from database.sessions import ScopedSession, Session
-from database.models import file, kml_data, kmz
+from database.models import file, kml_data
 from threading import Lock
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -137,14 +137,14 @@ def get_file_with_name(filename, folderid, session=None):
             session.close()
 
 
-def create_file(filename, content, folderid, kmzid=None, filetype=None, session=None):
+def create_file(filename, content, folderid, filetype=None, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        new_file = file(name=filename, data=content, folder_id=folderid, kmz_id=kmzid, timestamp=datetime.now(), type=filetype)
+        new_file = file(name=filename, data=content, folder_id=folderid, timestamp=datetime.now(), type=filetype)
         session.add(new_file)
         if owns_session:
             session.commit()
@@ -191,9 +191,7 @@ def get_filesinfo_in_folder(folderid, session=None):
 
         files_info = []
         for file in files_in_folder:
-            # Handle kml file within kmz in other places
-            # if (file.name.endswith('.kml') and file.kmz_id is not None):
-            #     continue
+
             file_dict = {
                 'id': file.id,
                 'name': file.name,
