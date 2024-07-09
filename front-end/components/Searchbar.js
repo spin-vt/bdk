@@ -105,6 +105,9 @@ function Searchbar() {
   );
 
   const handleSearchChange = async (nextValue) => {
+    if (folderID === -1) {
+      return;
+    }
     setSearchInput(nextValue);
 
     if (nextValue !== "") {

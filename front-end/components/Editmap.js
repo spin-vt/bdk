@@ -15,7 +15,6 @@ import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import Swal from 'sweetalert2';
 import { backend_url } from "../utils/settings";
-import SelectedPointsContext from "../contexts/SelectedPointsContext";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
 import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
 import { useFolder } from "../contexts/FolderContext.js";
@@ -51,7 +50,6 @@ function Editmap() {
   const selectedPolygonsRef = useRef([]);
   const selectedSingleMarkersRef = useRef([]);
 
-  const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
   const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
   const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
@@ -221,7 +219,6 @@ function Editmap() {
 
     map.current.on("draw.create", (event) => {
       const polygon = event.features[0];
-      console.log(polygon);
       // Convert drawn polygon to turf polygon
       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
@@ -272,71 +269,8 @@ function Editmap() {
           content += `<p><strong>${property}:</strong> ${featureProperties[property]}</p>`;
         }
 
-        const currentFeatureState = map.current.getFeatureState({
-          source: "custom",
-          sourceLayer: "data",
-          id: featureId,
-        });
-
-        if (currentFeatureState.served) {
-          content += '<button id="toggleServe">Change to Unserve</button>';
-        } else {
-          content += '<button id="toggleServe">Undo Change</button>';
-        }
-
         popup.setHTML(content);
 
-        document.getElementById('toggleServe')?.addEventListener('click', function () {
-          // Toggle the 'served' property
-          const toggleRes = !currentFeatureState.served;
-          console.log(toggleRes);
-
-          // Update feature state
-          map.current.setFeatureState(
-            {
-              source: "custom",
-              sourceLayer: "data",
-              id: featureId,
-            },
-            { served: toggleRes }
-          );
-
-          if (toggleRes) {
-            // Check if the point exists in selectedSingleMarkersRef
-            const pointExistsInMarkers = selectedSingleMarkersRef.current.some(location => location.id === featureId);
-
-            if (pointExistsInMarkers) {
-              // Remove the point from selectedSingleMarkersRef
-              selectedSingleMarkersRef.current = selectedSingleMarkersRef.current.filter(
-                location => location.id !== featureId
-              );
-              setSelectedPoints(selectedSingleMarkersRef.current);
-            } else {
-              // Remove the point from selectedPolygonRef
-              selectedPolygonsRef.current = selectedPolygonsRef.current.map(polygon => {
-                // Remove the point if it exists in this polygon
-                return polygon.filter(location => location.id !== featureId);
-              });
-              setSelectedPolygons(selectedPolygonsRef.current);
-            }
-          } else {
-            // Add the point to selectedSingleMarkersRef when serving
-            const locationInfo = {
-              id: featureId,
-              latitude: featureCoordinates[1],
-              longitude: featureCoordinates[0],
-              address: featureProperties.address,
-              served: toggleRes
-            };
-            selectedSingleMarkersRef.current.push(locationInfo);
-            setSelectedPoints(selectedSingleMarkersRef.current);
-          }
-
-
-
-          // Update the popup content to reflect changes
-          updatePopup();
-        });
       }
 
       // Initial popup content setup
@@ -349,30 +283,6 @@ function Editmap() {
 
   };
 
-  useEffect(() => {
-    // Loop through the current ref list
-    selectedSingleMarkersRef.current.forEach((marker) => {
-      // Check if the marker is not in the selectedPoints
-      if (!selectedPoints.some(point => point.id === marker.id)) {
-        marker.served = true;
-        // If it's not in selectedPoints, set served back to true
-        map.current.setFeatureState(
-          {
-            source: "custom",
-            sourceLayer: "data",
-            id: marker.id,
-          },
-          {
-            served: true,
-          }
-        );
-      }
-    });
-
-    // Sync ref with the current state
-    selectedSingleMarkersRef.current = [...selectedPoints];
-
-  }, [selectedPoints]); // Dependency on selectedPoints
 
   useEffect(() => {
     // Loop through each polygon in selectedPolygonsRef
@@ -542,6 +452,7 @@ function Editmap() {
             latitude: item.latitude,
             longitude: item.longitude,
             served: item.served,
+            coveredBy: item.coveredLocations
           }));
 
           setFeatureStateForMarkers(newMarkers);

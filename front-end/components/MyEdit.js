@@ -23,7 +23,6 @@ import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
 import UndoIcon from '@mui/icons-material/Undo';
-import SelectedPointsContext from "../contexts/SelectedPointsContext";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
 import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -66,7 +65,6 @@ const MyEdit = () => {
     const loadingTimeInMs = 3.5 * 60 * 1000;
 
     const { setLocation } = useContext(SelectedLocationContext);
-    const { selectedPoints, setSelectedPoints } = useContext(SelectedPointsContext);
     const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
     const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
@@ -86,12 +84,6 @@ const MyEdit = () => {
         }
     }
 
-    const handleUndoSingleEdit = (index) => {
-        // Create a new array without the item at the given index
-        const updatedPoints = [...selectedPoints];
-        updatedPoints.splice(index, 1);
-        setSelectedPoints(updatedPoints);
-    };
 
     const handleUndoPolygonEdit = (index) => {
         const updatedPolygons = [...selectedPolygons];
@@ -144,14 +136,9 @@ const MyEdit = () => {
                 polygon.slice(1)  // Skip the first element (timestamp) and take the rest (points)
             );
     
-            // Merge points from selectedPoints and polygonPoints
-            const combinedPoints = [...selectedPoints, ...polygonPoints].map((point) => ({
-                id: point.id,
-                served: point.served,
-            }));
     
             const requestBody = {
-                marker: combinedPoints,
+                marker: polygonPoints,
                 polygonfeatures: selectedPolygonsArea,
                 folderid: folderID
             };
@@ -224,11 +211,6 @@ const MyEdit = () => {
                     handleLocateOnMap={handleLocateOnMap}
                     handleUndoSinglePointWithinPolygon={handleUndoSinglePointWithinPolygon}
                 />
-                <FileTable
-                    files={selectedPoints}
-                    handleUndoSingleEdit={handleUndoSingleEdit}
-                    handleLocateOnMap={handleLocateOnMap}
-                />
             </StyledContainer>
             <div style={{ marginTop: '20px', marginLeft: '20px' }}>
                 <Button
@@ -241,53 +223,6 @@ const MyEdit = () => {
             </div>
         </div>
 
-    );
-};
-
-
-const FileTable = ({ files, handleUndoSingleEdit, handleLocateOnMap }) => {
-
-    return (
-        <div>
-            <Typography variant="h6" sx={{ margin: "20px 0" }}>
-                Single Point Edits
-            </Typography>
-            <TableContainer component={Paper} sx={{ marginBottom: "20px", maxHeight: "80vh", overflow: "auto" }}>
-                <StyledTable aria-label="single point table">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Location ID</TableCell>
-                            <TableCell>Address</TableCell>
-                            <TableCell></TableCell>
-                            <TableCell align='right'></TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {files.map((file, index) => (
-                            <TableRow key={index}>
-                                <TableCell>{file.id}</TableCell>
-                                <TableCell>{file.address}</TableCell>
-                                <TableCell>
-                                    <IconButton
-                                        onClick={() => handleLocateOnMap(file)}
-                                    >
-                                        <LocationOnIcon />
-
-                                    </IconButton>
-                                </TableCell>
-                                <TableCell align="right">
-                                    <StyledIconButton
-                                        onClick={() => handleUndoSingleEdit(index)}
-                                    >
-                                        <UndoIcon />
-                                    </StyledIconButton>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </StyledTable>
-            </TableContainer>
-        </div>
     );
 };
 

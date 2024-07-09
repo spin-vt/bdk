@@ -9,7 +9,6 @@ import LayerVisibilityProvider from "../contexts/LayerVisibilityProvider";
 import SelectedLocationProvider from "../contexts/SelectedLocationProvider";
 import EditMapContext from "../contexts/EditMapContext";
 import MyEdit from "../components/MyEdit";
-import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
 import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
 import SelectedPolygonAreaProvider from "../contexts/SelectedPolygonAreaProvider";
 import EditLayerVisibilityProvider from "../contexts/EditLayerVisibilityProvider";
@@ -54,7 +53,6 @@ const HomePage = () => {
       <LayerVisibilityProvider>
         <EditLayerVisibilityProvider>
           <SelectedLocationProvider>
-            <SelectedPointsProvider>
               <SelectedPolygonProvider>
                 <SelectedPolygonAreaProvider>
                   <Navbar
@@ -81,7 +79,6 @@ const HomePage = () => {
                   </Drawer>
                 </SelectedPolygonAreaProvider>
               </SelectedPolygonProvider>
-            </SelectedPointsProvider>
           </SelectedLocationProvider>
         </EditLayerVisibilityProvider>
       </LayerVisibilityProvider>
