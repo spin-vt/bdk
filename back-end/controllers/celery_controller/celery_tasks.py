@@ -1,7 +1,7 @@
 import logging, subprocess, os, json, uuid, cProfile
 from controllers.celery_controller.celery_config import celery
-from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops
-from database.models import file, kml_data
+from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops, editfile_ops, file_editfile_link_ops
+from database.models import file, kml_data, editfile
 from database.sessions import Session, ScopedSession
 from controllers.database_controller.tower_ops import get_tower_with_towername
 from controllers.database_controller.rasterdata_ops import create_rasterdata
@@ -207,42 +207,37 @@ def deleteFiles(self, fileid, userid):
         session.close()
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def toggle_tiles(self, markers, userid, folderid):
+def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
     message = ''
     status_code = 0
     session = Session()
     try:
-        
+        file_editfile_link_set = set()
         user_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
         if user_folder:
-            
-            kml_set = set()
-            for marker in markers:
-                # Retrieve all kml_data entries where location_id equals to marker['id']
-                kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_folder.id).all()
-                for kml_data_entry in kml_data_entries:
-                    kml_file = file_ops.get_file_with_id(fileid=kml_data_entry.file_id, session=session)
-                    if kml_file.type == 'edit':
-                        continue
-                    # Count files with .edit prefix in the folder
-                    edit_count = len(file_ops.get_files_with_prefix(folderid=user_folder.id, prefix=f"{kml_file.name}-edit", session=session))
-                    if kml_data_entry.file_id not in kml_set:
-                        new_file = file_ops.create_file(filename=f"{kml_file.name}-edit{edit_count+1}/", content=None, folderid=user_folder.id, filetype='edit', session=session)
-                        session.add(new_file)
-                        session.commit()
-                        kml_set.add(kml_file.id)
-                    else:
-                        new_file = file_ops.get_file_with_name(filename=f"{kml_file.name}-edit{edit_count}/", folderid=user_folder.id, session=session)
-                    
-                    # Update each entry
-                    kml_data_entry.file_id = new_file.id
-                    kml_data_entry.served = marker['served']
-                    kml_data_entry.coveredLocations = new_file.name
-                    session.add(kml_data_entry)
-                    session.commit()
+            # Process each polygon feature
+            for feature in polygonfeatures:
+                # Convert the feature to a binary GeoJSON format
+                feature_binary = json.dumps(feature).encode('utf-8')
+                # Create an editfile for the polygon feature
+                new_editfile = editfile_ops.create_editfile(filename=f"edit-{datetime.now().strftime(DATETIME_FORMAT)}", content=feature_binary, folderid=folderid, session=session)
+                session.commit()
+
+                # Link this editfile with relevant files
+                for marker in markers:
+                    # Identify relevant kml_data entries and link them to the new editfile
+                    kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_folder.id).all()
+                    for entry in kml_data_entries:
+                        file_instance = session.query(file).filter_by(id=entry.file_id).first()
+                        if file_instance:
+                            if (file_instance.id, new_editfile.id) not in file_editfile_link_set:
+                                file_editfile_link_ops.link_file_and_editfile(file_instance.id, new_editfile.id, session)
+                                file_editfile_link_set.add((file_instance.id, new_editfile.id))
+                        session.delete(entry)
+            session.commit()
 
         else:
-            raise Exception('No last folder for the user')
+            raise Exception('No folder for the user')
         
         geojson_data = []
         all_kmls = file_ops.get_files_with_postfix(user_folder.id, '.kml', session)

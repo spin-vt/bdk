@@ -17,7 +17,7 @@ import shortuuid
 from celery.result import AsyncResult
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
-from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops
+from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops
 from utils.flask_app import app, jwt
 from controllers.celery_controller.celery_config import celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage
@@ -29,6 +29,7 @@ from controllers.database_controller.rasterdata_ops import create_rasterdata
 from controllers.signalserver_controller.read_towerinfo import read_tower_csv
 from utils.logger_config import logger
 import json
+from shapely.geometry import shape
 # logger = logging.getLogger(__name__)
 
 
@@ -342,7 +343,7 @@ def toggle_markers():
         if folderid == -1:
             return jsonify({'error': 'Invalid folder id'}), 400
         identity = get_jwt_identity()
-        task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid])
+        task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid, polygonfeatures])
         return jsonify({'Status': "OK", 'task_id': task.id}), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
@@ -358,6 +359,26 @@ def get_files():
         session = Session()
         if folder_ID:
             filesinfo = file_ops.get_filesinfo_in_folder(folder_ID, session=session)
+            if not filesinfo:
+                return jsonify({'error': 'No files found'}), 404
+            return jsonify(filesinfo), 200
+        else:
+            return jsonify({'error': 'No files found'}), 404
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
+@app.route('/api/editfiles', methods=['GET'])
+@jwt_required()
+def get_editfiles():
+    try:
+        identity = get_jwt_identity()
+        # Verify user own this folder
+        folder_ID = int(request.args.get('folder_ID'))
+        session = Session()
+        if folder_ID:
+            filesinfo = editfile_ops.get_editfilesinfo_in_folder(folder_ID, session=session)
             if not filesinfo:
                 return jsonify({'error': 'No files found'}), 404
             return jsonify(filesinfo), 200
@@ -415,7 +436,7 @@ def get_network_files(folder_id):
         folder_id = int(folder_id) 
 
         folderVal = folder_ops.get_folder_with_id(userid=identity['id'], folderid=folder_id, session=session)
-        files = file_ops.get_all_network_files_for_edit_table(folderVal.id, session)
+        files = file_ops.get_all_network_files_for_fileinfoedit_table(folderVal.id, session)
         files_data = []
         for file in files:
             # Assuming each file has at least one kml_data or it's an empty list
@@ -792,6 +813,54 @@ def get_preview_geojson(filename):
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
+@app.route('/api/get-edit-geojson/<int:fileid>', methods=['GET'])
+@jwt_required()
+def get_edit_geojson(fileid):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        fileid = int(fileid)
+        editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)
+       
+        if editfile is None:
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Decode the binary data to string assuming it's stored in UTF-8 encoded JSON format
+        geojson_data = json.loads(editfile.data.decode('utf-8'))
+        return jsonify(geojson_data), 200
+    except FileNotFoundError:
+        return jsonify({'error': 'File not found'}), 404
+    except NoAuthorizationError:
+        return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
+
+
+@app.route('/api/get-edit-geojson-centroid/<int:fileid>', methods=['GET'])
+@jwt_required()
+def get_edit_geojson_centroid(fileid):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)
+
+        if editfile is None:
+            return jsonify({'error': 'File not found'}), 404
+
+        # Decode the binary data to a JSON object
+        geojson_object = json.loads(editfile.data.decode('utf-8'))
+        
+        # Calculate the centroid of the polygon
+        polygon = shape(geojson_object['geometry'])
+        centroid = polygon.centroid
+        centroid_coords = {'latitude': centroid.y, 'longitude': centroid.x}
+        # Include centroid coordinates in the response
+        return jsonify(centroid_coords), 200
+    except Exception as e:
+        return jsonify({'error': 'Failed to fetch file', 'details': str(e)}), 500
+    finally:
+        session.close()
+    
 # For docker
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=backend_port, debug=True)

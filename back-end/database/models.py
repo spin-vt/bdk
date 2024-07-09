@@ -90,10 +90,15 @@ class folder(Base): #filing, will change the name later for less confusion when 
 
         return new_folder
 
-file_editfile_association_table = Table('file_editfile_association', Base.metadata,
-    Column('file_id', Integer, ForeignKey('file.id')),
-    Column('editfile_id', Integer, ForeignKey('editfile.id'))
-)
+class file_editfile_link(Base):
+    __tablename__ = 'file_editfile_link'
+    id = Column(Integer, primary_key=True)
+    file_id = Column(Integer, ForeignKey('file.id', ondelete='CASCADE'))
+    editfile_id = Column(Integer, ForeignKey('editfile.id', ondelete='CASCADE'))
+
+    # Establishing the relationships with the 'file' and 'editfile' tables
+    file = relationship("file", back_populates="editfile_links")
+    editfile = relationship("editfile", back_populates="file_links")
 
 class file(Base):
     __tablename__ = 'file'
@@ -108,7 +113,7 @@ class file(Base):
     folder = relationship('folder', back_populates='files')
     fabric_data = relationship('fabric_data', back_populates='file', cascade='all, delete')  # Use fabric_data instead of data_entries
     kml_data = relationship('kml_data', back_populates='file', cascade='all, delete')
-    editfiles = relationship("editfile", secondary=file_editfile_association_table, back_populates="files")
+    editfile_links = relationship("file_editfile_link", back_populates="file")
 
     def copy(self, session, new_folder_id=None):
         new_file = file(name=self.name, 
@@ -180,7 +185,7 @@ class editfile(Base):
     folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
     timestamp = Column(DateTime) 
     folder = relationship('folder', back_populates='editfiles')
-    files = relationship("file", secondary=file_editfile_association_table, back_populates="editfiles")
+    file_links = relationship("file_editfile_link", back_populates="editfile")
 
     def copy(self, session, new_folder_id=None):
         new_edit_file = editfile(name=self.name, 

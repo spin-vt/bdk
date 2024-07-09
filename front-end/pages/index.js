@@ -12,8 +12,10 @@ import MyEdit from "../components/MyEdit";
 import SelectedPointsProvider from "../contexts/SelectedPointsProvider";
 import SelectedPolygonProvider from "../contexts/SelectedPolygonProvider";
 import SelectedPolygonAreaProvider from "../contexts/SelectedPolygonAreaProvider";
+import EditLayerVisibilityProvider from "../contexts/EditLayerVisibilityProvider";
 import { styled } from '@mui/material/styles';
 import { Typography, Container, Box } from "@mui/material";
+import Edit from "@mui/icons-material/Edit";
 
 
 const DynamicMap = dynamic(() => import("../components/Map"), { ssr: false });
@@ -50,36 +52,38 @@ const HomePage = () => {
     <div>
 
       <LayerVisibilityProvider>
-        <SelectedLocationProvider>
-          <SelectedPointsProvider>
-            <SelectedPolygonProvider>
-              <SelectedPolygonAreaProvider>
-                <Navbar
-                  sx={{ height: "10%" }}
-                  handleMyFilingOpen={handleDrawerOpen}
-                  handleUploadOpen={handleDrawerOpen2}
-                  showOnHome={true}
-                />
-                {isEditingMap ? <Editmap /> : <DynamicMap />}
-                {/* This is where I will add filing logic */}
-                <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
-                  {isEditingMap ? <MyEdit /> : <MyFile />}
-                </CustomDrawer>
+        <EditLayerVisibilityProvider>
+          <SelectedLocationProvider>
+            <SelectedPointsProvider>
+              <SelectedPolygonProvider>
+                <SelectedPolygonAreaProvider>
+                  <Navbar
+                    sx={{ height: "10%" }}
+                    handleMyFilingOpen={handleDrawerOpen}
+                    handleUploadOpen={handleDrawerOpen2}
+                    showOnHome={true}
+                  />
+                  {isEditingMap ? <Editmap /> : <DynamicMap />}
+                  {/* This is where I will add filing logic */}
+                  <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
+                    {isEditingMap ? <MyEdit /> : <MyFile />}
+                  </CustomDrawer>
 
-                <Drawer
-                  anchor="right"
-                  open={uploadOpen}
-                  onClose={handleDrawerClose2}
-                >
-                  <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
-                    Upload Network Files Below:
-                  </StyledTypography>
-                  <Upload />
-                </Drawer>
-              </SelectedPolygonAreaProvider>
-            </SelectedPolygonProvider>
-          </SelectedPointsProvider>
-        </SelectedLocationProvider>
+                  <Drawer
+                    anchor="right"
+                    open={uploadOpen}
+                    onClose={handleDrawerClose2}
+                  >
+                    <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
+                      Upload Network Files Below:
+                    </StyledTypography>
+                    <Upload />
+                  </Drawer>
+                </SelectedPolygonAreaProvider>
+              </SelectedPolygonProvider>
+            </SelectedPointsProvider>
+          </SelectedLocationProvider>
+        </EditLayerVisibilityProvider>
       </LayerVisibilityProvider>
 
     </div>

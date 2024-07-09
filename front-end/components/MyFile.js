@@ -28,6 +28,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { styled } from '@mui/material/styles';
 import { useFolder } from '../contexts/FolderContext';
 import { format } from "date-fns";
+import EditLayerVisibilityContext from "../contexts/EditLayerVisibilityContext.js";
+
 
 const StyledContainer = styled(Container)(({ }) => ({
   zIndex: 1000,
@@ -127,7 +129,7 @@ const MyFile = () => {
       setLocation({
         latitude: option.latitude,
         longitude: option.longitude,
-        zoomlevel: 16,
+        zoomlevel: 12,
       });
     }
     else {
@@ -195,21 +197,11 @@ const MyFile = () => {
     const data = await response.json();
     if (!Array.isArray(data)) {
       console.error("Error: Expected data to be an array, but received:", data);
-      // Swal.fire({
-      //   icon: "error",
-      //   title: "Oops...",
-      //   text: "Error on our end, please try again later",
-      // });
       return;
     }
 
     if (!data || data.length === 0) {
       console.log("Error: Empty response received from server");
-      // Swal.fire({
-      //   icon: "error",
-      //   title: "Oops...",
-      //   text: "Error on our end, please try again later",
-      // });
     } else {
       data.forEach((file) => {
         console.log(file);
@@ -235,6 +227,54 @@ const MyFile = () => {
     }
   };
 
+
+  const fetchEditFiles = async (folderIdentity) => {
+    setManualEditFiles([]);
+    if (folderIdentity === -1) {
+      return;
+    }
+    const response = await fetch(`${backend_url}/api/editfiles?folder_ID=${folderIdentity}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies in the request
+    });
+
+    if (response.status === 401) {
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Session expired, please log in again!",
+      });
+      // Redirect to login page
+      router.push("/login");
+      return;
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data)) {
+      console.error("Error: Expected data to be an array, but received:", data);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.log("Error: Empty response received from server");
+    } else {
+      data.forEach((file) => {
+        console.log(file);
+        const formattedFile = {
+          id: file.id,
+          name: file.name,
+          uploadDate: new Date(file.timestamp).toLocaleString(),
+        };
+
+        setManualEditFiles((prevFiles) => [...prevFiles, formattedFile]);
+
+      });
+    }
+  };
+
   useEffect(() => {
     fetchFolders();
   }, []);
@@ -242,6 +282,7 @@ const MyFile = () => {
   useEffect(() => {
 
     fetchFiles(folderID);
+    fetchEditFiles(folderID);
   }, [folderID]);
 
   const handleDelete = async (id, setFiles) => {
@@ -463,17 +504,63 @@ const ManualEditFilesTable = ({
   handleDelete,
   setFiles
 }) => {
-  const [expandedRows, setExpandedRows] = React.useState([]);
 
-  const toggleRowExpansion = (fileId) => {
-    setExpandedRows(prev => {
-      if (prev.includes(fileId)) {
-        return prev.filter(id => id !== fileId);
+  const [checked, setChecked] = useState([]);
+  const { setEditLayers } = useContext(EditLayerVisibilityContext);
+
+  useEffect(() => {
+    setChecked(new Array(files.length).fill(false));
+  }, [files]);
+
+
+
+
+  const fetchGeoJSONCentroid = (editfile_id) => {
+    fetch(`${backend_url}/api/get-edit-geojson-centroid/${editfile_id}`, {
+      method: "GET",
+      credentials: "include", // make sure to send credentials to maintain the session
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch coverage data');
+        }
+        return response.json(); // Get the blob directly from the response
+      })
+      .then(data => {
+        handleLocateOnMap({
+          latitude: data.latitude,
+          longitude: data.longitude
+        })
+      })
+      .catch((error) => {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: error.message,
+        });
+      });
+  };
+
+
+  const handleToggle = (i) => () => {
+    const newChecked = [...checked];
+    newChecked[i] = !newChecked[i];
+    setChecked(newChecked);
+
+    // Assuming 'editLayers' is a state that stores the visible layers/files on the map
+    setEditLayers((prevLayers) => {
+      const fileId = files[i].id;
+      if (newChecked[i]) {
+        // If the file is now checked, add it to the visible layers
+        fetchGeoJSONCentroid(fileId);
+        return [...prevLayers, fileId];
       } else {
-        return [...prev, fileId];
+        // If the file is now unchecked, remove it from the visible layers
+        return prevLayers.filter(layer => layer !== fileId);
       }
     });
   };
+
 
   return (
     <StyledTable>
@@ -481,8 +568,7 @@ const ManualEditFilesTable = ({
         <TableRow>
           <TableCell>Filename</TableCell>
           <TableCell>Created Time</TableCell>
-          <TableCell>Type</TableCell>
-          <TableCell align="right">Show All Points</TableCell>
+          <TableCell align="right">Show On Map</TableCell>
           <TableCell align="right">Action</TableCell>
         </TableRow>
       </TableHead>
@@ -491,15 +577,16 @@ const ManualEditFilesTable = ({
           <React.Fragment key={index}>
             <TableRow>
               <TableCell>{file.name}</TableCell>
-              <TableCell>{file.timestamp}</TableCell>
-              <TableCell>{file.type}</TableCell>
+              <TableCell>{file.uploadDate}</TableCell>
 
               <TableCell align="right">
-                <IconButton
-                  onClick={() => toggleRowExpansion(file.id)}
-                >
-                  <ExpandMoreIcon />
-                </IconButton>
+                <IOSSwitch
+                  sx={{ m: 1 }}
+                  checked={checked[index]}
+                  onChange={handleToggle(index)}
+                  name="showOnMapSwitch"
+                  inputProps={{ "aria-label": "secondary checkbox" }}
+                />
               </TableCell>
 
               <TableCell align="right">
@@ -514,25 +601,7 @@ const ManualEditFilesTable = ({
               </TableCell>
 
             </TableRow>
-            {file.kmlData && expandedRows.includes(file.id) && (
-              <TableRow>
-                <TableCell colSpan={4}>
-                  {file.kmlData.map((data, dataIndex) => (
-                    <div key={dataIndex} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ marginRight: '16px' }}>{data.address}</span>
-                      <IconButton
-                        onClick={() => handleLocateOnMap({
-                          latitude: data.latitude,
-                          longitude: data.longitude
-                        })}
-                      >
-                        <LocationOnIcon />
-                      </IconButton>
-                    </div>
-                  ))}
-                </TableCell>
-              </TableRow>
-            )}
+
           </React.Fragment>
         ))}
       </TableBody>

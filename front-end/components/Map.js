@@ -15,6 +15,7 @@ import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 import {useFolder} from "../contexts/FolderContext.js";
 import Swal from "sweetalert2";
 import { backend_url } from "../utils/settings";
+import EditLayerVisibilityContext from "../contexts/EditLayerVisibilityContext.js";
 
 const StyledBaseMapIconButton = styled(IconButton)({
   width: "33px",
@@ -46,6 +47,9 @@ function Map() {
 
   const { layers } = useContext(LayerVisibilityContext);
   const allKmlLayerRef = useRef({});
+
+  const { editLayers } = useContext(EditLayerVisibilityContext);
+  const allEditLayerRef = useRef([]);
 
   // Use mbtiles to determine which tiles to fetch
 
@@ -519,6 +523,82 @@ function Map() {
       }
     }
   };
+
+
+  const fetchAndRenderEditGeoJSON = (editfile_id) => {
+    fetch(`${backend_url}/api/get-edit-geojson/${editfile_id}`, {
+      method: "GET",
+      credentials: "include", // make sure to send credentials to maintain the session
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to fetch coverage data');
+        }
+        return response.json(); // Get the blob directly from the response
+      })
+      .then(geoJSONData => {
+        console.log(geoJSONData);
+        addGeoJSONLayer(geoJSONData, editfile_id); // Pass the GeoJSON data directly
+      })
+      .catch((error) => {
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: error.message,
+        });
+      });
+  };
+
+  const addGeoJSONLayer = (geojsonData, editfile_id) => {
+    if (map.current.getSource(`editfile${editfile_id}-layer`)) {
+      map.current.removeLayer(`editfile${editfile_id}-layer`);
+      map.current.removeSource(`editfile${editfile_id}-layer`);
+    }
+    // const geojsonObject = JSON.parse(geojsonData);
+    // console.log(geojsonObject);
+    map.current.addSource(`editfile${editfile_id}-layer`, {
+      type: 'geojson',
+      data: geojsonData
+    });
+
+    map.current.addLayer({
+      id: `editfile${editfile_id}-layer`,
+      type: 'fill', // or any other type suitable for your data
+      source: `editfile${editfile_id}-layer`,
+      paint: {
+        "fill-color": '#FF6747',
+        "fill-opacity": 0.5,
+      },
+    });
+  };
+
+  const removeGeoJSONLayer = (editfile_id) => {
+    if (map.current.getSource(`editfile${editfile_id}-layer`)) {
+      map.current.removeLayer(`editfile${editfile_id}-layer`);
+      map.current.removeSource(`editfile${editfile_id}-layer`);
+    }
+  };
+
+  useEffect(() => {
+    // Track which layers are currently rendered on the map
+    const currentLayers = new Set(allEditLayerRef.current);
+
+    // Determine new layers to add
+    editLayers.forEach(editfile_id => {
+      if (!currentLayers.has(editfile_id)) {
+        fetchAndRenderEditGeoJSON(editfile_id);
+        allEditLayerRef.current.push(editfile_id); // Keep track of added layers
+      }
+    });
+
+    // Remove layers that are no longer in editLayers
+    allEditLayerRef.current.forEach((editfile_id, index) => {
+      if (!editLayers.includes(editfile_id)) {
+        removeGeoJSONLayer(editfile_id); // Remove the layer from the map
+        allEditLayerRef.current.splice(index, 1); // Remove the layer from tracking
+      }
+    });
+  }, [editLayers]);
 
   useEffect(() => {
     Object.keys(allKmlLayerRef.current).forEach((key) => {
