@@ -18,6 +18,7 @@ import { backend_url } from "../utils/settings";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
 import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
 import { useFolder } from "../contexts/FolderContext.js";
+import { Typography, Checkbox, Box, Paper, Button } from '@mui/material';
 
 
 const StyledBaseMapIconButton = styled(IconButton)({
@@ -48,13 +49,24 @@ function Editmap() {
   const allMarkersRef = useRef([]); // create a ref for allMarkers
 
   const selectedPolygonsRef = useRef([]);
-  const selectedSingleMarkersRef = useRef([]);
 
   const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
   const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
   const { folderID, setFolderID } = useFolder();
+  const colors = ["#a6cee3", "#1f78b4", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"];
 
+  const colorRed = "#FF0000";
+  const colorGreen = "#46DF39";
+
+  const [combinationToColorMap, setCombinationToColorMap] = useState({});
+  const [combinationToPoints, setCombinationToPoints] = useState({});
+
+
+  const [selectedPoints, setSelectedPoints] = useState([]);
+  const [selectedPolygonFeature, setSelectedPolygonFeature] = useState(null);
+
+  var colorsArrayIndex = 0;
 
   const router = useRouter();
 
@@ -174,10 +186,12 @@ function Editmap() {
         ],
         "circle-color": [
           "case",
-          ["==", ["feature-state", "served"], true], // change 'get' to 'feature-state'
-          "#46DF39",
-          "#FF0000",
-        ],
+          // Check if a color is set in the feature-state, if so use it
+          ["to-boolean", ["feature-state", "color"]], // Ensure color is treated as a boolean (true if exists)
+          ["feature-state", "color"],  // Use the color from feature state
+          // If no color is set in the feature-state, default to red
+          colorRed
+        ]
       },
       filter: ["==", ["get", "feature_type"], "Point"], // Only apply this layer to points
       "source-layer": "data",
@@ -201,6 +215,40 @@ function Editmap() {
       map.current.removeSource("custom");
     }
   };
+
+
+  const initializeCombinationToColorMap = (selected) => {
+
+    
+    let combinationToColorMap = {};
+    let combinationToPoints = {};
+    if (selected === undefined || selected.length === 0) {
+      return { combinationToColorMap, combinationToPoints };
+    }
+
+    const allCoverages = new Set();
+    selected.forEach(marker => {
+      marker.coveredBy.forEach(file => allCoverages.add(file));
+    });
+
+    const fullCoverageKey = Array.from(allCoverages).sort().join(", ");
+    combinationToColorMap[fullCoverageKey] = colorRed; // Red for full coverage
+
+    selected.forEach(marker => {
+      const markerCoverageKey = Array.from(marker.coveredBy).sort().join(", ");
+      if (!combinationToColorMap.hasOwnProperty(markerCoverageKey)) {
+        combinationToColorMap[markerCoverageKey] = colors[colorsArrayIndex % colors.length];
+        colorsArrayIndex++;
+      }
+      if (!combinationToPoints[markerCoverageKey]) {
+        combinationToPoints[markerCoverageKey] = [];
+      }
+      combinationToPoints[markerCoverageKey].push(marker);
+    });
+
+    return { combinationToColorMap, combinationToPoints };
+  };
+
 
   const addVectorTiles = () => {
     removeVectorTiles();
@@ -228,30 +276,58 @@ function Editmap() {
         const isInsidePolygon = turf.booleanPointInPolygon(point, turfPolygon);
         return isInsidePolygon && marker.served;
       });
-      if (selected !== undefined && selected.length > 0) {
-        changeToUnserved(selected);
 
-        const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
 
-        // Prepend the ID to the selected array
-        selected.unshift({ id: polygonId });
+      // Assign colors to markers based on their coverage combination
 
-        selectedPolygonsRef.current.push(selected);
-        setSelectedPolygons(selectedPolygonsRef.current);
-        
-        setSelectedPolygonsArea((prevAreas) => [
-          ...prevAreas, polygon
-        ]);
 
-      }
+      const { combinationToColorMap, combinationToPoints } = initializeCombinationToColorMap(selected);
+      setSelectedPoints(selected);
+      setSelectedPolygonFeature(polygon);
+      setCombinationToColorMap(combinationToColorMap);
+      setCombinationToPoints(combinationToPoints);
+
+      selected.forEach(marker => {
+        const markerCoverageKey = Array.from(marker.coveredBy).sort().join(", ");
+        const markercolor = combinationToColorMap[markerCoverageKey];
+
+        marker.served = false;
+        marker.color = markercolor;
+        // Update feature state with the new color
+        if (map.current.getSource("custom")) {
+          map.current.setFeatureState({
+            source: "custom",
+            sourceLayer: "data",
+            id: marker.id,
+          }, {
+            color: markercolor,
+          });
+        }
+      });
+
+      // if (selected !== undefined && selected.length > 0) {
+
+
+
+      //   const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
+
+      //   // Prepend the ID to the selected array
+      //   selected.unshift({ id: polygonId });
+
+      //   selectedPolygonsRef.current.push(selected);
+      //   setSelectedPolygons(selectedPolygonsRef.current);
+
+      //   setSelectedPolygonsArea((prevAreas) => [
+      //     ...prevAreas, polygon
+      //   ]);
+
+      // }
     });
 
     map.current.on("click", "custom-point", function (e) {
       let featureProperties = e.features[0].properties;
       let featureId = e.features[0].id;
-      let featureCoordinates = e.features[0].geometry.coordinates;
 
-      console.log(featureCoordinates);
 
       if (currentPopup.current) {
         currentPopup.current.remove();
@@ -290,8 +366,8 @@ function Editmap() {
       for (let i = 0; i < selectedPolygonsRef.current.length; i++) {
         const refPolygon = selectedPolygonsRef.current[i];
         refPolygon.forEach(marker => {
-          console.log(marker);
           marker.served = true;
+          marker.editedFile = new Set();
           map.current.setFeatureState(
             {
               source: "custom",
@@ -299,7 +375,7 @@ function Editmap() {
               id: marker.id,
             },
             {
-              served: true,
+              color: colorGreen
             }
           );
         });
@@ -310,10 +386,10 @@ function Editmap() {
         const refPolygon = selectedPolygonsRef.current[i];
 
         // If the entire polygon is missing in selectedPolygons, process all its markers
-        if (refPolygon[0] !== selectedPolygons[i][0]) {
+        if (selectedPolygons[i] === undefined || refPolygon[0] !== selectedPolygons[i][0]) {
           refPolygon.forEach(marker => {
-            console.log(marker);
             marker.served = true;
+            marker.editedFile = new Set();
             map.current.setFeatureState(
               {
                 source: "custom",
@@ -321,7 +397,7 @@ function Editmap() {
                 id: marker.id,
               },
               {
-                served: true,
+                color: colorGreen
               }
             );
           });
@@ -330,25 +406,6 @@ function Editmap() {
           break;
         }
 
-        // If the polygon exists but has different points, check each point
-        for (let j = 1; j < refPolygon.length; j++) {
-          const marker = refPolygon[j];
-          if (!selectedPolygons[i].some(point => point.id === marker.id)) {
-            console.log(marker);
-            marker.served = true;
-            map.current.setFeatureState(
-              {
-                source: "custom",
-                sourceLayer: "data",
-                id: marker.id,
-              },
-              {
-                served: true,
-              }
-            );
-            break;
-          }
-        }
 
       }
     }
@@ -359,41 +416,6 @@ function Editmap() {
   }, [selectedPolygons]); // Dependency on selectedPolygons
 
 
-
-  const changeToUnserved = (lastList) => {
-    if (lastList !== undefined && lastList !== null) {
-      lastList.forEach((marker) => {
-        // Update the state of the selected markers
-        marker.served = false;
-
-        // Set the feature state for each updated marker
-        if (map.current && map.current.getSource("custom")) {
-          // Check if the marker's feature state has been previously set and if served is true
-          const currentFeatureState = map.current.getFeatureState({
-            source: "custom",
-            sourceLayer: "data",
-            id: marker.id,
-          });
-
-          if (currentFeatureState.hasOwnProperty("served") && currentFeatureState.served === true) {
-            // Set the 'served' feature state to false
-            map.current.setFeatureState(
-              {
-                source: "custom",
-                sourceLayer: "data",
-                id: marker.id,
-              },
-              {
-                served: false,
-              }
-            );
-          }
-        }
-        // Push the updated marker to the ref for selected single markers
-
-      });
-    }
-  };
 
 
 
@@ -408,7 +430,7 @@ function Editmap() {
             id: marker.id,
           },
           {
-            served: marker.served, // Use the served property from the marker data
+            color: colorGreen
           }
         );
       }
@@ -452,7 +474,9 @@ function Editmap() {
             latitude: item.latitude,
             longitude: item.longitude,
             served: item.served,
-            coveredBy: item.coveredLocations
+            coveredBy: item.coveredLocations ? item.coveredLocations.split(", ").map(filename => filename.trim()) : Set, // Convert string to array and trim whitespace
+            color: item.served ? colorGreen : colorRed,
+            editedFile: new Set()
           }));
 
           setFeatureStateForMarkers(newMarkers);
@@ -567,12 +591,163 @@ function Editmap() {
     }
   }, [location]);
 
+
+  const onConfirm = (combinationToPoints, checkedState, polygonFeature) => {
+
+    let allPoints = [];
+    Object.values(combinationToPoints).forEach(points => {
+      allPoints.push(...points);
+    });
+
+    if (allPoints.length > 0) {
+      const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
+
+      // Update each point's coveredBy attribute based on the current state of checkboxes
+      allPoints.forEach(point => {
+        const editedFile = Array.from(point.coveredBy).filter(file => checkedState[Array.from(point.coveredBy).sort().join(", ")]?.[file]);
+        point.editedFile = new Set(editedFile);
+        // Update feature state on the map for each point
+        map.current.setFeatureState({
+          source: "custom",
+          sourceLayer: "data",
+          id: point.id,
+        }, {
+          color: point.color
+        });
+      });
+
+      // Push updated points to your state management system
+      const updatedPoints = [...allPoints];
+      updatedPoints.unshift({ id: polygonId }); // Include polygon ID in the state update
+
+      selectedPolygonsRef.current.push(updatedPoints);
+      setSelectedPolygons(selectedPolygonsRef.current);
+      console.log(polygonFeature);
+      setSelectedPolygonsArea((prevAreas) => [
+        ...prevAreas, polygonFeature
+      ]);
+    }
+
+
+    // Additional logic to update UI or state as needed
+    setCombinationToColorMap({});
+  };
+
+  const onUndo = (combinationToPoints, colorsArrayIndex) => {
+
+    // Iterate through all points in each combination and reset their states
+    Object.values(combinationToPoints).forEach(points => {
+
+
+      points.forEach(point => {
+        point.served = true;
+        point.color = colorGreen;
+        // Reset the 'served' status and color for each point
+        map.current.setFeatureState({
+          source: "custom",
+          sourceLayer: "data",
+          id: point.id,
+        }, {
+          color: colorGreen
+        });
+      });
+    });
+
+    // Reset UI related state
+    setCombinationToColorMap({});
+
+  };
+
+  const CoverageLegend = ({ combinationToColorMap, combinationToPoints, selectedPolygonFeature, onConfirm, onUndo }) => {
+    if (combinationToColorMap === undefined || Object.keys(combinationToColorMap).length === 0) {
+      return null;
+    }
+
+
+    const [checkedState, setCheckedState] = useState(() => {
+      const initialState = {};
+      Object.entries(combinationToPoints).forEach(([combination, points]) => {
+        if (!initialState[combination]) {
+          initialState[combination] = {};
+        }
+        combination.split(", ").forEach(file => {
+          initialState[combination][file] = true; // Initially all checkboxes are checked
+        });
+      });
+      return initialState;
+    });
+
+    useEffect(() => {
+      const newCheckedState = {};
+      Object.entries(combinationToPoints).forEach(([combination, points]) => {
+        if (!newCheckedState[combination]) {
+          newCheckedState[combination] = {};
+        }
+        combination.split(", ").forEach(file => {
+          // Ensure each file starts as checked, or keep existing state if already initialized
+          newCheckedState[combination][file] = newCheckedState[combination][file] ?? true;
+        });
+      });
+      setCheckedState(newCheckedState);
+    }, [combinationToPoints]);
+
+    const handleCheckboxChange = (combination, file) => {
+      setCheckedState(prevState => ({
+        ...prevState,
+        [combination]: {
+          ...prevState[combination],
+          [file]: !prevState[combination][file]
+        }
+      }));
+    };
+
+    const handleConfirmClick = () => {
+      onConfirm(combinationToPoints, checkedState, selectedPolygonFeature);
+    };
+
+    const handleUndoClick = () => {
+      onUndo(combinationToPoints);
+    };
+
+    return (
+      <Box sx={{ position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 10000 }}>
+        <Paper sx={{ padding: 2, backgroundColor: 'white', borderRadius: 2, boxShadow: 3, minWidth: 300 }}>
+          <Typography variant="h6" gutterBottom>
+            You are editing points covered by the following coverage files. Please verify and uncheck the coverage files that actually serve the points. Redraw the polygon if the desired edit cannot be made.
+          </Typography>
+          {Object.entries(combinationToPoints).map(([combination, points]) => (
+            <Box key={combination} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Box sx={{ height: 30, width: 30, borderRadius: '50%', bgcolor: combinationToColorMap[combination], mr: 2 }}></Box>
+              {combination.split(", ").map(file => (
+                <label key={file} style={{ marginRight: '10px', display: 'flex', alignItems: 'center' }}>
+                  <Checkbox
+                    checked={checkedState[combination]?.[file] ?? false} // Safely access checked state, default to false if undefined
+                    onChange={() => handleCheckboxChange(combination, file)}
+                    color="primary"
+                  />
+                  {file}
+                </label>
+              ))}
+            </Box>
+          ))}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+            <Button variant="contained" color="primary" onClick={handleConfirmClick}>Confirm</Button>
+            <Button variant="outlined" color="secondary" onClick={handleUndoClick}>Undo</Button>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  };
+
+
+
   return (
     <div>
       <div>
         <StyledBaseMapIconButton onClick={handleBasemapMenuOpen}>
           <LayersIcon color="inherit" />
         </StyledBaseMapIconButton>
+        <CoverageLegend combinationToColorMap={combinationToColorMap} combinationToPoints={combinationToPoints} selectedPolygonFeature={selectedPolygonFeature} onConfirm={onConfirm} onUndo={onUndo} />
         <Menu
           id="basemap-menu"
           anchorEl={basemapAnchorEl}

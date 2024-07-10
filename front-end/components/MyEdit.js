@@ -86,49 +86,24 @@ const MyEdit = () => {
 
 
     const handleUndoPolygonEdit = (index) => {
+        // Clone the arrays before modifications to avoid side-effects
         const updatedPolygons = [...selectedPolygons];
-        updatedPolygons.splice(index, 1);
-        setSelectedPolygons(updatedPolygons);
-
         const updatedPolygonsArea = [...selectedPolygonsArea];
-        updatedPolygons.splice(index, 1);
-        setSelectedPolygonsArea(updatedPolygonsArea);
-    };
-
-    const handleUndoSinglePointWithinPolygon = (polygonIndex, pointIndex) => {
-        // Clone the current state of polygons
-        const updatedPolygons = [...selectedPolygons];
-
-        // Check if the polygon exists
-        if (updatedPolygons[polygonIndex]) {
-            // Clone the polygon to avoid direct mutation
-            const updatedPolygon = [...updatedPolygons[polygonIndex]];
-
-            // Adjust the point index by 1 to account for the ID at the first position
-            const adjustedPointIndex = pointIndex + 1;
-
-            // Check if the point exists and remove it
-            if (updatedPolygon[adjustedPointIndex]) {
-                updatedPolygon.splice(adjustedPointIndex, 1);
-
-                // If only the ID is left in the polygon, remove the entire polygon
-                if (updatedPolygon.length <= 1) {
-                    updatedPolygons.splice(polygonIndex, 1);
-                } else {
-                    // Otherwise, update the polygon with the point removed
-                    updatedPolygons[polygonIndex] = updatedPolygon;
-                }
-
-                // Update the state with the modified polygons array
-                setSelectedPolygons(updatedPolygons);
-            } else {
-                console.error("Invalid point index");
-            }
+    
+        // Check if the index is valid before trying to remove the item
+        if (index >= 0 && index < updatedPolygons.length) {
+            updatedPolygons.splice(index, 1);
+            updatedPolygonsArea.splice(index, 1);
+            
+            // Update state with new arrays
+            setSelectedPolygons(updatedPolygons);
+            setSelectedPolygonsArea(updatedPolygonsArea);
         } else {
-            console.error("Invalid polygon index");
+            console.error("Invalid index for undo operation");
         }
     };
 
+    
     const toggleMarkers = async () => {
         setIsLoading(true);
         try {
@@ -209,7 +184,6 @@ const MyEdit = () => {
                     polygons={selectedPolygons}
                     handleUndoPolygonEdit={handleUndoPolygonEdit}
                     handleLocateOnMap={handleLocateOnMap}
-                    handleUndoSinglePointWithinPolygon={handleUndoSinglePointWithinPolygon}
                 />
             </StyledContainer>
             <div style={{ marginTop: '20px', marginLeft: '20px' }}>
@@ -227,7 +201,7 @@ const MyEdit = () => {
 };
 
 
-const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap, handleUndoSinglePointWithinPolygon }) => {
+const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap }) => {
     const [expandedPolygon, setExpandedPolygon] = useState(null);
 
     const toggleExpand = (polygonId) => {
@@ -275,7 +249,6 @@ const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap, 
                                         <TableCell>Location ID</TableCell>
                                         <TableCell>Address</TableCell>
                                         <TableCell></TableCell>
-                                        <TableCell align='right'></TableCell>
                                     </TableRow>
                                 )}
                                 {expandedPolygon === polygonGroup[0].id && polygonGroup.slice(1).map((point, pointIndex) => (
@@ -290,11 +263,6 @@ const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap, 
                                             <IconButton onClick={() => handleLocateOnMap(point)}>
                                                 <LocationOnIcon />
                                             </IconButton>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <StyledIconButton onClick={() => handleUndoSinglePointWithinPolygon(groupIndex, pointIndex)}>
-                                                <UndoIcon />
-                                            </StyledIconButton>
                                         </TableCell>
                                     </TableRow>
                                 ))}
