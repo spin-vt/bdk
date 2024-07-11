@@ -159,9 +159,9 @@ export default function Upload() {
     event.preventDefault();
 
     const formData = new FormData();
-    formData.append("deadline", `${newDeadline.year}-${newDeadline.month}-01`);
+    formData.append("deadline", `${newDeadline.year}-${newDeadline.month}-03`);
     files.forEach((fileDetails) => {
-      const allowedExtensions = ["kml", "geojson", "csv", "kmz"];
+      const allowedExtensions = ["kml", "geojson", "csv"];
       const fileExtension = fileDetails.file.name
         .split(".")
         .pop()
@@ -169,7 +169,7 @@ export default function Upload() {
 
       if (!allowedExtensions.includes(fileExtension)) {
         toast.error(
-          "Invalid File Format. Please upload a KML, GeoJSON, CSV, or KMZ file.",
+          "Invalid File Format. Please upload a KML, GeoJSON, or CSV file.",
           {
             position: toast.POSITION.TOP_RIGHT,
             autoClose: 10000,
@@ -325,14 +325,10 @@ export default function Upload() {
 
 
   const handleNewDeadlineChange = ({ month, year }) => {
-    const formattedDeadline = `${month}/${year}`;
-    // Check if the deadline exists
-    const exists = folders.some(folder => folder.deadline === formattedDeadline);
-    if (exists) {
-      setOpenConfirmDialog(true); // Open confirmation dialog if exists
-    } else {
-      setNewDeadline({ month, year });
-    }
+    
+    
+    setNewDeadline({ month, year });
+    
   };
 
   const confirmCreation = () => {
@@ -470,16 +466,6 @@ export default function Upload() {
           </FormControl>
         </>
       )}
-      <Dialog open={openConfirmDialog} onClose={() => setOpenConfirmDialog(false)}>
-        <DialogTitle>Confirm</DialogTitle>
-        <div>
-          A filing for this deadline already exists. Are you sure you want to create another?
-        </div>
-        <DialogActions>
-          <Button onClick={() => setOpenConfirmDialog(false)}>Cancel</Button>
-          <Button onClick={confirmCreation}>Confirm</Button>
-        </DialogActions>
-      </Dialog>
     </div>
         <ButtonGroup
           variant="contained"

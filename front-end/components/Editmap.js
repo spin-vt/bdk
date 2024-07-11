@@ -606,7 +606,6 @@ function Editmap() {
       allPoints.forEach(point => {
         const editedFile = Array.from(point.coveredBy).filter(file => checkedState[Array.from(point.coveredBy).sort().join(", ")]?.[file]);
         point.editedFile = new Set(editedFile);
-        console.log(point.editedFile);
         // Update feature state on the map for each point
         map.current.setFeatureState({
           source: "custom",
@@ -623,7 +622,6 @@ function Editmap() {
 
       selectedPolygonsRef.current.push(updatedPoints);
       setSelectedPolygons(selectedPolygonsRef.current);
-      console.log(polygonFeature);
       setSelectedPolygonsArea((prevAreas) => [
         ...prevAreas, polygonFeature
       ]);

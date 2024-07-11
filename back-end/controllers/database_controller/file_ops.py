@@ -1,6 +1,6 @@
 import psycopg2
 from database.sessions import ScopedSession, Session
-from database.models import file, kml_data
+from database.models import file, kml_data, file_editfile_link
 from threading import Lock
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -217,31 +217,18 @@ def delete_file(fileid, session=None):
 
     try:
         file_to_del = get_file_with_id(fileid, session)
+        file_to_del = get_file_with_id(fileid, session)
         if file_to_del:
-            # Split name and extension
-            base_name, ext = file_to_del.name.rsplit('.', 1)
-            
-            # Check if the file is an edit file with the new naming scheme
-            if re.match(".*-edit\d*/$", ext):
-                orig_file_ext = ext.split('-edit')[0]
-                kml_entries = session.query(kml_data).filter(kml_data.file_id == fileid).all()
-                orig_file = get_file_with_name(base_name + '.' + orig_file_ext, file_to_del.folder_id, session)
-                if orig_file:
-                    for kml_entry in kml_entries:
-                        kml_entry.file_id = orig_file.id
-                        kml_entry.served = True
-                        kml_entry.coveredLocations = orig_file.name
-                        session.add(kml_entry)
-                        session.commit()
-            # If not an edit file, check for related edits
-            elif ext in ['.kml', '.geojson']:
-                related_edits = get_files_with_prefix(file_to_del.folder_id, f"{base_name + ext}-edit", session)
-                for edit in related_edits:
-                    session.delete(edit)
-            
+            # Delete all associated editfile links first
+            links = session.query(file_editfile_link).filter(file_editfile_link.file_id == fileid).all()
+            for link in links:
+                session.delete(link)
+
+            # Proceed to delete the file
             session.delete(file_to_del)
             if owns_session:
                 session.commit()
+
 
     except SQLAlchemyError as e:
         if owns_session:

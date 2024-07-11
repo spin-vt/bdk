@@ -212,7 +212,6 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
     status_code = 0
     session = Session()
     try:
-        file_editfile_link_set = set()
         user_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
         if user_folder:
             # Process each polygon feature
@@ -227,18 +226,24 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
                 new_editfile = editfile_ops.create_editfile(filename=editfile_name, content=feature_binary, folderid=folderid, session=session)
                 session.commit()
 
-                # Link this editfile with relevant files
+                file_ids = set()
+                if markers[index]:
+                    for filename in markers[index][0]['editedFile']:
+                        fileVal = file_ops.get_file_with_name(filename=filename, folderid=user_folder.id, session=session)
+                        file_ids.add(
+                            fileVal.id
+                        )
+
+                for file_id in file_ids:
+                    file_editfile_link_ops.link_file_and_editfile(file_id, new_editfile.id, session)
+
                 for marker in markers[index]:
                     # Query kml_data_entries based on location_id and filenames from editedFile
                     for filename in marker['editedFile']:
                         kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_folder.id, file.name == filename).all()
                         for entry in kml_data_entries:
-                            file_instance = session.query(file).filter_by(id=entry.file_id).first()
-                            if file_instance:
-                                if (file_instance.id, new_editfile.id) not in file_editfile_link_set:
-                                    file_editfile_link_ops.link_file_and_editfile(file_instance.id, new_editfile.id, session)
-                                    file_editfile_link_set.add((file_instance.id, new_editfile.id))
                             session.delete(entry)
+                    
             session.commit()
 
         else:
