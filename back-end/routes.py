@@ -343,6 +343,7 @@ def toggle_markers():
         if folderid == -1:
             return jsonify({'error': 'Invalid folder id'}), 400
         identity = get_jwt_identity()
+
         task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid, polygonfeatures])
         return jsonify({'Status': "OK", 'task_id': task.id}), 200
     except NoAuthorizationError:

@@ -606,6 +606,7 @@ function Editmap() {
       allPoints.forEach(point => {
         const editedFile = Array.from(point.coveredBy).filter(file => checkedState[Array.from(point.coveredBy).sort().join(", ")]?.[file]);
         point.editedFile = new Set(editedFile);
+        console.log(point.editedFile);
         // Update feature state on the map for each point
         map.current.setFeatureState({
           source: "custom",

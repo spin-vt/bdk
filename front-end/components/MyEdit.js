@@ -107,11 +107,16 @@ const MyEdit = () => {
     const toggleMarkers = async () => {
         setIsLoading(true);
         try {
-            const polygonPoints = selectedPolygons.flatMap(polygon => 
-                polygon.slice(1)  // Skip the first element (timestamp) and take the rest (points)
+            const polygonPoints = selectedPolygons.map(polygon => 
+                polygon.slice(1).map(point => ({
+                    id: point.id,
+                    served: point.served,
+                    editedFile: Array.isArray(point.editedFile) ? point.editedFile : Array.from(point.editedFile) // Ensure editedFile is serialized correctly
+                }))
             );
     
     
+            
             const requestBody = {
                 marker: polygonPoints,
                 polygonfeatures: selectedPolygonsArea,

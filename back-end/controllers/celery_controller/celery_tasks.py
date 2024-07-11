@@ -216,24 +216,29 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
         user_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
         if user_folder:
             # Process each polygon feature
-            for feature in polygonfeatures:
-                # Convert the feature to a binary GeoJSON format
+            for index, feature in enumerate(polygonfeatures):
+                filenames = '-'.join(set(
+                    filename for marker in markers[index] for filename in marker['editedFile']
+                ))
+                formatted_datetime = datetime.now().strftime(DATETIME_FORMAT)
+                editfile_name = f"edit_on_{filenames}_at_{formatted_datetime}"
+                
                 feature_binary = json.dumps(feature).encode('utf-8')
-                # Create an editfile for the polygon feature
-                new_editfile = editfile_ops.create_editfile(filename=f"edit-{datetime.now().strftime(DATETIME_FORMAT)}", content=feature_binary, folderid=folderid, session=session)
+                new_editfile = editfile_ops.create_editfile(filename=editfile_name, content=feature_binary, folderid=folderid, session=session)
                 session.commit()
 
                 # Link this editfile with relevant files
-                for marker in markers:
-                    # Identify relevant kml_data entries and link them to the new editfile
-                    kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_folder.id).all()
-                    for entry in kml_data_entries:
-                        file_instance = session.query(file).filter_by(id=entry.file_id).first()
-                        if file_instance:
-                            if (file_instance.id, new_editfile.id) not in file_editfile_link_set:
-                                file_editfile_link_ops.link_file_and_editfile(file_instance.id, new_editfile.id, session)
-                                file_editfile_link_set.add((file_instance.id, new_editfile.id))
-                        session.delete(entry)
+                for marker in markers[index]:
+                    # Query kml_data_entries based on location_id and filenames from editedFile
+                    for filename in marker['editedFile']:
+                        kml_data_entries = session.query(kml_data).join(file).filter(kml_data.location_id == marker['id'], file.folder_id == user_folder.id, file.name == filename).all()
+                        for entry in kml_data_entries:
+                            file_instance = session.query(file).filter_by(id=entry.file_id).first()
+                            if file_instance:
+                                if (file_instance.id, new_editfile.id) not in file_editfile_link_set:
+                                    file_editfile_link_ops.link_file_and_editfile(file_instance.id, new_editfile.id, session)
+                                    file_editfile_link_set.add((file_instance.id, new_editfile.id))
+                            session.delete(entry)
             session.commit()
 
         else:
