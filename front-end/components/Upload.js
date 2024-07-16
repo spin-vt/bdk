@@ -125,6 +125,7 @@ export default function Upload() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
+  const allowedExtensions = ["kml", "geojson", "csv"];
 
 
   const fetchFolders = async () => {
@@ -159,11 +160,22 @@ export default function Upload() {
   const handleFilingClick = (event) => {
     event.preventDefault();
 
+    if (folderID === -1 && !files.some(file => file.file.name.endsWith('.csv'))) {
+      toast.error(
+        "Please upload your fabric",
+        {
+          position: toast.POSITION.TOP_RIGHT,
+          autoClose: 5000,
+        }
+      );
+      return; // Stop the function if the condition is met
+    }
+
+
     const formData = new FormData();
     formData.append("deadline", `${newDeadline.year}-${newDeadline.month}-03`);
     formData.append("importFolder", importFolderID);
     files.forEach((fileDetails) => {
-      const allowedExtensions = ["kml", "geojson", "csv"];
       const fileExtension = fileDetails.file.name
         .split(".")
         .pop()
@@ -208,7 +220,7 @@ export default function Upload() {
         } else if (response.status === 500 || response.status === 400) {
           setIsLoading(false);
           toast.error(
-            "Invalid File Format, please upload file with supported format",
+            "Error from our end, if issues persist, please contact support",
             {
               position: toast.POSITION.TOP_RIGHT,
               autoClose: 10000,

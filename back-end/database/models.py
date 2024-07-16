@@ -4,16 +4,24 @@ from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
+class organization(Base):
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), unique=True, nullable=False)
+    provider_id = Column(Integer)
+    brand_name = Column(String(50))
+    users = relationship('User', back_populates='organization')
+    folders = relationship('folder', back_populates='user', cascade='all, delete')
+    towers = relationship('tower', back_populates='user', cascade='all, delete')
+
 class user(Base):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True)
     password = Column(String(256))
-    provider_id = Column(Integer)
-    brand_name = Column(String(50))
-    folders = relationship('folder', back_populates='user', cascade='all, delete')
-    towers = relationship('tower', back_populates='user', cascade='all, delete')
+    organization_id = Column(Integer, ForeignKey('organization.id'))
+    organization = relationship('Organization', back_populates='users')
+    
 
 class tower(Base):
     __tablename__ = 'tower'
