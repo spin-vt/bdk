@@ -137,14 +137,14 @@ def get_file_with_name(filename, folderid, session=None):
             session.close()
 
 
-def create_file(filename, content, folderid, filetype=None, session=None):
+def create_file(filename, content, folderid, filetype=None, maxDownloadSpeed=None, maxUploadSpeed=None, techType=None, latency=None, category=None, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        new_file = file(name=filename, data=content, folder_id=folderid, timestamp=datetime.now(), type=filetype)
+        new_file = file(name=filename, data=content, folder_id=folderid, timestamp=datetime.now(), type=filetype, maxDownloadSpeed=maxDownloadSpeed, maxUploadSpeed=maxUploadSpeed, techType=techType, latency=latency, category=category)
         session.add(new_file)
         if owns_session:
             session.commit()
@@ -198,7 +198,6 @@ def get_filesinfo_in_folder(folderid, session=None):
                 'timestamp': file.timestamp,
                 'folder_id': file.folder_id,
                 'type': file.type,
-                'computed': file.computed,
                 'kml_data': None
             }
             

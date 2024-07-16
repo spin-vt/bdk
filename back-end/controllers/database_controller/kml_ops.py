@@ -6,22 +6,23 @@ from multiprocessing import Lock
 from database.sessions import ScopedSession, Session
 from datetime import datetime
 import logging, uuid, psycopg2, io, pandas, geopandas, shapely
-from shapely.geometry import Point
+from shapely.geometry import Point, shape
 import fiona
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file, get_files_by_type
 from .folder_ops import create_folder, get_upload_folder
+from .file_editfile_link_ops import get_editfiles_for_file
 from utils.logger_config import logger
+import json
 
 db_lock = Lock()
 
-def get_kml_data(userid, folderid, session=None): 
+def get_kml_data(folderid, session=None): 
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
-    userVal = get_user_with_id(userid, session)
 
     try:
         # Query the File records related to the folder_id
@@ -49,7 +50,6 @@ def get_kml_data(userid, folderid, session=None):
                 'served': False,
                 'wireless': False,
                 'lte': False,
-                'username': userVal.username,
                 'coveredLocations': "",
                 'maxDownloadNetwork': -1,
                 'maxDownloadSpeed': -1
@@ -62,7 +62,6 @@ def get_kml_data(userid, folderid, session=None):
                     kml_data.served, 
                     kml_data.wireless,
                     kml_data.lte,
-                    kml_data.username,
                     kml_data.coveredLocations,
                     kml_data.maxDownloadNetwork,
                     kml_data.maxDownloadSpeed
@@ -79,10 +78,9 @@ def get_kml_data(userid, folderid, session=None):
                             'served': r[1],
                             'wireless': r[2] or existing_data.get('wireless', False),
                             'lte': r[3] or existing_data.get('lte', False),
-                            'username': r[4],
-                            'coveredLocations': ', '.join(filter(None, [r[5], existing_data.get('coveredLocations', '')])),
-                            'maxDownloadNetwork': r[6] if r[7] > existing_data.get('maxDownloadSpeed', -1) else existing_data.get('maxDownloadNetwork', ''),
-                            'maxDownloadSpeed': max(r[7], existing_data.get('maxDownloadSpeed', -1))
+                            'coveredLocations': ', '.join(filter(None, [r[4], existing_data.get('coveredLocations', '')])),
+                            'maxDownloadNetwork': r[5] if r[6] > existing_data.get('maxDownloadSpeed', -1) else existing_data.get('maxDownloadNetwork', ''),
+                            'maxDownloadSpeed': max(r[6], existing_data.get('maxDownloadSpeed', -1))
                         }
                         # Merge the existing and new data
                         all_data[r[0]].update(new_data)
@@ -104,7 +102,6 @@ def get_kml_data(userid, folderid, session=None):
                     kml_data.served, 
                     kml_data.wireless,
                     kml_data.lte,
-                    kml_data.username,
                     kml_data.coveredLocations,
                     kml_data.maxDownloadNetwork,
                     kml_data.maxDownloadSpeed,
@@ -124,13 +121,12 @@ def get_kml_data(userid, folderid, session=None):
                         'served': r[1],
                         'wireless': r[2] or existing_data.get('wireless', False),
                         'lte': r[3] or existing_data.get('lte', False),
-                        'username': r[4],
-                        'coveredLocations': ', '.join(filter(None, [r[5], existing_data.get('coveredLocations', '')])),
-                        'maxDownloadNetwork': r[6] if r[7] > existing_data.get('maxDownloadSpeed', -1) else existing_data.get('maxDownloadNetwork', ''),
-                        'maxDownloadSpeed': max(r[7], existing_data.get('maxDownloadSpeed', -1)),
-                        'address': r[8],
-                        'latitude': r[9],
-                        'longitude': r[10],
+                        'coveredLocations': ', '.join(filter(None, [r[4], existing_data.get('coveredLocations', '')])),
+                        'maxDownloadNetwork': r[5] if r[6] > existing_data.get('maxDownloadSpeed', -1) else existing_data.get('maxDownloadNetwork', ''),
+                        'maxDownloadSpeed': max(r[6], existing_data.get('maxDownloadSpeed', -1)),
+                        'address': r[7],
+                        'latitude': r[8],
+                        'longitude': r[9],
                         'bsl': 'False',
                     }
                     # Merge the existing and new data
@@ -160,10 +156,9 @@ def get_kml_data_by_file(fileid, session=None):
         if owns_session:
             session.close()
 
-def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency, category, session):
+def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, latency, category, session):
     batch = [] 
 
-    userVal = get_user_with_id(userid)
     fileVal = get_file_with_id(kmlid)
 
     for _, row in pandaDF.iterrows():
@@ -179,7 +174,6 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, userid, latency,
                 served = True,
                 wireless = wireless,
                 lte = False,
-                username = userVal.username,
                 coveredLocations = fileVal.name,
                 maxDownloadNetwork = fileVal.name,
                 maxDownloadSpeed = int(download), 
@@ -253,44 +247,6 @@ def export(userid, folderid, providerid, brandname, session):
 
     return output
 
-def compute_lte(folderid, geojsonid, download, upload, tech, userid, latency, category):
-    kml_files = get_files_with_postfix(folderid, '.kml')
-    kml_file_ids = [file.id for file in kml_files]
-
-    geojson_file = get_file_with_id(geojsonid)
-    geojson_content = BytesIO(geojson_file.data)
-
-    session = ScopedSession()
-    
-    # Load the required points from the kml_data table
-    kml_data_points = session.query(kml_data).filter(kml_data.file_id.in_(kml_file_ids), kml_data.wireless == True).all()
-    
-    # Convert those points to a GeoDataFrame
-    df = pandas.DataFrame([(point.id, point.longitude, point.latitude) for point in kml_data_points], columns=['id', 'longitude', 'latitude'])
-    gdf_points = geopandas.GeoDataFrame(df, crs="EPSG:4326", geometry=geopandas.points_from_xy(df.longitude, df.latitude))
-    
-    # Load geoJSON polygon data
-    lte_coverage = geopandas.read_file(geojson_content)
-    lte_coverage = lte_coverage.to_crs("EPSG:4326")
-    
-    # Perform a spatial join to determine which points are within the polygon
-    points_in_coverage = geopandas.sjoin(gdf_points, lte_coverage, predicate='within')
-    
-    # Update the lte column based on results
-    covered_ids = points_in_coverage['id'].to_list()
-    for point in kml_data_points:
-        if point.id in covered_ids:
-            point.lte = True
-            point.file_id = geojsonid
-            point.maxDownloadNetwork = download
-            point.maxUploadSpeed = upload
-            point.techType = tech
-            point.coveredLocations = geojson_file.name
-            point.latency = latency
-            point.category = category
-
-    session.commit()
-    session.close()
 
 def rename_conflicting_columns(gdf):
     """Rename 'index_left' and 'index_right' columns if they exist in a GeoDataFrame."""
@@ -301,8 +257,34 @@ def rename_conflicting_columns(gdf):
         rename_dict['index_right'] = 'index_right_original'
     return gdf.rename(columns=rename_dict)
 
-#might need to add lte data in the future
-def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session):
+def filter_points_within_editfile_polygons(points_gdf, coverage_file, session):
+    all_polygons = []
+
+    editfiles = get_editfiles_for_file(coverage_file.id, session)
+    for editfile in editfiles:
+        try:
+            geojson_feature = json.loads(editfile.data.decode('utf-8'))
+            if geojson_feature['geometry']['type'] == 'Polygon':
+                polygon = shape(geojson_feature['geometry'])
+                all_polygons.append(polygon)
+        except json.JSONDecodeError:
+            logger.error("Failed to decode JSON data")
+            continue
+
+    if all_polygons:
+        polygons_gdf = geopandas.GeoDataFrame(geometry=all_polygons, crs="EPSG:4326")
+        # Rename conflicting columns before the spatial join
+        points_gdf = rename_conflicting_columns(points_gdf)
+        polygons_gdf = rename_conflicting_columns(polygons_gdf)
+
+        # Perform spatial join
+        points_gdf = geopandas.sjoin(points_gdf, polygons_gdf, how="left", predicate="within")
+        # Keep only points that are NOT within any polygon
+        points_gdf = points_gdf[points_gdf.index_right.isna()]
+
+    return points_gdf
+
+def compute_wireless_locations(folderid, kmlid, download, upload, tech, latency, category, session):
     
     fabric_files = get_files_with_postfix(folderid, '.csv')
     coverage_file = get_file_with_id(kmlid)
@@ -337,8 +319,11 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, 
     bsl_fabric_in_wireless = fabric_in_wireless[fabric_in_wireless['bsl_flag']]
     bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates(subset='location_id', keep='first')
 
+    bsl_fabric_in_wireless = filter_points_within_editfile_polygons(bsl_fabric_in_wireless, coverage_file, session)
+    bsl_fabric_in_wireless = bsl_fabric_in_wireless.drop_duplicates(subset='location_id', keep='first')
+
     logger.debug(f'number of points computed: {len(bsl_fabric_in_wireless)}')
-    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, userid, latency, category, session)
+    res = add_to_db(bsl_fabric_in_wireless, kmlid, download, upload, tech, True, latency, category, session)
     return res
 
 def preview_wireless_locations(folderid, kml_filename):
@@ -379,7 +364,7 @@ def preview_wireless_locations(folderid, kml_filename):
     logger.debug(f'number of points computed: {len(bsl_fabric_in_wireless)}')
     return bsl_fabric_in_wireless
 
-def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session):
+def compute_wired_locations(folderid, kmlid, download, upload, tech, latency, category, session):
     
 
     # Fetch Fabric file from database
@@ -428,17 +413,18 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, userid, lat
     bsl_fabric_near_fiber = fabric_near_fiber[fabric_near_fiber['bsl_flag']] 
 
     bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates(subset='location_id', keep='first')
-    # bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates()  
+    bsl_fabric_near_fiber = filter_points_within_editfile_polygons(bsl_fabric_near_fiber, fiber_file_record, session)
+    bsl_fabric_near_fiber = bsl_fabric_near_fiber.drop_duplicates(subset='location_id', keep='first')
 
-    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, userid, latency, category, session)
+    res = add_to_db(bsl_fabric_near_fiber, kmlid, download, upload, tech, False, latency, category, session)
     return res 
 
-def add_network_data(folderid, kmlid ,download, upload, tech, type, userid, latency, category, session):
+def add_network_data(folderid, kmlid ,download, upload, tech, type, latency, category, session):
     res = False 
     if type == 0: 
-        res = compute_wired_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session)
+        res = compute_wired_locations(folderid, kmlid, download, upload, tech, latency, category, session)
     elif type == 1: 
-        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, userid, latency, category, session)
+        res = compute_wireless_locations(folderid, kmlid, download, upload, tech, latency, category, session)
     return res 
 
 

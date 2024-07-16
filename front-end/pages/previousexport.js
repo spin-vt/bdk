@@ -217,7 +217,7 @@ const PreviousExport = () => {
       <Navbar />
       <StyledContainer component="main" maxWidth="md">
         <HeaderText component="h1" variant="h5">
-          Your Previous Reports
+          Your Previous Exported Filings
         </HeaderText>
         <Modal
           open={open}

@@ -204,9 +204,9 @@ def tiles_join(geojson_data, folderid, session):
 
     
 
-def create_tiles(geojson_array, userid, folderid, session):
+def create_tiles(geojson_array, folderid, session):
     from controllers.celery_controller.celery_tasks import run_tippecanoe
-    network_data = get_kml_data(userid, folderid, session)
+    network_data = get_kml_data(folderid, session)
     if network_data:
         point_geojson = {
             "type": "FeatureCollection",
@@ -219,7 +219,6 @@ def create_tiles(geojson_array, userid, folderid, session):
                         "address": point['address'],
                         "wireless": point['wireless'],
                         'lte': point['lte'],
-                        'username': point['username'],
                         'network_coverages': point['coveredLocations'],
                         'maxDownloadNetwork': point['maxDownloadNetwork'],
                         'maxDownloadSpeed': point['maxDownloadSpeed'],
@@ -243,7 +242,7 @@ def create_tiles(geojson_array, userid, folderid, session):
         with open(unique_geojson_filename, 'w') as f:
             json.dump(point_geojson, f)
         
-        outputFile = "output" + str(userid) + ".mbtiles"
+        outputFile = "output" + str(folderid) + ".mbtiles"
         command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
         run_tippecanoe(command, folderid, outputFile)
 

@@ -267,6 +267,7 @@ function Editmap() {
 
     map.current.on("draw.create", (event) => {
       const polygon = event.features[0];
+      console.log(polygon);
       // Convert drawn polygon to turf polygon
       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 

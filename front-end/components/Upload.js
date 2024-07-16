@@ -10,7 +10,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Input from "@mui/material/Input";
 import ExportButton from "./SubmitButton";
 import { DataGrid } from "@mui/x-data-grid";
-import { FormControl, InputLabel, MenuItem, Select, Button, Dialog, DialogActions, DialogTitle, Box } from '@mui/material';
+import { FormControl, InputLabel, MenuItem, Select, Button, Dialog, DialogActions, DialogTitle, DialogContent, Box } from '@mui/material';
 import Grid from "@mui/material/Grid";
 import LoadingEffect from "./LoadingEffect";
 import Swal from "sweetalert2";
@@ -118,7 +118,8 @@ export default function Upload() {
   const [folders, setFolders] = React.useState([]);
 
   const [newDeadline, setNewDeadline] = React.useState({ month: '', year: '' });
-  const [openConfirmDialog, setOpenConfirmDialog] = React.useState(false);
+
+  const [importFolderID, setImportFolderID] = React.useState(-1);
 
   const months = Array.from({ length: 12 }, (_, i) => i + 1); // Months 1-12
   const currentYear = new Date().getFullYear();
@@ -160,6 +161,7 @@ export default function Upload() {
 
     const formData = new FormData();
     formData.append("deadline", `${newDeadline.year}-${newDeadline.month}-03`);
+    formData.append("importFolder", importFolderID);
     files.forEach((fileDetails) => {
       const allowedExtensions = ["kml", "geojson", "csv"];
       const fileExtension = fileDetails.file.name
@@ -311,31 +313,30 @@ export default function Upload() {
     }
     else {
       const selectedFolder = folders.find(folder => folder.folder_id === newFolderID);
-        if (selectedFolder) {
-            // Parse the deadline date of the selected folder
-            const date = new Date(selectedFolder.deadline);
-            const month = date.getMonth() + 1;  // getMonth() is zero-indexed, so add 1
-            const year = date.getFullYear();
-            // Set newDeadline to reflect the selected folder's deadline
-            setNewDeadline({ month: month.toString(), year: year.toString() });
-        }
+      if (selectedFolder) {
+        // Parse the deadline date of the selected folder
+        const date = new Date(selectedFolder.deadline);
+        const month = date.getMonth() + 1;  // getMonth() is zero-indexed, so add 1
+        const year = date.getFullYear();
+        // Set newDeadline to reflect the selected folder's deadline
+        setNewDeadline({ month: month.toString(), year: year.toString() });
+      }
     }
     setFolderID(newFolderID);
   };
 
+  const handleImportChange = (event) => {
+    const selectedFolderID = event.target.value;
+    setImportFolderID(selectedFolderID);
+
+  };
 
   const handleNewDeadlineChange = ({ month, year }) => {
-    
-    
+
     setNewDeadline({ month, year });
-    
+
   };
 
-  const confirmCreation = () => {
-    // Logic to add the new folder
-    // setFolders([...folders, { folder_id: folders.length, deadline: `${newDeadline.month}/${newDeadline.year}` }]);
-    setOpenConfirmDialog(false);
-  };
 
   const columns = [
     { field: "id", headerName: "ID" },
@@ -395,6 +396,7 @@ export default function Upload() {
   ];
 
 
+
   return (
     <React.Fragment>
       <ToastContainer />
@@ -417,56 +419,74 @@ export default function Upload() {
         }}
       >
         <div>
-      <FormControl style={{ width: '300px', marginBottom: '20px' }}>
-        <InputLabel id="filing-select-label">You are working on filing for deadline:</InputLabel>
-        <Select
-          labelId="filing-select-label"
-          id="filing-select"
-          value={folderID}
-          label="You are working on Filing for Deadline:"
-          onChange={(e) => handleDeadlineSelect(e.target.value)}
-        >
-          <MenuItem value={-1}><em>Create New Filing for Deadline:</em></MenuItem>
-          {folders.map((folder) => (
-            <MenuItem key={folder.deadline} value={folder.folder_id}>
-              {format(new Date(folder.deadline), 'MMMM yyyy')}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      {folderID === -1 && (
-        <>
-          <FormControl style={{ width: '120px', marginRight: '10px' }}>
-            <InputLabel id="month-select-label">Month</InputLabel>
+          <FormControl style={{ width: '300px', marginBottom: '20px' }}>
+            <InputLabel id="filing-select-label">You are working on filing for deadline:</InputLabel>
             <Select
-              labelId="month-select-label"
-              id="month-select"
-              value={newDeadline.month}
-              label="Month"
-              onChange={e => handleNewDeadlineChange({ ...newDeadline, month: e.target.value })}
+              labelId="filing-select-label"
+              id="filing-select"
+              value={folderID}
+              label="You are working on Filing for Deadline:"
+              onChange={(e) => handleDeadlineSelect(e.target.value)}
             >
-              {months.map(month => (
-                <MenuItem key={month} value={month}>{month}</MenuItem>
+              <MenuItem value={-1}><em>Create New Filing for Deadline:</em></MenuItem>
+              {folders.map((folder) => (
+                <MenuItem key={folder.deadline} value={folder.folder_id}>
+                  {format(new Date(folder.deadline), 'MMMM yyyy')}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>
-          <FormControl style={{ width: '120px' }}>
-            <InputLabel id="year-select-label">Year</InputLabel>
-            <Select
-              labelId="year-select-label"
-              id="year-select"
-              value={newDeadline.year}
-              label="Year"
-              onChange={e => handleNewDeadlineChange({ ...newDeadline, year: e.target.value })}
-            >
-              {years.map(year => (
-                <MenuItem key={year} value={year}>{year}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </>
-      )}
-    </div>
+          {folderID === -1 && (
+            <>
+              <FormControl style={{ width: '120px' }}>
+                <InputLabel id="month-select-label">Month</InputLabel>
+                <Select
+                  labelId="month-select-label"
+                  id="month-select"
+                  value={newDeadline.month}
+                  label="Month"
+                  onChange={e => handleNewDeadlineChange({ ...newDeadline, month: e.target.value })}
+                >
+                  {months.map(month => (
+                    <MenuItem key={month} value={month}>{month}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl style={{ width: '120px', marginRight: '20px' }}>
+                <InputLabel id="year-select-label">Year</InputLabel>
+                <Select
+                  labelId="year-select-label"
+                  id="year-select"
+                  value={newDeadline.year}
+                  label="Year"
+                  onChange={e => handleNewDeadlineChange({ ...newDeadline, year: e.target.value })}
+                >
+                  {years.map(year => (
+                    <MenuItem key={year} value={year}>{year}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl style={{ width: '300px', border: '1px solid #78fff1' }}>
+                <InputLabel id="import-select-label">Import Data from Previous Filing</InputLabel>
+                <Select
+                  labelId="import-select-label"
+                  id="import-select"
+                  value={importFolderID}
+                  onChange={handleImportChange}
+                >
+                  <MenuItem value={-1}>
+                    <em>Don't Import</em>
+                  </MenuItem>
+                  {folders.map(folder => (
+                    <MenuItem key={folder.folder_id} value={folder.folder_id}>
+                      {format(new Date(folder.deadline), 'MMMM yyyy')}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </>
+          )}
+        </div>
         <ButtonGroup
           variant="contained"
           ref={buttonGroupRef}

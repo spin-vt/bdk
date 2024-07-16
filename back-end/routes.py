@@ -15,12 +15,13 @@ from flask_jwt_extended import (
 from datetime import datetime
 import shortuuid
 from celery.result import AsyncResult
+from celery import chain
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops
 from utils.flask_app import app, jwt
 from controllers.celery_controller.celery_config import celery 
-from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage
+from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
@@ -63,7 +64,7 @@ def get_number_records(folderid):
             return jsonify({'error': 'Folder ID is invalid'}), 400
         else:
             folderVal = folder_ops.get_folder_with_id(userid=identity['id'], folderid=folderid, session=session)
-        return jsonify(kml_ops.get_kml_data(userid=identity['id'], folderid=folderVal.id, session=session)), 200
+        return jsonify(kml_ops.get_kml_data(folderid=folderVal.id, session=session)), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 
@@ -85,7 +86,10 @@ def submit_data(folderid):
         file_data_list = request.form.getlist('fileData')
 
         userVal = user_ops.get_user_with_id(identity['id'], session=session)
-        
+        import_folder_id = int(request.form.get('importFolder'))
+        logger.debug(f"import folder id is {import_folder_id}")
+        # Prepare data for the task
+        file_contents = [(f.filename, base64.b64encode(f.read()).decode('utf-8'), data) for f, data in zip(files, file_data_list)]
         if folderid == -1:
             deadline = request.form.get('deadline')
             if not deadline:
@@ -96,47 +100,50 @@ def submit_data(folderid):
                 deadline_date = datetime.strptime(deadline, '%Y-%m-%d').date()
             except ValueError:
                 return jsonify({'Status': "Failed, invalid deadline format"}), 400
-            folder_name = f"Filing for Deadline {deadline_date}"
-            folderVal = folder_ops.create_folder(folder_name, userVal.id, deadline_date, 'upload', session=session)
-            session.commit()
+            
+            if import_folder_id != -1:
+                # Asynchronous copy and create new folder with deadline
+                logger.debug("here 1")
+                task_chain = chain(
+                    async_folder_copy_for_import.s(userVal.id, import_folder_id, deadline),
+                    add_files_to_folder.s(file_contents=file_contents),
+                    process_data.s(recompute=True)
+                )
+                
+            else:
+                # Create new folder with deadline
+                logger.debug("here 2")
+                new_folder_name = f"Filing for Deadline {deadline_date}"
+                folderVal = folder_ops.create_folder(new_folder_name, userVal.id, deadline_date, 'upload', session)
+                session.commit()
+
+                task_chain = chain(
+                    add_files_to_folder.s(folderVal.id, file_contents),
+                    process_data.s(recompute=False)
+                )
+            
         else:
+            logger.debug("here 3")
             folderVal = folder_ops.get_folder_with_id(userid=userVal.id, folderid=folderid, session=session)
         
-        file_names = []
-        matching_file_data_list = []
+            task_chain = chain(
+                add_files_to_folder.s(folderVal.id, file_contents),
+                process_data.s(recompute=False)
+            )
 
-        for index, f in enumerate(files):
-            existing_file = file_ops.get_file_with_name(f.filename, folderVal.id, session=session)
-            if existing_file is not None:
-                # If file already exists, append its name to file_names and skip to next file
-                continue
-            
-            
-            data = f.read()
-            if (f.filename.endswith('.csv')):
-                file_ops.create_file(f.filename, data, folderVal.id, 'fabric', session=session)
-                file_names.append(f.filename)
-                matching_file_data_list.append(file_data_list[index])
-            elif (f.filename.endswith('.kml') or f.filename.endswith('.geojson')):
-                file_ops.create_file(f.filename, data, folderVal.id,None, session=session)
-                file_names.append(f.filename)
-                matching_file_data_list.append(file_data_list[index])
-            
-                
-
-            session.commit()
-
-        task = process_data.apply_async(args=[file_names, matching_file_data_list, userVal.id, folderVal.id]) # store the AsyncResult instance
-        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+        result = task_chain.apply_async()
+        return jsonify({'Status': "OK", 'task_id': result.id}), 200 # return task id to the client
     
         
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
     except ValueError as ve:
     # Handle specific errors, e.g., value errors
+        logger.debug(ve)
         return jsonify({'Status': "Failed due to bad value", 'error': str(ve)}), 400
     except Exception as e:
         # General catch-all for other exceptions
+        logger.debug(e)
         session.rollback()  # Rollback the session in case of error
         return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
     finally:

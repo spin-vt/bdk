@@ -1,4 +1,4 @@
-import logging, subprocess, os, json, uuid, cProfile
+import logging, subprocess, os, json, uuid, cProfile, base64
 from controllers.celery_controller.celery_config import celery
 from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops, editfile_ops, file_editfile_link_ops
 from database.models import file, kml_data, editfile
@@ -13,115 +13,85 @@ from utils.logger_config import logger
 from utils.wireless_form2args import wireless_raster_file_format, wireless_vector_file_format
 from controllers.signalserver_controller.raster2vector import smooth_edges
 
+
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def process_data(self, file_names, file_data_list, userid, folderid): 
-    print(file_names)
+def add_files_to_folder(self, folderid, file_contents):
+    logger.debug(f"folder id in add files to folder is {folderid}")
     try:
-        geojson_array = []
-        tasks = []  
+        session = Session()
+        for filename, content, metadata_json in file_contents:
+            metadata = json.loads(metadata_json)
+            content_bytes = base64.b64decode(content)
+            if (filename.endswith('.csv')):
+                fileVal = file_ops.create_file(filename=filename, content=content_bytes, folderid=folderid, filetype='fabric', session=session)
+            elif (filename.endswith('.kml') or filename.endswith('.geojson')):
+                downloadSpeed = metadata.get('downloadSpeed', '')
+                uploadSpeed = metadata.get('uploadSpeed', '')
+                techType = metadata.get('techType', '')
+                networkType = metadata.get('networkType', '')
+                latency = metadata.get('latency', '')
+                category = metadata.get('categoryCode', '')
+
+                fileVal = file_ops.create_file(filename=filename, content=content_bytes, folderid=folderid, filetype=networkType, maxDownloadSpeed=downloadSpeed, maxUploadSpeed=uploadSpeed, techType=techType, latency=latency, category=category, session=session)
+
+        session.commit()
+        return folderid
+    except Exception as e:
+        session.rollback()  # Rollback any changes if there's an exception
+        raise e
+    finally:
+        session.close()  # Ensure session is closed even if there's an exception
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def process_data(self, folderid, recompute): 
+    try:
+        logger.debug(f"folder id in process data is {folderid}")
+        logger.debug(f"recompute is {recompute}")
         session = Session()
 
-        csv_file_data = []
-        kml_file_data = []
-        geojson_file_data = []
-        # Separate file data into csv and kml
-        for file_name, file_data_str in zip(file_names, file_data_list):
-            if file_name.endswith('.csv'):
-                csv_file_data.append((file_name, file_data_str))
-            elif (file_name.endswith('.kml')):
-                kml_file_data.append((file_name, file_data_str))
-            elif file_name.endswith('.geojson'):
-                geojson_file_data.append((file_name, file_data_str))
+        csv_files = file_ops.get_files_with_postfix(folderid, '.csv', session)
 
-        for file_name, file_data_str in csv_file_data:
-            # Check if file name already exists in the database for this user
-            existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
-            print(existing_file)
-            # If file name exists, skip to the next iteration
-            if existing_file and existing_file.computed:
-                print("skip")
-                continue
+        coverage_files = file_ops.get_files_with_postfix(folderid, '.kml', session) + file_ops.get_files_with_postfix(folderid, '.geojson', session)
+        logger.debug(coverage_files)
+        for file in csv_files:
+            if file.computed:
+                if not recompute:
+                    continue
+            task = fabric_ops.write_to_db(file.id)
+            file.computed = True
+
+        for file in coverage_files:
+            if file.computed:
+                if not recompute:
+                    continue
             
-            # names.append(file_name)
-            existing_file.computed = True 
-            session.commit() #commit the change 
-
-            file_data = json.loads(file_data_str)
+            # if recompute:
+            #     # delete old kml_data
+            #     pass
+            downloadSpeed = file.maxDownloadSpeed
+            uploadSpeed = file.maxUploadSpeed
+            techType = file.techType
+            networkType = file.type
+            latency = file.latency
+            category = file.category
             
-            fabricid = existing_file.id
-
-            task_id = str(uuid.uuid4())
-            task = fabric_ops.write_to_db(fabricid)
-            tasks.append(task)
-
-        for file_name, file_data_str in kml_file_data:
-
-            existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
-            print(existing_file)
-            # If file name exists, skip to the next iteration
-            if existing_file and existing_file.computed:
-                print("skip")
-                continue
-            
-            # names.append(file_name)
-            existing_file.computed = True 
-            session.commit() #commit the change 
-
-            file_data = json.loads(file_data_str)
-
-            downloadSpeed = file_data.get('downloadSpeed', '')
-            uploadSpeed = file_data.get('uploadSpeed', '')
-            techType = file_data.get('techType', '')
-            networkType = file_data.get('networkType', '')
-            latency = file_data.get('latency', '')
-            category = file_data.get('categoryCode', '')
-            
-            task_id = str(uuid.uuid4())
 
             if networkType == "Wired": 
                 networkType = 0
             else: 
                 networkType = 1
 
-            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category, session)
-            tasks.append(task)
+            task = kml_ops.add_network_data(folderid, file.id, downloadSpeed, uploadSpeed, techType, networkType, latency, category, session)
 
-        for file_name, file_data_str in geojson_file_data:
-
-            existing_file = session.query(file).filter(file.name==file_name, file.folder_id==folderid).first()
-            print(existing_file)
-            # If file name exists, skip to the next iteration
-            if existing_file and existing_file.computed:
-                print("skip")
-                continue
-            
-            # names.append(file_name)
-            existing_file.computed = True 
-            session.commit() #commit the change 
-
-            file_data = json.loads(file_data_str)
-
-            downloadSpeed = file_data.get('downloadSpeed', '')
-            uploadSpeed = file_data.get('uploadSpeed', '')
-            techType = file_data.get('techType', '')
-            networkType = file_data.get('networkType', '')
-            latency = file_data.get('latency', '')
-            category = file_data.get('categoryCode', '')
-
-            if networkType == "Wired": 
-                networkType = 0
-            else: 
-                networkType = 1
-
-            task = kml_ops.add_network_data(folderid, existing_file.id, downloadSpeed, uploadSpeed, techType, networkType, userid, latency, category, session)
-            tasks.append(task)
+            file.computed = True
         
+        geojson_array = []
         # This is a temporary solution, we should try optimize to use tile-join
-        all_kmls = session.query(file).filter(file.folder_id == folderid, file.name.endswith('kml')).all()
+        all_kmls = file_ops.get_files_with_postfix(folderid, '.kml', session)
         for kml_f in all_kmls:
             geojson_array.append(vt_ops.read_kml(kml_f.id, session))
         
-        all_geojsons = session.query(file).filter(file.folder_id == folderid, file.name.endswith('geojson')).all()
+        all_geojsons = file_ops.get_files_with_postfix(folderid, '.geojson', session)
         for geojson_f in all_geojsons:
             geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
         
@@ -129,7 +99,7 @@ def process_data(self, file_names, file_data_list, userid, folderid):
         session.commit()
         print("finished kml processing, now creating tiles")
         
-        vt_ops.create_tiles(geojson_array, userid, folderid, session)
+        vt_ops.create_tiles(geojson_array, folderid, session)
         
         
         session.close()
@@ -198,7 +168,7 @@ def deleteFiles(self, fileid, userid):
         all_geojsons = file_ops.get_files_with_postfix(folderid, '.geojson', session)
         for geojson_f in all_geojsons:
             geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
-        vt_ops.create_tiles(geojson_array, userid, folderid, session)
+        vt_ops.create_tiles(geojson_array, folderid, session)
         return {'message': 'mbtiles successfully deleted'}  # Returning a dictionary
     except Exception as e:
         session.rollback()  # Rollback the session in case of error
@@ -259,7 +229,7 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
             geojson_data.append(vt_ops.read_geojson(geojson_f.id, session))
 
         mbtiles_ops.delete_mbtiles(user_folder.id, session)
-        vt_ops.create_tiles(geojson_data, userid, user_folder.id, session)
+        vt_ops.create_tiles(geojson_data, user_folder.id, session)
         if user_folder.type == 'export':
             existing_csvs = file_ops.get_files_by_type(folderid=user_folder.id, filetype='export', session=session)
             for csv_file in existing_csvs:
@@ -299,21 +269,42 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def async_folder_copy_for_export(self, userid, folderid, serialized_csv):
-    session = Session()
-    userVal = user_ops.get_user_with_id(userid)
-    current_datetime = datetime.now().strftime(DATETIME_FORMAT)
-    newfolder_name = f"export-{current_datetime}"
+    try:
+        session = Session()
+        userVal = user_ops.get_user_with_id(userid)
+        deadline = datetime.now()
+        current_datetime = datetime.strptime(deadline, '%Y-%m-%d').date()
+        newfolder_name = f"Exported Filing at {current_datetime}"
 
 
-    csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datetime=current_datetime)
+        csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datetime=current_datetime)
 
-    original_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
-    new_folder = original_folder.copy(name=newfolder_name,type='export', session=session)
-    csv_file = file_ops.create_file(filename=csv_name, content=serialized_csv.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
-    session.add(csv_file)
-    session.commit()
-    session.close()
+        original_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
+        new_folder = original_folder.copy(name=newfolder_name,type='export', deadline=current_datetime, export=True, session=session)
+        csv_file = file_ops.create_file(filename=csv_name, content=serialized_csv.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
+        session.add(csv_file)
+        session.commit()
+    except Exception as e:
+        session.rollback()  # Rollback any changes if there's an exception
+        raise e
+    finally:
+        session.close()  # Ensure session is closed even if there's an exception
 
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def async_folder_copy_for_import(self, userid, folderid, deadline):
+    try:
+        session = Session()
+        newfolder_name = f"Filing for Deadline {deadline}"
+
+        original_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
+        new_folder = original_folder.copy(name=newfolder_name, type='upload', deadline=deadline, export=False, session=session)
+        session.commit()
+        return new_folder.id
+    except Exception as e:
+        session.rollback()  # Rollback any changes if there's an exception
+        raise e
+    finally:
+        session.close()  # Ensure session is closed even if there's an exception
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def run_signalserver(self, command, outfile_name, tower_id, data):
@@ -455,7 +446,6 @@ def raster2vector(self, data, userid, outfile_name):
         with open(vector_file_name, 'rb') as vector_file:
             kml_binarydata = vector_file.read()
             fileVal = file_ops.create_file(vector_file_name, kml_binarydata, folderVal.id, 'wireless', session=session)
-            fileVal.computed = True
             session.commit()
             downloadSpeed = data['downloadSpeed']
             uploadSpeed = data['uploadSpeed']
@@ -463,7 +453,7 @@ def raster2vector(self, data, userid, outfile_name):
             latency = data['latency']
             category = data['categoryCode']
         
-            kml_ops.compute_wireless_locations(fileVal.folder_id, fileVal.id, downloadSpeed, uploadSpeed, techType, userid, latency, category, session)
+            kml_ops.compute_wireless_locations(fileVal.folder_id, fileVal.id, downloadSpeed, uploadSpeed, techType, latency, category, session)
             geojson_array = []
             all_kmls = file_ops.get_files_with_postfix(fileVal.folder_id, '.kml', session)
             for kml_f in all_kmls:
@@ -475,7 +465,7 @@ def raster2vector(self, data, userid, outfile_name):
             logger.info("Creating Vector Tiles")
             mbtiles_ops.delete_mbtiles(fileVal.folder_id, session)
             session.commit()
-            vt_ops.create_tiles(geojson_array, userid, fileVal.folder_id, session)
+            vt_ops.create_tiles(geojson_array, fileVal.folder_id, session)
 
         for f_extension in wireless_vector_file_format:
             os.remove(outfile_name + f_extension)

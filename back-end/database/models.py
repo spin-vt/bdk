@@ -66,28 +66,47 @@ class folder(Base): #filing, will change the name later for less confusion when 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     type = Column(String, default='upload') # Currently upload or export
+    deadline = Column(Date) #This deadline makes it a filing for the current period
     user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
     user = relationship('user', back_populates='folders')
-    deadline = Column(Date) #This deadline makes it a filing for the current period
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
     editfiles = relationship('editfile', back_populates='folder', cascade='all,delete')
 
-    def copy(self, session, name=None, type=None):
+    def copy(self, session, export=True, name=None, type=None, deadline=None):
         name = name if name is not None else self.name
         type = type if type is not None else self.type
-        new_folder = folder(name=name, type=type, user_id=self.user_id)
+        new_folder = folder(name=name, type=type, user_id=self.user_id, deadline = deadline)
         session.add(new_folder)
         session.flush()  # To generate an ID for the new folder
         
+
+        new_file_mapping = {}
+        new_editfile_mapping = {}
+
         # Copy related files, mbtiles
         for file in self.files:
-            file.copy(session=session, new_folder_id=new_folder.id)
-        for edit_file in self.edit_files:
-            edit_file.copy(session=session, new_folder_id=new_folder.id)
-        for mbtile in self.mbtiles:
-            mbtile.copy(session=session, new_folder_id=new_folder.id)
+            if not export and file.name.endswith('.csv'):
+                continue
+            new_file = file.copy(session=session, new_folder_id=new_folder.id, export=export)
+            new_file_mapping[file.id] = new_file.id
+        for edit_file in self.editfiles:
+            new_edit_file = edit_file.copy(session=session, new_folder_id=new_folder.id)
+            new_editfile_mapping[edit_file.id] = new_edit_file.id
+        
+        # Only copy 
+        if export:
+            for mbtile in self.mbtiles:
+                mbtile.copy(session=session, new_folder_id=new_folder.id)
 
+        for file in self.files:
+            for link in file.editfile_links:
+                if link.editfile_id in new_editfile_mapping:  # Ensure the editfile was copied
+                    new_link = file_editfile_link(
+                        file_id=new_file_mapping[file.id],
+                        editfile_id=new_editfile_mapping[link.editfile_id]
+                    )
+                    session.add(new_link)
         return new_folder
 
 class file_editfile_link(Base):
@@ -109,70 +128,81 @@ class file(Base):
     folder_id = Column(Integer, ForeignKey('folder.id', ondelete='CASCADE'))
     timestamp = Column(DateTime) 
     type = Column(String)
+    maxDownloadSpeed = Column(Integer)
+    maxUploadSpeed = Column(Integer)
+    techType = Column(String)
+    latency = Column(String)
+    category = Column(String)
     computed = Column(Boolean, default=False)
     folder = relationship('folder', back_populates='files')
     fabric_data = relationship('fabric_data', back_populates='file', cascade='all, delete')  # Use fabric_data instead of data_entries
     kml_data = relationship('kml_data', back_populates='file', cascade='all, delete')
     editfile_links = relationship("file_editfile_link", back_populates="file")
 
-    def copy(self, session, new_folder_id=None):
+    
+    def copy(self, session, export, new_folder_id=None):
         new_file = file(name=self.name, 
                         data=self.data, 
                         folder_id=new_folder_id,
                         timestamp=datetime.now(), 
-                        type=self.type, 
-                        computed=self.computed)
+                        type=self.type,
+                        maxDownloadSpeed=self.maxDownloadSpeed,
+                        maxUploadSpeed=self.maxUploadSpeed,
+                        techType=self.techType,
+                        latency=self.latency,
+                        category=self.category,
+                        )
         session.add(new_file)
         session.flush()
         
-        fabric_data_copies = []
-        for fabric_entry in self.fabric_data:
-            fabric_data_copy = {
-                "location_id":fabric_entry.location_id,
-                "address_primary" : fabric_entry.address_primary,
-                "city" : fabric_entry.city,
-                "state" : fabric_entry.state,
-                "zip_code" : fabric_entry.zip_code,
-                "zip_suffix" : fabric_entry.zip_suffix,
-                "unit_count" : fabric_entry.unit_count,
-                "bsl_flag" : fabric_entry.bsl_flag,
-                "building_type_code" : fabric_entry.building_type_code,
-                "land_use_code" : fabric_entry.land_use_code,
-                "address_confidence_code" : fabric_entry.address_confidence_code,
-                "country_geoid" : fabric_entry.country_geoid,
-                "block_geoid" : fabric_entry.block_geoid,
-                "h3_9" : fabric_entry.h3_9,
-                "latitude" : fabric_entry.latitude,
-                "longitude" : fabric_entry.longitude,
-                "fcc_rel" : fabric_entry.fcc_rel,
-                "file_id" : new_file.id
-            }
-            fabric_data_copies.append(fabric_data_copy)
+        if export:
+            fabric_data_copies = []
+            for fabric_entry in self.fabric_data:
+                fabric_data_copy = {
+                    "location_id":fabric_entry.location_id,
+                    "address_primary" : fabric_entry.address_primary,
+                    "city" : fabric_entry.city,
+                    "state" : fabric_entry.state,
+                    "zip_code" : fabric_entry.zip_code,
+                    "zip_suffix" : fabric_entry.zip_suffix,
+                    "unit_count" : fabric_entry.unit_count,
+                    "bsl_flag" : fabric_entry.bsl_flag,
+                    "building_type_code" : fabric_entry.building_type_code,
+                    "land_use_code" : fabric_entry.land_use_code,
+                    "address_confidence_code" : fabric_entry.address_confidence_code,
+                    "country_geoid" : fabric_entry.country_geoid,
+                    "block_geoid" : fabric_entry.block_geoid,
+                    "h3_9" : fabric_entry.h3_9,
+                    "latitude" : fabric_entry.latitude,
+                    "longitude" : fabric_entry.longitude,
+                    "fcc_rel" : fabric_entry.fcc_rel,
+                    "file_id" : new_file.id
+                }
+                fabric_data_copies.append(fabric_data_copy)
 
-        kml_data_copies = []
-        for kml_entry in self.kml_data:
-            kml_data_copy = {
-                "location_id":kml_entry.location_id,
-                "served" : kml_entry.served,
-                "wireless" : kml_entry.wireless,
-                "lte" : kml_entry.lte,
-                "username" : kml_entry.username,
-                "coveredLocations" : kml_entry.coveredLocations,
-                "maxDownloadNetwork" : kml_entry.maxDownloadNetwork,
-                "maxDownloadSpeed" : kml_entry.maxDownloadSpeed,
-                "maxUploadSpeed" : kml_entry.maxUploadSpeed,
-                "techType" : kml_entry.techType,
-                "address_primary" : kml_entry.address_primary,
-                "longitude" : kml_entry.longitude,
-                "latitude" : kml_entry.latitude,
-                "latency" : kml_entry.latency,
-                "category" : kml_entry.category,
-                "file_id": new_file.id
-            }
-            kml_data_copies.append(kml_data_copy)
+            kml_data_copies = []
+            for kml_entry in self.kml_data:
+                kml_data_copy = {
+                    "location_id":kml_entry.location_id,
+                    "served" : kml_entry.served,
+                    "wireless" : kml_entry.wireless,
+                    "lte" : kml_entry.lte,
+                    "coveredLocations" : kml_entry.coveredLocations,
+                    "maxDownloadNetwork" : kml_entry.maxDownloadNetwork,
+                    "maxDownloadSpeed" : kml_entry.maxDownloadSpeed,
+                    "maxUploadSpeed" : kml_entry.maxUploadSpeed,
+                    "techType" : kml_entry.techType,
+                    "address_primary" : kml_entry.address_primary,
+                    "longitude" : kml_entry.longitude,
+                    "latitude" : kml_entry.latitude,
+                    "latency" : kml_entry.latency,
+                    "category" : kml_entry.category,
+                    "file_id": new_file.id
+                }
+                kml_data_copies.append(kml_data_copy)
 
-        session.bulk_insert_mappings(fabric_data, fabric_data_copies)
-        session.bulk_insert_mappings(kml_data, kml_data_copies)
+            session.bulk_insert_mappings(fabric_data, fabric_data_copies)
+            session.bulk_insert_mappings(kml_data, kml_data_copies)
 
         return new_file
     
@@ -195,6 +225,8 @@ class editfile(Base):
                         )
         session.add(new_edit_file)
         session.flush()
+
+        return new_edit_file
 
 class fabric_data(Base):
     __tablename__ = 'fabric_data'
@@ -247,7 +279,6 @@ class kml_data(Base):
     served = Column(Boolean)
     wireless = Column(Boolean)
     lte = Column(Boolean)
-    username = Column(String)
     coveredLocations = Column(String)
     maxDownloadNetwork = Column(String)
     maxDownloadSpeed = Column(Integer)
