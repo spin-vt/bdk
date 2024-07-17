@@ -1,6 +1,6 @@
 import psycopg2
 from database.sessions import ScopedSession, Session
-from database.models import file, kml_data, file_editfile_link
+from database.models import user, file, kml_data, file_editfile_link
 from threading import Lock
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -237,3 +237,27 @@ def delete_file(fileid, session=None):
     finally:
         if owns_session:
             session.close()
+
+
+def file_belongs_to_organization(file_id, user_id, session):
+    # Retrieve the user based on user_id
+    userVal = session.query(user).filter(user.id == user_id).first()
+    if not userVal:
+        return False
+
+    # Get the user's organization
+    organization = userVal.organization
+    if not organization:
+        return False
+
+    # Check if the file belongs to this organization
+    fileVal = session.query(file).filter(file.id == file_id).first()
+    if not fileVal:
+        return False
+
+    # Check if the file's folder belongs to the same organization
+    folder = fileVal.folder
+    if not folder:
+        return False
+
+    return folder.user.organization_id == organization.id

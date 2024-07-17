@@ -6,85 +6,85 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import SQLAlchemyError
 from .user_ops import get_user_with_id
 
-def get_export_folder(userid, folderid=None, session=None):
+def get_export_folder(orgid, folderid=None, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
     try:
-        # Query to retrieve the last folder of type 'upload' for the given user
+        # Query to retrieve the last folder of type 'upload' for the given org
         if not folderid:
             folderVal = (session.query(folder)
-                        .filter(folder.user_id == userid, folder.type == "export")
+                        .filter(folder.organization_id == orgid, folder.type == "export")
                         .order_by(folder.id.desc())
                         .first())
         else:
-            folderVal = session.query(folder).filter(folder.id == folderid, folder.user_id == userid).one()
+            folderVal = session.query(folder).filter(folder.id == folderid).one()
         return folderVal
 
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given user ID"
+        return "Multiple results found for the given org ID"
     except Exception as e:
         return str(e)
     finally:
         if owns_session:
             session.close()
 
-def get_upload_folder(userid, folderid=None, session=None):
+def get_upload_folder(orgid, folderid=None, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
     try:
-        # Query to retrieve the last folder of type 'upload' for the given user
+        # Query to retrieve the last folder of type 'upload' for the given org
         if not folderid:
             folderVal = (session.query(folder)
-                        .filter(folder.user_id == userid, folder.type == "upload")
+                        .filter(folder.organization_id == orgid, folder.type == "upload")
                         .order_by(folder.id.desc())
                         .first())
         else:
-            folderVal = session.query(folder).filter(folder.id == folderid, folder.user_id == userid).one()
+            folderVal = session.query(folder).filter(folder.id == folderid).one()
         return folderVal
 
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given user ID"
+        return "Multiple results found for the given org ID"
     except Exception as e:
         return str(e)
     finally:
         if owns_session:
             session.close()
 
-def get_folder_with_id(userid, folderid, session=None):
+def get_folder_with_id(folderid, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
     try:
-        folderVal = session.query(folder).filter(folder.id == folderid, folder.user_id == userid).one()
+        folderVal = session.query(folder).filter(folder.id == folderid).one()
         return folderVal
 
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given user ID"
+        return "Multiple results found for the given org ID"
     except Exception as e:
         return str(e)
     finally:
         if owns_session:
             session.close()
 
-def get_folders_by_type_for_user(userid, foldertype, session=None):
+def get_folders_by_type_for_org(orgid, foldertype, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        folders = session.query(folder).filter(folder.user_id == userid, folder.type == foldertype).all()
+        folders = session.query(folder).filter(folder.organization_id == orgid, folder.type == foldertype).all()
         return folders
 
     except NoResultFound:
@@ -96,14 +96,14 @@ def get_folders_by_type_for_user(userid, foldertype, session=None):
             session.close()
 
 
-def create_folder(foldername, userid, filingDeadline, foldertype, session=None):
+def create_folder(foldername, orgid, filingDeadline, foldertype, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        new_folder = folder(name=foldername, user_id=userid, deadline = filingDeadline, type=foldertype)
+        new_folder = folder(name=foldername, organization_id=orgid, deadline=filingDeadline, type=foldertype)
         session.add(new_folder)
         if owns_session:
             session.commit()
@@ -116,13 +116,13 @@ def create_folder(foldername, userid, filingDeadline, foldertype, session=None):
         if owns_session:
             session.close()
 
-def get_number_of_folders_for_user(userid, session=None):
+def get_number_of_folders_for_org(orgid, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
     try:
-        count = session.query(folder).filter(folder.user_id == userid).count()
+        count = session.query(folder).filter(folder.organization_id == orgid).count()
         return count
     except Exception as e:
         return -1
@@ -156,3 +156,23 @@ def delete_folder(folderid, session=None):
     finally:
         if owns_session:
             session.close()
+
+
+def folder_belongs_to_organization(folder_id, user_id, session):
+
+    # Retrieve the user based on user_id
+    userVal = session.query(user).filter(user.id == user_id).first()
+    if not userVal:
+        return False
+
+    # Get the user's organization
+    organization = userVal.organization
+    if not organization:
+        return False
+
+    # Check if the folder belongs to this organization
+    folderVal = session.query(folder).filter(folder.id == folder_id).first()
+    if not folderVal:
+        return False
+
+    return folderVal.user.organization_id == organization.id

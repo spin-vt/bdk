@@ -52,7 +52,6 @@ def write_to_db(fileid):
             cur.copy_expert("COPY temp_fabric FROM STDIN CSV HEADER DELIMITER ','", output)
             output.seek(0)
 
-             # Insert data from temporary table to final table with user_id
             try:
                 cur.execute(f'INSERT INTO fabric_data SELECT *, {fileid} as file_id FROM temp_fabric;')
                 connection.commit()

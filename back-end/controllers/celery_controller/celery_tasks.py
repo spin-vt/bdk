@@ -182,7 +182,7 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
     status_code = 0
     session = Session()
     try:
-        user_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
+        user_folder = folder_ops.get_folder_with_id(folderid=folderid, session=session)
         if user_folder:
             # Process each polygon feature
             for index, feature in enumerate(polygonfeatures):
@@ -277,9 +277,9 @@ def async_folder_copy_for_export(self, userid, folderid, serialized_csv):
         newfolder_name = f"Exported Filing at {current_datetime}"
 
 
-        csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datetime=current_datetime)
+        csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.organization.brand_name, current_datetime=current_datetime)
 
-        original_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
+        original_folder = folder_ops.get_folder_with_id(folderid=folderid, session=session)
         new_folder = original_folder.copy(name=newfolder_name,type='export', deadline=current_datetime, export=True, session=session)
         csv_file = file_ops.create_file(filename=csv_name, content=serialized_csv.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
         session.add(csv_file)
@@ -296,7 +296,7 @@ def async_folder_copy_for_import(self, userid, folderid, deadline):
         session = Session()
         newfolder_name = f"Filing for Deadline {deadline}"
 
-        original_folder = folder_ops.get_folder_with_id(userid=userid, folderid=folderid, session=session)
+        original_folder = folder_ops.get_folder_with_id(folderid=folderid, session=session)
         new_folder = original_folder.copy(name=newfolder_name, type='upload', deadline=deadline, export=False, session=session)
         session.commit()
         return new_folder.id
@@ -382,7 +382,8 @@ def preview_fabric_locaiton_coverage(self, data, userid, outfile_name):
         logger.debug("Executing:", gdal_polygonize_cmd)
         subprocess.run(gdal_polygonize_cmd, shell=True)
 
-        folderVal = folder_ops.get_upload_folder(userid, session=session)
+        userVal = user_ops.get_user_with_id(userid=userid)
+        folderVal = folder_ops.get_upload_folder(userVal.organization_id, session=session)
         if folderVal is None:
              return {'error': 'Folder not found'}
 
@@ -434,12 +435,12 @@ def raster2vector(self, data, userid, outfile_name):
         subprocess.run(gdal_polygonize_cmd, shell=True)
 
         userVal = user_ops.get_user_with_id(userid, session=session)
-        folderVal = folder_ops.get_upload_folder(userVal.id, session=session)
+        folderVal = folder_ops.get_upload_folder(userVal.organization_id, session=session)
         if folderVal is None:
             num_folders = folder_ops.get_number_of_folders_for_user(userVal.id, session=session)
             folder_name = f"{userVal.username}-{num_folders + 1}"
             deadline = "September 2024"
-            folderVal = folder_ops.create_folder(folder_name, userVal.id, deadline, 'upload', session=session)
+            folderVal = folder_ops.create_folder(folder_name, userVal.organization_id, deadline, 'upload', session=session)
             session.commit()
 
         vector_file_name = outfile_name + '.kml'

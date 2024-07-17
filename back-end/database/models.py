@@ -28,10 +28,10 @@ class tower(Base):
 
     id = Column(Integer, primary_key=True)
     tower_name = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    organization_id = Column(Integer, ForeignKey('organization.id'), nullable=False)
 
     # Relationship to TowerInfo and RasterData models (assuming they exist)
-    user = relationship('user', back_populates='towers')
+    organization = relationship('organization', back_populates='towers')
     tower_info = relationship('towerinfo', back_populates='tower', uselist=False, cascade='all, delete')
     raster_data = relationship('rasterdata', back_populates='tower', uselist=False, cascade='all, delete')
 
@@ -75,8 +75,8 @@ class folder(Base): #filing, will change the name later for less confusion when 
     name = Column(String, nullable=False)
     type = Column(String, default='upload') # Currently upload or export
     deadline = Column(Date) #This deadline makes it a filing for the current period
-    user_id = Column(Integer, ForeignKey('user.id', ondelete='CASCADE'))
-    user = relationship('user', back_populates='folders')
+    organization_id = Column(Integer, ForeignKey('organization.id', ondelete='CASCADE'))
+    organization = relationship('organization', back_populates='folders')
     files = relationship('file', back_populates='folder', cascade='all, delete')
     mbtiles = relationship('mbtiles', back_populates='folder', cascade='all, delete')
     editfiles = relationship('editfile', back_populates='folder', cascade='all,delete')
@@ -84,7 +84,7 @@ class folder(Base): #filing, will change the name later for less confusion when 
     def copy(self, session, export=True, name=None, type=None, deadline=None):
         name = name if name is not None else self.name
         type = type if type is not None else self.type
-        new_folder = folder(name=name, type=type, user_id=self.user_id, deadline = deadline)
+        new_folder = folder(name=name, type=type, organization_id=self.organization_id, deadline = deadline)
         session.add(new_folder)
         session.flush()  # To generate an ID for the new folder
         

@@ -60,13 +60,17 @@ def get_number_records(folderid):
     session = Session()
     try:
         identity = get_jwt_identity()
-        if folderid == -1:
-            return jsonify({'error': 'Folder ID is invalid'}), 400
+        if folderid < 0:
+            return jsonify({'error': 'Filling ID is invalid'}), 400
         else:
-            folderVal = folder_ops.get_folder_with_id(userid=identity['id'], folderid=folderid, session=session)
-        return jsonify(kml_ops.get_kml_data(folderid=folderVal.id, session=session)), 200
+            if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
+                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+
+            return jsonify(kml_ops.get_kml_data(folderid=folderid, session=session)), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
+    finally:
+        session.close()
 
 @app.route('/api/submit-data/<folderid>', methods=['POST', 'GET'])
 @jwt_required()
@@ -102,6 +106,8 @@ def submit_data(folderid):
                 return jsonify({'Status': "Failed, invalid deadline format"}), 400
             
             if import_folder_id != -1:
+                if not folder_ops.folder_belongs_to_organization(import_folder_id, identity['id'], session):
+                    return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
                 # Asynchronous copy and create new folder with deadline
                 logger.debug("here 1")
                 task_chain = chain(
@@ -114,7 +120,7 @@ def submit_data(folderid):
                 # Create new folder with deadline
                 logger.debug("here 2")
                 new_folder_name = f"Filing for Deadline {deadline_date}"
-                folderVal = folder_ops.create_folder(new_folder_name, userVal.id, deadline_date, 'upload', session)
+                folderVal = folder_ops.create_folder(new_folder_name, userVal.organization_id, deadline_date, 'upload', session)
                 session.commit()
 
                 task_chain = chain(
@@ -124,10 +130,10 @@ def submit_data(folderid):
             
         else:
             logger.debug("here 3")
-            folderVal = folder_ops.get_folder_with_id(userid=userVal.id, folderid=folderid, session=session)
-        
+            if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
+                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
             task_chain = chain(
-                add_files_to_folder.s(folderVal.id, file_contents),
+                add_files_to_folder.s(folderid, file_contents),
                 process_data.s(recompute=False)
             )
 
@@ -198,9 +204,10 @@ def search_location(folderid):
         session = Session()
         try:
             userVal = user_ops.get_user_with_id(identity['id'], session)
-            folderVal = folder_ops.get_folder_with_id(userVal.id, folderid, session)
+            if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
+                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
 
-            results_dict = fabric_ops.address_query(folderVal.id, query, session)
+            results_dict = fabric_ops.address_query(folderid, query, session)
             return jsonify(results_dict)
         except Exception as e:
                 session.rollback()
@@ -277,9 +284,10 @@ def exportFiling(folderid):
         session = Session()
         try:
             userVal = user_ops.get_user_with_id(identity['id'], session)
-            folderVal = folder_ops.get_folder_with_id(userVal.id, folderid, session)
+            if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
+                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
             
-            csv_output = kml_ops.export(userVal.id, folderVal.id, userVal.provider_id, userVal.brand_name, session)
+            csv_output = kml_ops.export(userVal.id, folderid, userVal.provider_id, userVal.brand_name, session)
 
             if csv_output:
                 current_time = datetime.now().strftime(DATETIME_FORMAT)
@@ -321,6 +329,12 @@ def serve_tile_with_folderid(folder_id, zoom, x, y):
     folder_id = int(folder_id)
     identity = get_jwt_identity()
 
+    session = Session()
+    if not folder_ops.folder_belongs_to_organization(folder_id, identity['id'], session):
+        session.close()
+        return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+    session.close()
+
     zoom = int(zoom)
     x = int(x)
     y = int(y)
@@ -349,7 +363,14 @@ def toggle_markers():
         logger.info(polygonfeatures)
         if folderid == -1:
             return jsonify({'error': 'Invalid folder id'}), 400
+        
         identity = get_jwt_identity()
+        session = Session()
+        if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
+                session.close()
+                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+        session.close()
+
 
         task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid, polygonfeatures])
         return jsonify({'Status': "OK", 'task_id': task.id}), 200
@@ -365,6 +386,10 @@ def get_files():
         # Verify user own this folder
         folder_ID = int(request.args.get('folder_ID'))
         session = Session()
+
+        if not folder_ops.folder_belongs_to_organization(folder_ID, identity['id'], session):
+                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+        
         if folder_ID:
             filesinfo = file_ops.get_filesinfo_in_folder(folder_ID, session=session)
             if not filesinfo:
@@ -385,6 +410,10 @@ def get_editfiles():
         # Verify user own this folder
         folder_ID = int(request.args.get('folder_ID'))
         session = Session()
+
+        if not folder_ops.folder_belongs_to_organization(folder_ID, identity['id'], session):
+            return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+
         if folder_ID:
             filesinfo = editfile_ops.get_editfilesinfo_in_folder(folder_ID, session=session)
             if not filesinfo:
@@ -403,8 +432,9 @@ def get_folders_with_deadlines():
     try:
         identity = get_jwt_identity()
         user_id = identity['id']
-        
-        folders = folder_ops.get_folders_by_type_for_user(user_id, 'upload')
+        session = Session()
+        userVal = user_ops.get_user_with_id(userid=user_id, session=session)
+        folders = folder_ops.get_folders_by_type_for_org(userVal.organization_id, 'upload', session)
         
         folder_info = [{
             'folder_id': folder.id,
@@ -415,15 +445,19 @@ def get_folders_with_deadlines():
         return jsonify(folder_info), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
 @app.route('/api/get-last-upload-folder', methods=['GET'])
 @jwt_required()
 def get_last_folder():
     try:
         identity = get_jwt_identity()
+        session = Session()
         user_id = identity['id']
+        userVal = user_ops.get_user_with_id(userid=user_id, session=session)
         # Hackey way to use this method to get the lastest filing of user
-        folderVal = folder_ops.get_upload_folder(userid=user_id)
+        folderVal = folder_ops.get_upload_folder(orgid=userVal.organization_id, session=session)
         if not folderVal:
             folderid = -1
         else:
@@ -443,8 +477,10 @@ def get_network_files(folder_id):
         # multi-filing support
         folder_id = int(folder_id) 
 
-        folderVal = folder_ops.get_folder_with_id(userid=identity['id'], folderid=folder_id, session=session)
-        files = file_ops.get_all_network_files_for_fileinfoedit_table(folderVal.id, session)
+        if not folder_ops.folder_belongs_to_organization(folder_id, identity['id'], session):
+            return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+        
+        files = file_ops.get_all_network_files_for_fileinfoedit_table(folder_id, session)
         files_data = []
         for file in files:
             # Assuming each file has at least one kml_data or it's an empty list
@@ -478,6 +514,10 @@ def update_network_file(file_id):
         identity = get_jwt_identity()
         session = Session()
         file_id = int(file_id)
+        
+        if not file_ops.file_belongs_to_organization(file_id=file_id, user_id=identity['id'], session=session):
+            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+
         file = file_ops.get_file_with_id(file_id, session)
         if not file:
             return jsonify({'error': 'File not found'}), 404
@@ -505,6 +545,13 @@ def delete_files(fileid):
     fileid = int(fileid)
     try:
         identity = get_jwt_identity()
+        
+        session = Session()
+        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+            session.close()
+            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+        session.close()
+
         task = deleteFiles.apply_async(args=[fileid, identity['id']])
         return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
     except NoAuthorizationError:
@@ -516,7 +563,8 @@ def get_exported_folders():
     session = Session()
     try:
         identity = get_jwt_identity()
-        folders = folder_ops.get_folders_by_type_for_user(userid=identity['id'], foldertype='export', session=session)
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        folders = folder_ops.get_folders_by_type_for_org(orgid=userVal.organization_id, foldertype='export', session=session)
 
         response_data = []
         for fldr in folders:
@@ -560,6 +608,9 @@ def delete_export(fileid):
     session = Session()
     try:
         identity = get_jwt_identity()
+        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+
         fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
         print(f'file id is {fileVal.id}', flush=True)
         folder_ops.delete_folder(folderid=fileVal.folder_id, session=session)
@@ -735,6 +786,9 @@ def download_export(fileid):
     session = Session()
     try:
         identity = get_jwt_identity()
+        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+
         fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
         if not fileVal:
             return jsonify({'error': 'File not found'}), 404
@@ -828,6 +882,9 @@ def get_edit_geojson(fileid):
     try:
         identity = get_jwt_identity()
         fileid = int(fileid)
+        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+
         editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)
        
         if editfile is None:
@@ -850,6 +907,9 @@ def get_edit_geojson_centroid(fileid):
     session = Session()
     try:
         identity = get_jwt_identity()
+        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+
         editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)
 
         if editfile is None:
