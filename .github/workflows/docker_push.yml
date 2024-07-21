@@ -27,4 +27,4 @@ jobs:
         docker push ghcr.io/spin-vt/worker:latest
         docker push ghcr.io/spin-vt/backend:latest
         docker push ghcr.io/spin-vt/frontend:latest
-        docker push ghcr.io/spin-vt/my-nginx:latest
+        # docker push ghcr.io/spin-vt/my-nginx:latest
