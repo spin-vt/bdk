@@ -33,37 +33,37 @@ RUN git clone https://github.com/mapbox/tippecanoe.git && \
 # Check if Tippecanoe is in PATH
 RUN which tippecanoe || { echo 'Tippecanoe not found in PATH'; exit 1; }
 
-# Set the working directory to /Signal-Server
-WORKDIR /Signal-Server
+# # Set the working directory to /Signal-Server
+# WORKDIR /Signal-Server
 
-# Clone Signal-Server repository
-RUN git clone https://github.com/Cloud-RF/Signal-Server.git .
+# # Clone Signal-Server repository
+# RUN git clone https://github.com/Cloud-RF/Signal-Server.git .
 
-# Change to the source directory and build the binaries
-WORKDIR /Signal-Server/src
+# # Change to the source directory and build the binaries
+# WORKDIR /Signal-Server/src
 
-# Before running cmake, we should ensure that the RUNTIME DESTINATION is specified in CMakeLists.txt.
-RUN sed -i 's/install(TARGETS signalserver)/install(TARGETS signalserver RUNTIME DESTINATION bin)/' CMakeLists.txt
-RUN sed -i 's/install(TARGETS signalserverHD)/install(TARGETS signalserverHD RUNTIME DESTINATION bin)/' CMakeLists.txt
-RUN sed -i 's/install(TARGETS signalserverLIDAR)/install(TARGETS signalserverLIDAR RUNTIME DESTINATION bin)/' CMakeLists.txt
+# # Before running cmake, we should ensure that the RUNTIME DESTINATION is specified in CMakeLists.txt.
+# RUN sed -i 's/install(TARGETS signalserver)/install(TARGETS signalserver RUNTIME DESTINATION bin)/' CMakeLists.txt
+# RUN sed -i 's/install(TARGETS signalserverHD)/install(TARGETS signalserverHD RUNTIME DESTINATION bin)/' CMakeLists.txt
+# RUN sed -i 's/install(TARGETS signalserverLIDAR)/install(TARGETS signalserverLIDAR RUNTIME DESTINATION bin)/' CMakeLists.txt
 
-# Run cmake and make, specifying a runtime destination
-RUN cmake -DCMAKE_INSTALL_PREFIX=/usr/local . && \
-    make
+# # Run cmake and make, specifying a runtime destination
+# RUN cmake -DCMAKE_INSTALL_PREFIX=/usr/local . && \
+#     make
 
-# Add /usr/local/bin to the PATH, just in case it's not
-ENV PATH="/Signal-Server/src:${PATH}"
+# # Add /usr/local/bin to the PATH, just in case it's not
+# ENV PATH="/Signal-Server/src:${PATH}"
 
-# Check if signalserver is in PATH
-RUN which signalserver || { echo 'Signal-Server not found in PATH'; exit 1; }
+# # Check if signalserver is in PATH
+# RUN which signalserver || { echo 'Signal-Server not found in PATH'; exit 1; }
 
-WORKDIR /Signal-Server/output/GoogleEarth
-# Modify runsig.sh to use signalserverHD instead of signalserver
-RUN sed -i 's/time signalserver -sdf/time signalserverHD -sdf/' runsig.sh
+# WORKDIR /Signal-Server/output/GoogleEarth
+# # Modify runsig.sh to use signalserverHD instead of signalserver
+# RUN sed -i 's/time signalserver -sdf/time signalserverHD -sdf/' runsig.sh
 
-ENV PATH="/Signal-Server/output/GoogleEarth:${PATH}"
+# ENV PATH="/Signal-Server/output/GoogleEarth:${PATH}"
 
-Run which runsig.sh || { echo 'runsig not found in PATH'; exit 1; }
+# Run which runsig.sh || { echo 'runsig not found in PATH'; exit 1; }
 
 WORKDIR /app
 

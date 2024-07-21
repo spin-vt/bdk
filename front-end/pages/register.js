@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { TextField, Button, Typography, Container } from "@mui/material";
 import Navbar from "../components/Navbar";
-import Swal from "sweetalert2";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { backend_url } from "../utils/settings";
 import { styled } from "@mui/system";
 
@@ -27,13 +28,27 @@ const RegisterButtonContainer = styled("div")({
 const Register = () => {
   const router = useRouter();
 
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [providerId, setProviderId] = useState("");
-  const [brandName, setBrandName] = useState("");
+
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
+
+    if (!validateEmail(email)) {
+      toast.error(
+        "Please enter a valid email address",
+        {
+          position: toast.POSITION.TOP_RIGHT,
+          autoClose: 5000,
+        }
+      );
+      return;
+    }
 
     console.log("url " + (backend_url + "/api/register"));
     try {
@@ -42,7 +57,7 @@ const Register = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password, providerId, brandName }),
+        body: JSON.stringify({ email, password }),
         credentials: "include",
       });
 
@@ -53,11 +68,13 @@ const Register = () => {
         }
       } else if (response.status === 400) {
         const data = await response.json();
-        if (data.message === "Username already exists") {
-          Swal.fire(
-            "Error",
-            "Username already exists. Please try another one.",
-            "error"
+        if (data.message === "Email already exists") {
+          toast.error(
+            "Email already exists",
+            {
+              position: toast.POSITION.TOP_RIGHT,
+              autoClose: 5000,
+            }
           );
         }
       }
@@ -68,6 +85,7 @@ const Register = () => {
 
   return (
     <div>
+      <ToastContainer />
       <Navbar />
       <Container component="main" maxWidth="xs">
         <RegisterContainer>
@@ -80,14 +98,14 @@ const Register = () => {
               margin="normal"
               required
               fullWidth
-              id="username"
-              label="Username"
-              name="username"
-              autoComplete="username"
+              id="email"
+              label="Email"
+              name="email"
+              autoComplete="email"
               autoFocus
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              key="username-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              key="email-input"
             />
             <TextField
               variant="outlined"
@@ -102,30 +120,6 @@ const Register = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               key="password-input"
-            />
-            <TextField
-              variant="outlined"
-              margin="normal"
-              required
-              fullWidth
-              id="providerId"
-              label="Provider ID"
-              name="providerId"
-              value={providerId}
-              onChange={(e) => setProviderId(e.target.value)}
-              key="providerId-input"
-            />
-            <TextField
-              variant="outlined"
-              margin="normal"
-              required
-              fullWidth
-              id="brandName"
-              label="Brand Name"
-              name="brandName"
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              key="brandName-input"
             />
             <RegisterButtonContainer>
               <Button

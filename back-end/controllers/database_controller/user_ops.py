@@ -43,26 +43,38 @@ def get_user_with_username(user_name, session=None):
         if owns_session:
             session.close()
 
-def create_user_in_db(username, password, providerid, brandname):
+def create_user_in_db(username, password):
     session = Session()
     try:
         existing_user = get_user_with_username(username, session)
         if existing_user:
-            logger.debug(existing_user)
             return {"error": "Username already exists"}
 
         hashed_password = generate_password_hash(password, method='sha256')
-        new_user = user(username=username, password=hashed_password, provider_id=providerid, brand_name=brandname)
+        new_user = user(username=username, password=hashed_password)
         session.add(new_user)
     
         session.commit()
 
-        return {"success": new_user.id}
+        return {"success": new_user}
 
     except Exception as e:
        
         session.rollback()
         return {"error": str(e)}
 
+    finally:
+        session.close()
+
+def verify_user_email(user_id, email):
+    session = Session()
+    try:
+        userVal = session.query(user).filter(user.username == email, user.id == user_id).one()
+        if userVal:
+            userVal.verified = True
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        return {"error": str(e)}
     finally:
         session.close()

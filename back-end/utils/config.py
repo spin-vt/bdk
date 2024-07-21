@@ -12,3 +12,11 @@ class Config:
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     CELERY_BROKER_URL = 'redis://redis:6379/0'
     CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+
+    # Email configurations
+    MAIL_SERVER = os.getenv('MAIL_SERVER')
+    MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'true').lower() in ['true', '1', 't']
+    MAIL_USE_SSL = os.getenv('MAIL_USE_SSL', 'false').lower() in ['true', '1', 't']
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')

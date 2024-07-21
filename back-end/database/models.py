@@ -5,6 +5,8 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 class organization(Base):
+    __tablename__ = 'organization'
+    
     id = Column(Integer, primary_key=True)
     name = Column(String(100), unique=True, nullable=False)
     provider_id = Column(Integer)
@@ -17,8 +19,10 @@ class user(Base):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key=True)
-    username = Column(String(50), unique=True)
+    username = Column(String(50), unique=True, nullable=False)
     password = Column(String(256))
+    is_admin = Column(Boolean, default=False)
+    verified = Column(Boolean, default=False)
     organization_id = Column(Integer, ForeignKey('organization.id'))
     organization = relationship('Organization', back_populates='users')
     

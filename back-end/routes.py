@@ -12,14 +12,15 @@ from flask_jwt_extended import (
     get_jwt_identity,
     decode_token
 )
-from datetime import datetime
+from jwt import ExpiredSignatureError
+from datetime import datetime, timedelta
 import shortuuid
 from celery.result import AsyncResult
 from celery import chain
-from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
+from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port, frontend_url
 from database.sessions import Session
 from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops
-from utils.flask_app import app, jwt
+from utils.flask_app import app, jwt, mail
 from controllers.celery_controller.celery_config import celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
@@ -31,20 +32,7 @@ from controllers.signalserver_controller.read_towerinfo import read_tower_csv
 from utils.logger_config import logger
 import json
 from shapely.geometry import shape
-# logger = logging.getLogger(__name__)
-
-
-
-# logging.basicConfig(level=logging.DEBUG)
-# app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-# app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-# app.config["JWT_SECRET_KEY"] = base64.b64encode(os.getenv('JWT_SECRET').encode())
-# app.config["JWT_TOKEN_LOCATION"] = [os.getenv('JWT_TOKEN_LOCATION')]
-# app.config['JWT_ACCESS_COOKIE_NAME'] = os.getenv('JWT_ACCESS_COOKIE_NAME')
-# app.config['JWT_COOKIE_CSRF_PROTECT'] = False
-# app.config['JWT_ACCESS_TOKEN_EXPIRES'] = COOKIE_EXP_TIME
-# jwt = JWTManager(app)
-
+from flask_mail import Message
 
 
 db_name = os.environ.get("POSTGRES_DB")
@@ -219,22 +207,56 @@ def search_location(folderid):
 
 
 
+def send_verification_email(email, token):
+    msg = Message('Email Verification', recipients=[email])
+    verification_url = f'{frontend_url}/emailVerification/{token}'
+    msg.body = f'Please click the link to verify your email: {verification_url}'
+    mail.send(msg)
+
+@app.route('/api/verify/<token>', methods=['GET'])
+def verify_email(token):
+    try:
+        decoded_token = decode_token(token)
+        user_id = decoded_token['identity']['id']
+        email = decoded_token['identity']['email']
+        user_ops.verify_user_email(user_id, email)
+        return jsonify({'status': 'success', 'message': 'Email verified successfully.'}), 200
+    except ExpiredSignatureError:
+        return jsonify({'status': 'error', 'message': 'The token has expired.'}), 400
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': 'Invalid token.'}), 400
+
+@app.route('/api/resend_verification', methods=['POST'])
+def resend_verification():
+    data = request.get_json()
+    email = data.get('email')
+    user = user_ops.get_user_by_email(email)
+    if not user:
+        return jsonify({'status': 'error', 'message': 'Email address not found.'}), 400
+
+    email_token = create_access_token(identity={'id': user.id, 'email': email}, expires_delta=timedelta(hours=1))
+    send_verification_email(email, email_token)
+    return jsonify({'status': 'success', 'message': 'Verification email resent.'}), 200
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
-    username = data.get('username')
+    email = data.get('email')
     password = data.get('password')
-    providerid = data.get('providerId')
-    brandname = data.get('brandName')
 
-    response = user_ops.create_user_in_db(username, password, providerid, brandname)
+    response = user_ops.create_user_in_db(email, password)
 
     if 'error' in response:
         return jsonify({'status': 'error', 'message': response["error"]}), 400
 
-    access_token = create_access_token(identity={'id': response["success"], 'username': username})
+    userVal = response["success"]
+    access_token = create_access_token(identity={'id': userVal.id, 'verified': userVal.verified})
 
-    response = make_response(jsonify({'status': 'success', 'token': access_token}))
+    email_token = create_access_token(identity={'id': userVal.id, 'email': email}, expires_delta=timedelta(hours=1))
+
+    send_verification_email(email, email_token)
+
+    response = make_response(jsonify({'status': 'success', 'token': email_token}))
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
     return response, 200
 
@@ -250,7 +272,7 @@ def login():
 
     if user is not None and check_password_hash(user.password, pword):
         user_id = user.id
-        access_token = create_access_token(identity={'id': user_id, 'username': username})
+        access_token = create_access_token(identity={'id': user_id, 'verified': user.verified})
         response = make_response(jsonify({'status': 'success', 'token': access_token}))
         response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
         return response
