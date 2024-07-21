@@ -7,8 +7,7 @@ services:
     command: celery -A controllers.celery_controller.celery_config.celery worker --loglevel=DEBUG
     volumes:
       - ./back-end:/app
-    depends_on:
-      - redis
+
   
   backend:
     image: ghcr.io/spin-vt/worker
@@ -18,9 +17,6 @@ services:
     command: gunicorn routes:app -b 0.0.0.0:8000 -w 4 --log-level debug --reload
     volumes:
       - ./back-end:/app
-    depends_on:
-      - db
-      - redis
     expose:
       - 8000
 
@@ -29,8 +25,6 @@ services:
     build: ./front-end
     volumes:
       - ./front-end:/app
-    depends_on:
-      - backend
     expose:
       - 3000
 
@@ -40,7 +34,4 @@ services:
       context: ./
       dockerfile: Dockerfile.nginx
     container_name: nginx-proxy
-    depends_on:
-      - backend
-      - frontend
 
