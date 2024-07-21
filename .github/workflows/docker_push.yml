@@ -19,11 +19,12 @@ jobs:
     - name: Login to GitHub Docker Registry
       run: echo "${{secrets.DOCKER_LOGIN_TOKEN}}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-    - name: Build Docker images using docker-compose.yml
-      run: docker-compose -f docker-compose.yml build
+    - name: Build Docker images using docker-compose.build.yml
+      run: docker-compose -f docker-compose.build.yml build
 
     - name: Push Docker images to registry
       run: |
         docker push ghcr.io/spin-vt/worker:latest
         docker push ghcr.io/spin-vt/backend:latest
         docker push ghcr.io/spin-vt/frontend:latest
+        docker push ghcr.io/spin-vt/my-nginx:latest

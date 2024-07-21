@@ -84,7 +84,7 @@ services:
     image: nginx:latest
     container_name: nginx-proxy
     ports:
-      - "80:80"
+      - "${NGINX_HTTP_PORT}:${NGINX_HTTP_PORT}"
     volumes:
       - ./nginx.conf.local:/etc/nginx/conf.d/default.conf
     depends_on:
