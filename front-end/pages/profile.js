@@ -1,19 +1,354 @@
+import { useEffect, useState } from "react";
 import Navbar from '../components/Navbar';
-import { Typography, Container } from '@mui/material';
-
-
+import { Button, Container, Typography, TextField, Paper, Grid, Divider, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
+import { ToastContainer, toast } from 'react-toastify';
+import { useRouter } from "next/router";
+import { backend_url } from "../utils/settings";
 
 const Profile = () => {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState('');
+  const [showTokenField, setShowTokenField] = useState(false);
+  const [openCreateOrg, setOpenCreateOrg] = useState(false);
+  const [openJoinOrg, setOpenJoinOrg] = useState(false);
+  const [orgName, setOrgName] = useState('');
+  const [joinOrgToken, setJoinOrgToken] = useState('');
+  const router = useRouter();
+
+  useEffect(() => {
+    fetch(`${backend_url}/api/user`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          setUser(data.userinfo);
+        } else {
+          toast.error("Failed to fetch user data");
+          router.push('/login');
+        }
+      })
+      .catch(error => {
+        console.error("Fetch error:", error);
+        toast.error("Network error or server issue");
+      });
+  }, [router]);
+
+  const handleOpenCreateOrg = () => {
+    setOpenCreateOrg(true);
+  };
+
+  const handleCloseCreateOrg = () => {
+    setOpenCreateOrg(false);
+  };
+
+  const handleCreateOrg = () => {
+    if (!user.verified) {
+      toast.error("Please verify your email address before creating an organization");
+      return;
+    }
+    if (!orgName) {
+      toast.error("Please enter an organization name.");
+      return;
+    }
+    fetch(`${backend_url}/api/create_organization`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ orgName: orgName }),
+      credentials: 'include',
+    }).then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          toast.success("Organization created successfully!");
+          setUser({ ...user, organization: { organization_name: orgName } });
+        } else {
+          toast.error(data.message);
+        }
+        handleCloseCreateOrg();
+      });
+  };
+
+  const handleJoinOrg = () => {
+    if (!orgName) {
+      toast.error("Please enter an organization name.");
+      return;
+    }
+    fetch(`${backend_url}/api/join_organization`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: orgName }),
+      credentials: 'include',
+    }).then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          toast.success("Join request sent to organization admin.");
+          setShowTokenField(true);
+        } else {
+          toast.error(data.message);
+        }
+        handleCloseJoinOrg();
+      });
+  };
+
+  const handleOpenJoinOrg = () => {
+    setOpenJoinOrg(true);
+  };
+
+  const handleCloseJoinOrg = () => {
+    setOpenJoinOrg(false);
+  };
+
+  const resendVerification = () => {
+    if (!user || !user.email) {
+      toast.error("User email not available");
+      return;
+    }
+    fetch(`${backend_url}/api/send_email_verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email: user.email })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          toast.success("Verification email resent");
+          setShowTokenField(true);
+        } else {
+          toast.error(data.message);
+        }
+      });
+  };
+
+  const handleVerifyToken = (e) => {
+    e.preventDefault();
+    fetch(`${backend_url}/api/verify_token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ token })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          toast.success('Email address verified successfully.');
+          setShowTokenField(false);
+          setUser({ ...user, verified: true });
+        } else {
+          toast.error(data.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error verifying token:', error);
+        toast.error('Network error or server issue');
+      });
+  };
+
+  const handleVerifyJoinOrgToken = (e) => {
+    e.preventDefault();
+    fetch(`${backend_url}/api/verify_token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ token: joinOrgToken })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          toast.success(`Joined ${orgName} successfully.`);
+          setShowTokenField(false);
+          setUser({ ...user, organization: { organization_name: orgName } });
+        } else {
+          toast.error(data.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error verifying token:', error);
+        toast.error('Network error or server issue');
+      });
+  };
+
+  if (!user) return <div>Loading...</div>;
+
   return (
     <div>
       <Navbar />
-      <Container component="main" maxWidth="xs">
-        <div>
-          <Typography component="h1" variant="h5">
-            Profile
-          </Typography>
-        </div>
+      <Container component="main" maxWidth="md">
+        <ToastContainer />
+        <Grid container spacing={2} direction="column">
+          {/* User Account Info Section */}
+          <Grid item xs={12}>
+            <Paper style={{ padding: 16 }}>
+              <Typography variant="h6" gutterBottom>
+                User Account Info
+              </Typography>
+              <Divider />
+              <Typography variant="body1" style={{ marginTop: 16 }}>
+                Email: {user.email}
+              </Typography>
+              <Button variant="contained" color="secondary" style={{ marginTop: 16 }}>
+                Reset Password
+              </Button>
+              {!user.verified && (
+                <>
+                  <Typography color="error" style={{ marginTop: 16 }}>
+                    Your account is not verified. Please verify your email.
+                  </Typography>
+                  <Button variant="contained" color="primary" onClick={resendVerification} style={{ marginTop: 8 }}>
+                    Send Verification Email
+                  </Button>
+                  {showTokenField && (
+                    <form onSubmit={handleVerifyToken} style={{ marginTop: 16 }}>
+                      <TextField
+                        variant="outlined"
+                        margin="normal"
+                        required
+                        fullWidth
+                        id="token"
+                        label="Verification Token"
+                        name="token"
+                        autoFocus
+                        value={token}
+                        onChange={(e) => setToken(e.target.value)}
+                      />
+                      <Button
+                        type="submit"
+                        fullWidth
+                        variant="contained"
+                        color="primary"
+                        style={{ marginTop: '1rem' }}
+                      >
+                        Verify Token
+                      </Button>
+                    </form>
+                  )}
+                </>
+              )}
+            </Paper>
+          </Grid>
+
+          {/* Organization Info Section */}
+          <Grid item xs={12}>
+            <Paper style={{ padding: 16 }}>
+              <Typography variant="h6" gutterBottom>
+                Organization Info
+              </Typography>
+              <Divider />
+              {user.organization ? (
+                <>
+                  <Typography variant="body1" style={{ marginTop: 16 }}>
+                    Name: {user.organization.organization_name}
+                  </Typography>
+                  <Typography variant="body1">
+                    Provider ID: {user.organization.provider_id}
+                  </Typography>
+                  <Typography variant="body1">
+                    Brand Name: {user.organization.brand_name}
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="body1" style={{ marginTop: 16 }}>
+                    Associate your account with an organization to start working on filings via:
+                  </Typography>
+                  <Button variant="contained" color="primary" onClick={handleOpenCreateOrg} style={{ marginTop: 16 }}>
+                    Create an Organization
+                  </Button>
+                  <Button variant="contained" color="secondary" onClick={handleOpenJoinOrg} style={{ marginLeft: 10, marginTop: 16 }}>
+                    Join an Organization
+                  </Button>
+                  {showTokenField && (
+                    <form onSubmit={handleVerifyJoinOrgToken} style={{ marginTop: 16 }}>
+                      <TextField
+                        variant="outlined"
+                        margin="normal"
+                        required
+                        fullWidth
+                        id="joinOrgToken"
+                        label="Organization Join Token"
+                        name="joinOrgToken"
+                        autoFocus
+                        value={joinOrgToken}
+                        onChange={(e) => setJoinOrgToken(e.target.value)}
+                      />
+                      <Button
+                        type="submit"
+                        fullWidth
+                        variant="contained"
+                        color="primary"
+                        style={{ marginTop: '1rem' }}
+                      >
+                        Verify Token
+                      </Button>
+                    </form>
+                  )}
+                </>
+              )}
+            </Paper>
+          </Grid>
+        </Grid>
       </Container>
+
+      {/* Create Organization Dialog */}
+      <Dialog open={openCreateOrg} onClose={handleCloseCreateOrg}>
+        <DialogTitle>Create an Organization</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="orgName"
+            label="Organization Name"
+            type="text"
+            fullWidth
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCreateOrg} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleCreateOrg} color="primary">
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Join Organization Dialog */}
+      <Dialog open={openJoinOrg} onClose={handleCloseJoinOrg}>
+        <DialogTitle>Join an Organization</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            id="orgName"
+            label="Organization Name"
+            type="text"
+            fullWidth
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseJoinOrg} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleJoinOrg} color="primary">
+            Join
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

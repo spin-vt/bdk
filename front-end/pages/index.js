@@ -16,7 +16,6 @@ import { styled } from '@mui/material/styles';
 import { Typography, Container, Box } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 
-
 const DynamicMap = dynamic(() => import("../components/Map"), { ssr: false });
 const Editmap = dynamic(() => import("../components/Editmap"), { ssr: false });
 
@@ -48,42 +47,44 @@ const HomePage = () => {
   };
 
   return (
-    <div>
 
-      <LayerVisibilityProvider>
-        <EditLayerVisibilityProvider>
-          <SelectedLocationProvider>
-              <SelectedPolygonProvider>
-                <SelectedPolygonAreaProvider>
-                  <Navbar
-                    sx={{ height: "10%" }}
-                    handleMyFilingOpen={handleDrawerOpen}
-                    handleUploadOpen={handleDrawerOpen2}
-                    showOnHome={true}
-                  />
-                  {isEditingMap ? <Editmap /> : <DynamicMap />}
-                  {/* This is where I will add filing logic */}
-                  <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
-                    {isEditingMap ? <MyEdit /> : <MyFile />}
-                  </CustomDrawer>
+          <div>
 
-                  <Drawer
-                    anchor="right"
-                    open={uploadOpen}
-                    onClose={handleDrawerClose2}
-                  >
-                    <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
-                      Upload Network Files Below:
-                    </StyledTypography>
-                    <Upload />
-                  </Drawer>
-                </SelectedPolygonAreaProvider>
-              </SelectedPolygonProvider>
-          </SelectedLocationProvider>
-        </EditLayerVisibilityProvider>
-      </LayerVisibilityProvider>
+            <LayerVisibilityProvider>
+              <EditLayerVisibilityProvider>
+                <SelectedLocationProvider>
+                  <SelectedPolygonProvider>
+                    <SelectedPolygonAreaProvider>
+                      <Navbar
+                        sx={{ height: "10%" }}
+                        handleMyFilingOpen={handleDrawerOpen}
+                        handleUploadOpen={handleDrawerOpen2}
+                        showOnHome={true}
+                      />
+                      {isEditingMap ? <Editmap /> : <DynamicMap />}
+                      {/* This is where I will add filing logic */}
+                      <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
+                        {isEditingMap ? <MyEdit /> : <MyFile />}
+                      </CustomDrawer>
 
-    </div>
+                      <Drawer
+                        anchor="right"
+                        open={uploadOpen}
+                        onClose={handleDrawerClose2}
+                      >
+                        <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
+                          Upload Network Files Below:
+                        </StyledTypography>
+                        <Upload />
+                      </Drawer>
+                    </SelectedPolygonAreaProvider>
+                  </SelectedPolygonProvider>
+                </SelectedLocationProvider>
+              </EditLayerVisibilityProvider>
+            </LayerVisibilityProvider>
+
+          </div>
+
   );
 };
 

@@ -30,6 +30,12 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
       - JWT_ACCESS_COOKIE_NAME=${JWT_ACCESS_COOKIE_NAME}
+      - MAIL_SERVER=${MAIL_SERVER}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USE_TLS=${MAIL_USE_TLS}
+      - MAIL_USE_SSL=${MAIL_USE_SSL}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
     volumes:
       - ./back-end:/app
     depends_on:
@@ -50,6 +56,13 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
       - JWT_ACCESS_COOKIE_NAME=${JWT_ACCESS_COOKIE_NAME}
+      - MAIL_SERVER=${MAIL_SERVER}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USE_TLS=${MAIL_USE_TLS}
+      - MAIL_USE_SSL=${MAIL_USE_SSL}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
     volumes:
       - ./back-end:/app
     depends_on:

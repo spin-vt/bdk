@@ -368,7 +368,7 @@ function Map() {
   const addVectorTiles = () => {
     removeVectorTiles();
     if(folderID == -1){
-      return
+      return;
     }
 
     fetch(`${backend_url}/api/user`, {

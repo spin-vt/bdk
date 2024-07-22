@@ -11,9 +11,9 @@ class organization(Base):
     name = Column(String(100), unique=True, nullable=False)
     provider_id = Column(Integer)
     brand_name = Column(String(50))
-    users = relationship('User', back_populates='organization')
-    folders = relationship('folder', back_populates='user', cascade='all, delete')
-    towers = relationship('tower', back_populates='user', cascade='all, delete')
+    users = relationship('user', back_populates='organization')
+    folders = relationship('folder', back_populates='organization', cascade='all, delete')
+    towers = relationship('tower', back_populates='organization', cascade='all, delete')
 
 class user(Base):
     __tablename__ = 'user'
@@ -24,7 +24,7 @@ class user(Base):
     is_admin = Column(Boolean, default=False)
     verified = Column(Boolean, default=False)
     organization_id = Column(Integer, ForeignKey('organization.id'))
-    organization = relationship('Organization', back_populates='users')
+    organization = relationship('organization', back_populates='users')
     
 
 class tower(Base):

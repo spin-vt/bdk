@@ -64,7 +64,7 @@ const Register = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.status === "success") {
-          router.push("/");
+          router.push("/profile");
         }
       } else if (response.status === 400) {
         const data = await response.json();

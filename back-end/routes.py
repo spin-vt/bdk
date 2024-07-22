@@ -19,8 +19,8 @@ from celery.result import AsyncResult
 from celery import chain
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port, frontend_url
 from database.sessions import Session
-from controllers.database_controller import fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops
-from utils.flask_app import app, jwt, mail
+from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops
+from utils.flask_app import app, mail
 from controllers.celery_controller.celery_config import celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
@@ -33,6 +33,7 @@ from utils.logger_config import logger
 import json
 from shapely.geometry import shape
 from flask_mail import Message
+import jwt
 
 
 db_name = os.environ.get("POSTGRES_DB")
@@ -207,68 +208,222 @@ def search_location(folderid):
 
 
 
-def send_verification_email(email, token):
-    msg = Message('Email Verification', recipients=[email])
-    verification_url = f'{frontend_url}/emailVerification/{token}'
-    msg.body = f'Please click the link to verify your email: {verification_url}'
+
+
+def create_email_token(userid, email, operation, org_id=-1):
+    expiration = datetime.now() + timedelta(minutes=15)
+    email_token = jwt.encode(
+        {'sub': {'id': userid, 'email': email, 'operation': operation, 'org_id': org_id}, 'exp': expiration},
+        app.config['JWT_SECRET_KEY'],
+        algorithm='HS256'
+    )
+    return email_token
+
+def send_verification_email_with_token(email, token, title, content, join_org=False, join_org_email=""):
+    msg = Message(title, recipients=[email])
+    if join_org:
+        message_start = f'Please forward the token to {join_org_email} and ask them to copy the token to the BDK website to '
+    else:
+        message_start = 'Please copy the token to the BDK website to '
+    msg.body = f'{message_start} {content}: \n \n{token}'
     mail.send(msg)
 
-@app.route('/api/verify/<token>', methods=['GET'])
-def verify_email(token):
+@app.route('/api/request_password_reset', methods=['POST'])
+def request_password_reset():
+    session = Session()
+    data = request.get_json()
+    email = data.get('email')
+    user = user_ops.get_user_with_username(email, session)
+
+    if not user:
+        session.close()
+        return jsonify({'status': 'error', 'message': 'Email address not found.'}), 400
+
+    email_token = create_email_token(userid=user.id, email=user.username, operation="reset_password")
+    send_verification_email_with_token(email=email, token=email_token, title='Reset Your Password for BDK', content='reset your password')
+    session.close()
+    return jsonify({'status': 'success', 'message': 'Verification email resent.'}), 200
+
+@app.route('/api/reset_password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    token = data.get('token')
+    new_password = data.get('newPassword')
+
     try:
-        decoded_token = decode_token(token)
-        user_id = decoded_token['identity']['id']
-        email = decoded_token['identity']['email']
-        user_ops.verify_user_email(user_id, email)
-        return jsonify({'status': 'success', 'message': 'Email verified successfully.'}), 200
-    except ExpiredSignatureError:
+        session = Session()
+        decoded_token = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+        user_id = decoded_token['sub']['id']
+        email = decoded_token['sub']['email']
+        if user_ops.verify_user_email(user_id, email, session, False):
+            user_ops.reset_user_password(user_id, new_password)
+            return jsonify({'status': 'success', 'message': 'Password reset successfully.'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid token.'}), 400
+    except jwt.ExpiredSignatureError:
         return jsonify({'status': 'error', 'message': 'The token has expired.'}), 400
     except Exception as e:
         return jsonify({'status': 'error', 'message': 'Invalid token.'}), 400
+    finally:
+        session.close()
 
-@app.route('/api/resend_verification', methods=['POST'])
-def resend_verification():
+
+@app.route('/api/verify_token', methods=['POST'])
+def verify_token():
+    try:
+        session = Session()
+        data = request.get_json()
+        token = data.get('token')
+
+        # Decode the token using pyjwt directly
+        decoded_token = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+
+        user_id = decoded_token['sub']['id']
+        email = decoded_token['sub']['email']
+        operation = decoded_token['sub']['operation']
+
+        logger.debug(operation)
+
+        setVerified = True if operation == 'email_address_verification' else False
+        if user_ops.verify_user_email(user_id, email, session, setVerified):
+            if operation == "join_organization":
+                org_id = int(decoded_token['sub']['org_id'])
+                logger.debug(org_id)
+                if org_id < 0:
+                    return jsonify({'status': 'error', 'message': 'Invalid organization id.'}), 400
+                user_ops.add_user_to_organization(user_id, org_id, session)
+                    
+
+            access_token = create_access_token(identity={'id': user_id, 'verified': True})
+            response = make_response(jsonify({'status': 'success', 'token': access_token}))
+            response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+            return response, 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid token.'}), 400
+    except ExpiredSignatureError:
+        return jsonify({'status': 'error', 'message': 'The token has expired.'}), 400
+    except Exception as e:
+        logger.error(f"Error verifying token: {e}")
+        return jsonify({'status': 'error', 'message': 'Invalid token.'}), 400
+    finally:
+        session.close()
+
+@app.route('/api/send_email_verification', methods=['POST'])
+def send_email_verification():
+    session = Session()
     data = request.get_json()
     email = data.get('email')
-    user = user_ops.get_user_by_email(email)
+    user = user_ops.get_user_with_username(email, session)
+
     if not user:
+        session.close()
         return jsonify({'status': 'error', 'message': 'Email address not found.'}), 400
 
-    email_token = create_access_token(identity={'id': user.id, 'email': email}, expires_delta=timedelta(hours=1))
-    send_verification_email(email, email_token)
-    return jsonify({'status': 'success', 'message': 'Verification email resent.'}), 200
+    email_token = create_email_token(userid=user.id, email=user.username, operation="email_address_verification")
+    send_verification_email_with_token(email=email, token=email_token, title='Verify Your Email Address for BDK', content='verify your email address')
+    session.close()
+    return jsonify({'status': 'success', 'message': 'Verification email sent.'}), 200
+
+@app.route('/api/create_organization', methods=['POST'])
+@jwt_required()
+def create_organization():
+    session = Session()
+    data = request.get_json()
+    org_name = data.get('orgName')
+    current_user = get_jwt_identity()
+
+    try:
+        user = user_ops.get_user_with_id(current_user['id'], session)
+
+        if not user.verified:
+            return jsonify({'status': 'error', 'message': 'Please verify your email address before creating an organization.'}), 400
+
+        if not org_name:
+            return jsonify({'status': 'error', 'message': 'Please enter an organization name.'}), 400
+
+        existing_org = organization_ops.get_organization_with_orgname(org_name=org_name, session=session)
+        if existing_org:
+            return jsonify({'status': 'error', 'message': 'Organization name already exists.'}), 400
+
+        new_org = organization_ops.create_organization(org_name=org_name, session=session)
+        
+        user.organization_id = new_org.id
+        user.is_admin = True
+        session.commit()
+
+        return jsonify({'status': 'success', 'message': 'Organization created successfully!'}), 200
+    except Exception as e:
+        logger.error(f"Error creating organization: {e}")
+        session.rollback()
+        return jsonify({'status': 'error', 'message': 'An error occurred while creating the organization.'}), 500
+    finally:
+        session.close()
+
+@app.route('/api/join_organization', methods=['POST'])
+@jwt_required()
+def join_organization():
+    session = Session()
+    data = request.get_json()
+    org_name = data.get('name')
+    current_user = get_jwt_identity()
+    try:
+        user = user_ops.get_user_with_id(current_user['id'], session)
+        
+        if not user.verified:
+            return jsonify({'status': 'error', 'message': 'Please verify your email address before joining an organization.'}), 400
+
+        if not org_name:
+            return jsonify({'status': 'error', 'message': 'Please enter an organization name.'}), 400
+
+        org = organization_ops.get_organization_with_orgname(org_name=org_name, session=session)
+        if not org:
+            return jsonify({'status': 'error', 'message': 'Organization not found.'}), 400
+
+        admin = organization_ops.get_admin_user_for_organization(org_id=org.id, session=session)
+        if not admin:
+            return jsonify({'status': 'error', 'message': 'Organization admin not found.'}), 400
+
+        email_token = create_email_token(userid=user.id, email=user.username, operation="join_organization", org_id=org.id)
+        send_verification_email_with_token(email=admin.username, token=email_token, title='Organization Join Request for BDK', content=f'finish their organization join request', join_org=True, join_org_email=user.username)
+
+        return jsonify({'status': 'success', 'message': 'Join request sent to organization admin.'}), 200
+    except Exception as e:
+        logger.error(f"Error joining organization: {e}")
+        session.rollback()
+        return jsonify({'status': 'error', 'message': 'An error occurred while trying to join the organization.'}), 500
+    finally:
+        session.close()
 
 @app.route('/api/register', methods=['POST'])
 def register():
+    session = Session()
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
 
-    response = user_ops.create_user_in_db(email, password)
+    response = user_ops.create_user_in_db(email, password, session)
 
     if 'error' in response:
         return jsonify({'status': 'error', 'message': response["error"]}), 400
 
     userVal = response["success"]
-    access_token = create_access_token(identity={'id': userVal.id, 'verified': userVal.verified})
+    access_token = create_access_token(identity={'id': userVal.id, 'verified': False})
 
-    email_token = create_access_token(identity={'id': userVal.id, 'email': email}, expires_delta=timedelta(hours=1))
-
-    send_verification_email(email, email_token)
-
-    response = make_response(jsonify({'status': 'success', 'token': email_token}))
+    response = make_response(jsonify({'status': 'success', 'token': access_token}))
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+
+    session.close()
     return response, 200
 
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    username = data.get('username')
+    email = data.get('email')
     pword = data.get('password')
 
     # Needs a try catch to return the correct message
-    user = user_ops.get_user_with_username(username)
+    user = user_ops.get_user_with_username(email)
 
     if user is not None and check_password_hash(user.password, pword):
         user_id = user.id
@@ -292,7 +447,8 @@ def logout():
 def get_user_info():
     try:
         identity = get_jwt_identity()
-        return jsonify({'username': identity['username']})
+        userinfo = user_ops.get_userinfo_with_id(identity['id'])
+        return jsonify({'status': 'success', 'userinfo': userinfo}), 200
     except NoAuthorizationError:
         return jsonify({'error': 'Token is invalid or expired'}), 401
 

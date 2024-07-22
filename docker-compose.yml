@@ -74,6 +74,7 @@ services:
       - MAIL_USE_SSL=${MAIL_USE_SSL}
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
     volumes:
       - ./back-end:/app
     depends_on:

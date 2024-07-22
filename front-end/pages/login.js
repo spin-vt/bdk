@@ -52,7 +52,7 @@ const Divider = styled("div")({
 
 const Login = () => {
   const router = useRouter();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState('');
 
   const handleLogin = async (e) => {
@@ -64,7 +64,7 @@ const Login = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
         credentials: 'include',
       });
 
@@ -74,7 +74,7 @@ const Login = () => {
           router.push('/');
         } else {
           if (data.message === 'Invalid credentials') {
-            Swal.fire('Error', 'Incorrect username or password.', 'error');
+            Swal.fire('Error', 'Incorrect email or password.', 'error');
           }
         }
       } else {
@@ -104,12 +104,12 @@ const Login = () => {
         callbacks: {
           signInSuccessWithAuthResult: async (authResult) => {
             if (typeof window !== "undefined") {
-              
+
               // Extracting user information
               const { user } = authResult;
               const username = user.email; // Using email as the username
               const password = user.uid;   // Using uid as a placeholder password
-        
+
               // Send this information to your backend
               try {
                 const response = await fetch(`${backend_url}/api/register`, {
@@ -120,7 +120,7 @@ const Login = () => {
                   body: JSON.stringify({ username, password }),  // send them as required by your backend
                   credentials: 'include',
                 });
-        
+
                 if (response.ok) {
                   const data = await response.json();
                   if (data.status !== 'success') {
@@ -129,12 +129,12 @@ const Login = () => {
                 } else {
                   Swal.fire('Error', 'Failed to register with Firebase.', 'error');
                 }
-        
+
               } catch (error) {
                 Swal.fire('Error', 'Failed to register with Firebase.', 'error');
                 console.error('Firebase registration error:', error);
               }
-              
+
               window.location.href = "/";
             }
             return false;
@@ -169,13 +169,14 @@ const Login = () => {
                 margin="normal"
                 required
                 fullWidth
-                id="username"
-                label="Username"
-                name="username"
-                autoComplete="username"
+                id="email"
+                label="Email"
+                name="email"
+                autoComplete="email"
                 autoFocus
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                key="email-input"
               />
               <TextField
                 variant="outlined"
@@ -207,6 +208,15 @@ const Login = () => {
                   Register
                 </RegisterButton>
               </LoginButtonContainer>
+              <Button
+                fullWidth
+                variant="text"
+                color="primary"
+                onClick={() => router.push('/resetPassword')}
+                style={{ marginTop: '1rem' }}
+              >
+                Forgot Password?
+              </Button>
             </LoginForm>
           </LoginContainer>
 

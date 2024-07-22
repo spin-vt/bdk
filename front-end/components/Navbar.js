@@ -253,11 +253,12 @@ export default function Navbar({
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.username === "") {
+        console.log(data);
+        if (data.userinfo.email === undefined || data.userinfo.email === "") {
           setUsername(null);
           localStorage.removeItem("username");
         } else {
-          setUsername(data.username);
+          setUsername(data.userinfo.email);
         }
       } else {
         console.error("Fetching user info failed");
