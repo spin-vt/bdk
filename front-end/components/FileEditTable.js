@@ -81,7 +81,7 @@ function FileEditTable({ folderId }) {
         fetch(`${backend_url}/api/updateNetworkFile/${file.id}`, requestOptions)
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
+                if (data.status === 'success') {
                     console.log('Update successful');
                     // Update originalNetworkInfo to reflect the changes
                     const updatedOriginalNetworkInfo = originalNetworkInfo.map(origFile =>

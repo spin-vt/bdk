@@ -246,21 +246,15 @@ def create_tiles(geojson_array, folderid, session):
         command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
         run_tippecanoe(command, folderid, outputFile)
 
-def retrieve_tiles(zoom, x, y, userid, folderid):
-    session = Session()
-    try:
-        user = get_user_with_id(userid=userid, session=session)
-        if not user:
-            return None
+def retrieve_tiles(zoom, x, y, folderid, session):
+    
+    tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
+        vector_tiles.zoom_level == int(zoom),
+        vector_tiles.tile_column == int(x),
+        vector_tiles.tile_row == int(y),
+        mbtiles.folder_id == folderid
+    ).order_by(desc(mbtiles.timestamp)).first()
+    
 
-        tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
-            vector_tiles.zoom_level == int(zoom),
-            vector_tiles.tile_column == int(x),
-            vector_tiles.tile_row == int(y),
-            mbtiles.folder_id == folderid
-        ).order_by(desc(mbtiles.timestamp)).first()
-       
-
-        return tile
-    finally:
-        session.close()
+    return tile
+ 

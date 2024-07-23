@@ -219,8 +219,9 @@ export default function Upload() {
           return response.json();
         } else if (response.status === 500 || response.status === 400) {
           setIsLoading(false);
+          data = response.json()
           toast.error(
-            "Error from our end, if issues persist, please contact support",
+            data.message,
             {
               position: toast.POSITION.TOP_RIGHT,
               autoClose: 10000,

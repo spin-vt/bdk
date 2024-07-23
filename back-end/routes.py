@@ -68,17 +68,22 @@ def submit_data(folderid):
     try:
         identity = get_jwt_identity()
         folderid = int(folderid)
-            
+        
+
         if 'file' not in request.files:
-            return jsonify({'Status': "Failed, no file uploaded"}), 400
+            return jsonify({'status': "error", 'message': "no file uploaded"}), 400
 
         files = request.files.getlist('file')
         if len(files) <= 0:
-            return jsonify({'Status': "Failed, no file uploaded"}), 400
+            return jsonify({'status': "error", 'message': "no file uploaded"}), 400
 
         file_data_list = request.form.getlist('fileData')
 
         userVal = user_ops.get_user_with_id(identity['id'], session=session)
+
+        if not userVal.organization_id:
+            return jsonify({'status': 'error', 'message': "Create or join an organization to start working on a filing"}), 400
+
         import_folder_id = int(request.form.get('importFolder'))
         logger.debug(f"import folder id is {import_folder_id}")
         # Prepare data for the task
@@ -86,17 +91,17 @@ def submit_data(folderid):
         if folderid == -1:
             deadline = request.form.get('deadline')
             if not deadline:
-                return jsonify({'Status': "Failed, no deadline provided"}), 400
+                return jsonify({'status': "error", "message": "operation failed, no deadline provided"}), 400
 
             # Attempt to parse the deadline to ensure it's valid
             try:
                 deadline_date = datetime.strptime(deadline, '%Y-%m-%d').date()
             except ValueError:
-                return jsonify({'Status': "Failed, invalid deadline format"}), 400
+                return jsonify({'status': "error", "message": "invalid deadline format"}), 400
             
             if import_folder_id != -1:
                 if not folder_ops.folder_belongs_to_organization(import_folder_id, identity['id'], session):
-                    return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+                    return jsonify({'status': 'error', "message": 'Operation failed because you are accessing a filing not belong to your organization'}), 400
                 # Asynchronous copy and create new folder with deadline
                 logger.debug("here 1")
                 task_chain = chain(
@@ -120,27 +125,27 @@ def submit_data(folderid):
         else:
             logger.debug("here 3")
             if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
-                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+                return jsonify({'status': 'error', "message": 'Operation failed because you are accessing a filing not belong to your organization'}), 400
             task_chain = chain(
                 add_files_to_folder.s(folderid, file_contents),
                 process_data.s(recompute=False)
             )
 
         result = task_chain.apply_async()
-        return jsonify({'Status': "OK", 'task_id': result.id}), 200 # return task id to the client
+        return jsonify({'status': "OK", 'task_id': result.id}), 200 # return task id to the client
     
         
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     except ValueError as ve:
     # Handle specific errors, e.g., value errors
         logger.debug(ve)
-        return jsonify({'Status': "Failed due to bad value", 'error': str(ve)}), 400
+        return jsonify({'status': "error", 'message': str(ve)}), 400
     except Exception as e:
         # General catch-all for other exceptions
         logger.debug(e)
         session.rollback()  # Rollback the session in case of error
-        return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+        return jsonify({'status': "error", 'message': str(e)}), 500
     finally:
         session.close()  # Always close the session at the end
 
@@ -475,14 +480,14 @@ def exportFiling(folderid):
                 csv_output.seek(0)
                 return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
             else:
-                return jsonify({'Status': 'Failure'})
+                return jsonify({'status': 'error', "message": "internal server error"})
         except Exception as e:
             session.rollback()
-            return {"error": str(e)}
+            return {'status': 'error', 'message': str(e)}
         finally:
             session.close()
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     
 @app.route('/api/exportChallenge', methods=['GET'])
 def exportChallenge():
@@ -494,7 +499,7 @@ def exportChallenge():
         download_name = "BDC_BulkChallenge_" + formatted_time + "_" + shortuuid.uuid()[:4] + '.csv'
         return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
     else:
-        return jsonify({'Status': 'Failure'})
+        return jsonify({'status': 'error'})
 
 
 @app.route("/api/tiles/<folder_id>/<zoom>/<x>/<y>.pbf")
@@ -510,19 +515,20 @@ def serve_tile_with_folderid(folder_id, zoom, x, y):
     session = Session()
     if not folder_ops.folder_belongs_to_organization(folder_id, identity['id'], session):
         session.close()
-        return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
-    session.close()
+        return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
 
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, identity['id'], folder_id)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, folder_id, session)
 
     if tile is None:
+        session.close()
         return Response('No tile found', status=404)
-        
+
+    session.close()   
     response = make_response(bytes(tile[0]))    
     response.headers['Content-Type'] = 'application/x-protobuf'
     response.headers['Content-Encoding'] = 'gzip'  
@@ -538,7 +544,6 @@ def toggle_markers():
         markers = request_data['marker']
         folderid = request_data['folderid']
         polygonfeatures = request_data['polygonfeatures']
-        logger.info(polygonfeatures)
         if folderid == -1:
             return jsonify({'error': 'Invalid folder id'}), 400
         
@@ -546,14 +551,14 @@ def toggle_markers():
         session = Session()
         if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
                 session.close()
-                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+                return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
         session.close()
 
 
         task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid, polygonfeatures])
-        return jsonify({'Status': "OK", 'task_id': task.id}), 200
+        return jsonify({'status': "success", 'task_id': task.id}), 200
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
 
 
 @app.route('/api/files', methods=['GET'])
@@ -566,17 +571,17 @@ def get_files():
         session = Session()
 
         if not folder_ops.folder_belongs_to_organization(folder_ID, identity['id'], session):
-                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+                return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
         
         if folder_ID:
             filesinfo = file_ops.get_filesinfo_in_folder(folder_ID, session=session)
             if not filesinfo:
-                return jsonify({'error': 'No files found'}), 404
+                return jsonify({'status': 'error', 'message': 'No file found in filing'}), 404
             return jsonify(filesinfo), 200
         else:
-            return jsonify({'error': 'No files found'}), 404
+            return jsonify({'status': 'error', 'message': 'Invalid request'}), 404
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -590,17 +595,17 @@ def get_editfiles():
         session = Session()
 
         if not folder_ops.folder_belongs_to_organization(folder_ID, identity['id'], session):
-            return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
 
         if folder_ID:
             filesinfo = editfile_ops.get_editfilesinfo_in_folder(folder_ID, session=session)
             if not filesinfo:
-                return jsonify({'error': 'No files found'}), 404
+                return jsonify({'status': 'error', 'message': 'No edit file found in filing'}), 404
             return jsonify(filesinfo), 200
         else:
-            return jsonify({'error': 'No files found'}), 404
+            return jsonify({'status': 'error', 'message': 'Invalid request'}), 404
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status':'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -622,7 +627,7 @@ def get_folders_with_deadlines():
 
         return jsonify(folder_info), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
         session.close()
 
@@ -642,7 +647,7 @@ def get_last_folder():
             folderid = folderVal.id
         return jsonify(folderid), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # Change database schema to fix bug of not able to edit file info for file with no coverage
 @app.route('/api/networkfiles/<int:folder_id>', methods=['GET'])
@@ -656,31 +661,27 @@ def get_network_files(folder_id):
         folder_id = int(folder_id) 
 
         if not folder_ops.folder_belongs_to_organization(folder_id, identity['id'], session):
-            return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
         
         files = file_ops.get_all_network_files_for_fileinfoedit_table(folder_id, session)
         files_data = []
         for file in files:
-            # Assuming each file has at least one kml_data or it's an empty list
-            kml_data = file.kml_data[0] if file.kml_data else None
+            
             file_info = {
                 'id': file.id,
                 'name': file.name,
                 'type': file.type,
+                'maxDownloadSpeed': file.maxDownloadSpeed,
+                'maxUploadSpeed': file.maxUploadSpeed,
+                'techType': file.techType,
+                'latency': file.latency,
+                'category': file.category
             }
-            if kml_data:
-                file_info['network_info'] = {
-                    'maxDownloadNetwork': kml_data.maxDownloadNetwork,
-                    'maxDownloadSpeed': kml_data.maxDownloadSpeed,
-                    'maxUploadSpeed': kml_data.maxUploadSpeed,
-                    'techType': kml_data.techType,
-                    'latency': kml_data.latency,
-                    'category': kml_data.category
-                }
+            
             files_data.append(file_info)
         return jsonify(files_data)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
         session.close()
 
@@ -694,11 +695,17 @@ def update_network_file(file_id):
         file_id = int(file_id)
         
         if not file_ops.file_belongs_to_organization(file_id=file_id, user_id=identity['id'], session=session):
-            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
 
         file = file_ops.get_file_with_id(file_id, session)
         if not file:
-            return jsonify({'error': 'File not found'}), 404
+            return jsonify({'status': 'error', 'message': 'File not found'}), 400
+
+        file.maxDownloadSpeed = kml_update['maxDownloadSpeed']
+        file.maxUploadSpeed = kml_update['maxUploadSpeed']
+        file.techType = kml_update['techType']
+        file.latency = kml_update['latency']
+        file.category = kml_update['category']
 
         kml_update = data.get('network_info', [])
         kml_entries = kml_ops.get_kml_data_by_file(file_id, session)
@@ -710,10 +717,10 @@ def update_network_file(file_id):
             kml_entry.category = kml_update['category']
 
         session.commit()
-        return jsonify({'success': True, 'message': 'File and its KML data updated successfully'})
+        return jsonify({'status': 'success', 'message': 'File and its KML data updated successfully'}), 200
     except Exception as e:
         session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
         session.close()
     
@@ -727,13 +734,13 @@ def delete_files(fileid):
         session = Session()
         if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
             session.close()
-            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
         session.close()
 
         task = deleteFiles.apply_async(args=[fileid, identity['id']])
-        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+        return jsonify({'status': "success", 'task_id': task.id}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     
 @app.route('/api/export', methods=['GET'])
 @jwt_required()
@@ -763,7 +770,7 @@ def get_exported_folders():
         return jsonify(response_data), 200
 
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
         session.close()
     
@@ -787,14 +794,13 @@ def delete_export(fileid):
     try:
         identity = get_jwt_identity()
         if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
-            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a file not belong to your organization'}), 400
 
         fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
-        print(f'file id is {fileVal.id}', flush=True)
         folder_ops.delete_folder(folderid=fileVal.folder_id, session=session)
-        return jsonify({'Status': "OK"}), 200 # return task id to the client
+        return jsonify({'status': "success"}), 200 
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.commit()
         session.close()
@@ -820,9 +826,9 @@ def compute_wireless_coverage():
             return jsonify({'error': tower_info_val}), 400
 
         task = run_signalserver.apply_async(args=[command, outfile_name, towerVal.id, data]) # store the AsyncResult instance
-        return jsonify({'Status': "OK", 'task_id': task.id}), 200 # return task id to the client
+        return jsonify({'status': "success", 'task_id': task.id}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
 
 @app.route('/api/get-raster-image/<string:towername>', methods=['GET'])
 @jwt_required()
@@ -833,7 +839,7 @@ def get_raster_image(towername):
         towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
         if isinstance(towerVal, str):  # In case create_tower returned an error 
             logger.debug(towerVal)
-            return jsonify({'error': towerVal}), 400
+            return jsonify({'status': 'error', 'message': towerVal}), 400
         
         if not towerVal:
             logger.debug('tower not found under towername')
@@ -846,9 +852,9 @@ def get_raster_image(towername):
             response = send_file(image_io, mimetype='image/png')
             return response
         else:
-            return jsonify({'error': 'Raster data not found'}), 404
+            return jsonify({'status': 'error', 'message': 'Raster data not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -865,7 +871,7 @@ def get_transparent_raster_image(towername):
         
         if not towerVal:
             logger.debug('tower not found under towername')
-            return jsonify({'error': 'File not found'}), 404
+            return jsonify({'status': 'error', 'message': 'File not found'}), 404
 
         rasterData = towerVal.raster_data
         if rasterData:
@@ -874,9 +880,9 @@ def get_transparent_raster_image(towername):
             response = send_file(image_io, mimetype='image/png')
             return response
         else:
-            return jsonify({'error': 'Raster data not found'}), 404
+            return jsonify({'status': 'error', 'message': 'Raster data not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -889,10 +895,10 @@ def get_raster_bounds(towername):
         towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
         if isinstance(towerVal, str):  # In case create_tower returned an error message
             logger.debug(towerVal)
-            return jsonify({'error': towerVal}), 400
+            return jsonify({'status': 'error', 'message': towerVal}), 400
 
         if not towerVal:
-            return jsonify({'error': 'File not found'}), 404
+            return jsonify({'status': 'error', 'message': 'File not found'}), 404
 
         rasterData = towerVal.raster_data
         if rasterData:
@@ -902,11 +908,11 @@ def get_raster_bounds(towername):
                 "east": rasterData.east_bound,
                 "west": rasterData.west_bound,
             }
-            return jsonify({'Status': 'OK', 'bounds': bounds}), 200 
+            return jsonify({'status': 'success', 'bounds': bounds}), 200 
         else:
-            return jsonify({'error': 'Raster data not found'}), 404
+            return jsonify({'status': 'error', 'message': 'Raster data not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -919,17 +925,17 @@ def get_loss_color_mapping(towername):
         towerVal = get_tower_with_towername(tower_name=towername, user_id=identity['id'], session=session)
         if not towerVal:
             logger.debug('Tower not found under towername')
-            return jsonify({'error': 'Mapping not found'}), 404
+            return jsonify({'status': 'error', 'messsage': 'Mapping not found'}), 404
 
         rasterData = towerVal.raster_data
         if rasterData and rasterData.loss_color_mapping:
             # Now we can just return the JSON directly
             return jsonify(rasterData.loss_color_mapping), 200
         else:
-            return jsonify({'error': 'Loss to color mapping not found'}), 404
+            return jsonify({'status': 'error', 'message': 'Loss to color mapping not found'}), 404
 
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -939,11 +945,11 @@ def upload_csv():
     try:
         identity = get_jwt_identity()
         if 'file' not in request.files:
-            return jsonify({'error': 'No file part'}), 400
+            return jsonify({'status': 'error', 'message': 'No file part'}), 400
 
         file = request.files['file']
         if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
+            return jsonify({'status': 'error', 'message': 'No selected file'}), 400
 
         if file and file.filename.endswith('.csv'):
             # Read the file content
@@ -951,11 +957,11 @@ def upload_csv():
             if not isinstance(tower_data, str):
                 return jsonify(tower_data), 200
             else:
-                return jsonify({'error': tower_data}), 400
+                return jsonify({'status': 'error', 'message': tower_data}), 400
         else:
-            return jsonify({'error': 'Invalid file'}), 400
+            return jsonify({'status': 'error', 'message': 'Invalid CSV file'}), 400
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     
 @app.route('/api/downloadexport/<int:fileid>', methods=['GET'])
 @jwt_required()
@@ -965,11 +971,11 @@ def download_export(fileid):
     try:
         identity = get_jwt_identity()
         if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
-            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a file not belong to your organization'}), 400
 
         fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
         if not fileVal:
-            return jsonify({'error': 'File not found'}), 404
+            return jsonify({'status': 'error', 'message': 'File not found'}), 404
         downfile = io.BytesIO(fileVal.data)
         downfile.seek(0)
         return send_file(
@@ -979,7 +985,7 @@ def download_export(fileid):
                 mimetype="text/csv"
             )
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -992,9 +998,9 @@ def compute_wireless_prediction_fabric_coverage():
         outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(username=identity['username'], towername=data['towername'])
         task = raster2vector.apply_async(args=[data, identity['id'], outfile_name]) # store the AsyncResult instance
         kml_filename = outfile_name + '.kml'
-        return jsonify({'Status': "OK", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
+        return jsonify({'status': "success", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     
 @app.route('/api/preview-wireless-prediction-fabric-coverage', methods=['POST'])
 @jwt_required()
@@ -1005,9 +1011,9 @@ def preview_wireless_prediction_fabric_coverage():
         outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(username=identity['username'], towername=data['towername'])
         task = preview_fabric_locaiton_coverage.apply_async(args=[data, identity['id'], outfile_name]) # store the AsyncResult instance
         kml_filename = outfile_name + '.kml'
-        return jsonify({'Status': "OK", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
+        return jsonify({'status': "success", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
 
 @app.route('/api/download-kmlfile/<string:kml_filename>', methods=['GET'])
 @jwt_required()
@@ -1019,10 +1025,10 @@ def download_kmlfile(kml_filename):
         fileVal = file_ops.get_file_with_name(filename=kml_filename, folderid=folderVal.id, session=session)
         if isinstance(fileVal, str):  # In case create_tower returned an error message
             logger.debug(fileVal)
-            return jsonify({'error': fileVal}), 400
+            return jsonify({'status': 'error', 'message': fileVal}), 400
 
         if not fileVal:
-            return jsonify({'error': 'File not found'}), 404
+            return jsonify({'status': 'error', 'message': 'File not found'}), 404
 
         
         downfile = io.BytesIO(fileVal.data)
@@ -1035,7 +1041,7 @@ def download_kmlfile(kml_filename):
             )
         
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -1049,9 +1055,9 @@ def get_preview_geojson(filename):
         os.remove(filename)
         return jsonify(geojson_data)  # Return the JSON data
     except FileNotFoundError:
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({'status': 'error', 'message': 'File not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
 
 @app.route('/api/get-edit-geojson/<int:fileid>', methods=['GET'])
 @jwt_required()
@@ -1061,20 +1067,20 @@ def get_edit_geojson(fileid):
         identity = get_jwt_identity()
         fileid = int(fileid)
         if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
-            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a file not belong to your organization'}), 400
 
         editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)
        
         if editfile is None:
-            return jsonify({'error': 'File not found'}), 404
+            return jsonify({'status': 'error', 'message': 'File not found'}), 404
         
         # Decode the binary data to string assuming it's stored in UTF-8 encoded JSON format
         geojson_data = json.loads(editfile.data.decode('utf-8'))
         return jsonify(geojson_data), 200
     except FileNotFoundError:
-        return jsonify({'error': 'File not found'}), 404
+        return jsonify({'status': 'error', 'message': 'File not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message':'Token is invalid or expired'}), 401
     finally:
         session.close()
 
@@ -1086,12 +1092,12 @@ def get_edit_geojson_centroid(fileid):
     try:
         identity = get_jwt_identity()
         if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
-            return jsonify({'error': 'You are accessing a file not belong to your organization'}), 400
+            return jsonify({'status': 'error', 'message': 'You are accessing a file not belong to your organization'}), 400
 
         editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)
 
         if editfile is None:
-            return jsonify({'error': 'File not found'}), 404
+            return jsonify({'status': 'error', 'message': 'File not found'}), 400
 
         # Decode the binary data to a JSON object
         geojson_object = json.loads(editfile.data.decode('utf-8'))
@@ -1103,7 +1109,7 @@ def get_edit_geojson_centroid(fileid):
         # Include centroid coordinates in the response
         return jsonify(centroid_coords), 200
     except Exception as e:
-        return jsonify({'error': 'Failed to fetch file', 'details': str(e)}), 500
+        return jsonify({'status': 'error', 'message': 'Failed to fetch file', 'details': str(e)}), 500
     finally:
         session.close()
     
