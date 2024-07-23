@@ -134,3 +134,4 @@ def add_user_to_organization(user_id, org_id, session):
         session.commit()
         return True
     return False
+

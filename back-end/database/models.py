@@ -88,7 +88,7 @@ class folder(Base): #filing, will change the name later for less confusion when 
     def copy(self, session, export=True, name=None, type=None, deadline=None):
         name = name if name is not None else self.name
         type = type if type is not None else self.type
-        new_folder = folder(name=name, type=type, organization_id=self.organization_id, deadline = deadline)
+        new_folder = folder(name=name, type=type, organization_id=self.organization_id, deadline=deadline)
         session.add(new_folder)
         session.flush()  # To generate an ID for the new folder
         

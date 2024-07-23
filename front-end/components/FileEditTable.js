@@ -32,7 +32,6 @@ const categoryOptions = {
 
 function FileEditTable({ folderId }) {
     const [files, setFiles] = useState([]);
-    const [originalNetworkInfo, setOriginalNetworkInfo] = useState([]);
 
     const fetchnetworkFileInfo = () => {
         const requestOptions = {
@@ -42,13 +41,13 @@ function FileEditTable({ folderId }) {
         fetch(`${backend_url}/api/networkfiles/${folderId}`, requestOptions)
             .then(response => response.json())
             .then(data => {
-                const dataWithDefaultNetworkInfo = data.map(file => ({
-                    ...file,
-                    // Ensure network_info is an object
-                    network_info: file.network_info || {}
-                }));
-                setFiles(dataWithDefaultNetworkInfo);
-                setOriginalNetworkInfo(JSON.parse(JSON.stringify(dataWithDefaultNetworkInfo)));
+                if (data.status === 'success') {
+                    console.log(data);
+                    setFiles(data.files_data);
+                }
+                else {
+                    toast.error(data.error);
+                }
 
             })
             .catch(error => console.error("There was an error!", error));
@@ -61,17 +60,7 @@ function FileEditTable({ folderId }) {
     }, [folderId]);
 
     const handleSubmit = (file) => {
-        const originalFile = originalNetworkInfo.find(origFile => origFile.id === file.id);
-        const hasChanges = Object.keys(file.network_info).some(key =>
-            (file.network_info[key] || '') !== (originalFile.network_info[key] || '')
-        );
-
-        if (!hasChanges) {
-            console.log("No changes detected, no update required.");
-            toast.info("No changes detected."); // Display an info toast
-            return; // Exit if no changes were detected
-        }
-
+       console.log(file);
         const requestOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -83,11 +72,6 @@ function FileEditTable({ folderId }) {
             .then(data => {
                 if (data.status === 'success') {
                     console.log('Update successful');
-                    // Update originalNetworkInfo to reflect the changes
-                    const updatedOriginalNetworkInfo = originalNetworkInfo.map(origFile =>
-                        origFile.id === file.id ? { ...origFile, network_info: { ...file.network_info } } : origFile
-                    );
-                    setOriginalNetworkInfo(updatedOriginalNetworkInfo);
                     toast.success("Update successful!"); // Display a success toast
                 } else {
                     throw new Error(data.message || "An error occurred during the update.");
@@ -103,13 +87,25 @@ function FileEditTable({ folderId }) {
     // Update the files state to reflect the changes locally
     const handleChange = (event, index, field) => {
         const updatedFiles = [...files];
-        updatedFiles[index].network_info[field] = event.target.value;
+        updatedFiles[index][field] = event.target.value;
+        console.log(updatedFiles);
         setFiles(updatedFiles);
     };
 
+    const handleIntegerChange = (event, index, field) => {
+        const value = event.target.value;
+        // Regular expression to allow only integers
+        if (/^\d*$/.test(value)) {
+            const updatedFiles = [...files];
+            updatedFiles[index][field] = value;
+            setFiles(updatedFiles);
+        }
+    };
+    
+
     return (
-        <Container>
-            <TableContainer component={Paper}>
+        <Container maxWidth="xl">
+            <TableContainer component={Paper} sx={{flexGrow: 1}}>
                 <Table sx={{ minWidth: 650 }} aria-label="editable table">
                     <TableHead>
                         <TableRow>
@@ -129,10 +125,11 @@ function FileEditTable({ folderId }) {
                                 key={file.id}
                                 sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                             >
-                                <TableCell component="th" scope="row">{file.name}</TableCell>
+                                
+                                <EditableCell file={file} field="name" onChange={(event) => handleChange(event, index, 'name')} />
                                 <TableCell>{file.type}</TableCell>
-                                <EditableCell file={file} field="maxDownloadSpeed" onChange={(event) => handleChange(event, index, 'maxDownloadSpeed')} />
-                                <EditableCell file={file} field="maxUploadSpeed" onChange={(event) => handleChange(event, index, 'maxUploadSpeed')} />
+                                <EditableCell file={file} field="maxDownloadSpeed" onChange={(event) => handleIntegerChange(event, index, 'maxDownloadSpeed')} />
+                                <EditableCell file={file} field="maxUploadSpeed" onChange={(event) => handleIntegerChange(event, index, 'maxUploadSpeed')} />
                                 <EditableCell file={file} field="techType" onChange={(event) => handleChange(event, index, 'techType')} />
                                 <EditableCell file={file} field="latency" onChange={(event) => handleChange(event, index, 'latency')} />
                                 <EditableCell file={file} field="category" onChange={(event) => handleChange(event, index, 'category')} />
@@ -154,7 +151,7 @@ function EditableCell({ file, field, onChange }) {
     const renderDropdown = (options) => (
         <FormControl fullWidth size="small">
             <Select
-                value={file.network_info && file.network_info[field] !== undefined ? file.network_info[field] : ''}
+                value={file[field] ? file[field] : ''}
                 onChange={onChange}
                 displayEmpty
             >
@@ -165,6 +162,7 @@ function EditableCell({ file, field, onChange }) {
         </FormControl>
     );
 
+    const width = field === "name" ? '300px' : '100px'; 
     // Conditionally render Select or TextField based on the field
     switch (field) {
         case 'techType':
@@ -178,10 +176,10 @@ function EditableCell({ file, field, onChange }) {
                 <TableCell>
                     <TextField
                         variant="outlined"
-                        value={file.network_info ? file.network_info[field] : ''}
+                        value={file[field] ? file[field] : ''}
                         onChange={onChange}
-                        size="small"
                         fullWidth
+                        style={{ width: width}}
                     />
                 </TableCell>
             );

@@ -11,7 +11,7 @@ import fiona
 from io import StringIO, BytesIO
 from .user_ops import get_user_with_id
 from .file_ops import get_files_with_postfix, get_file_with_id, get_files_with_postfix, create_file, get_files_by_type
-from .folder_ops import create_folder, get_upload_folder
+from .folder_ops import create_folder, get_upload_folder, get_folder_with_id
 from .file_editfile_link_ops import get_editfiles_for_file
 from utils.logger_config import logger
 import json
@@ -230,7 +230,7 @@ def generate_csv_data(results, provider_id, brand_name):
 
     return availability_csv
 
-def export(userid, folderid, providerid, brandname, session): 
+def export(folderid, providerid, brandname, deadline, session): 
     from controllers.celery_controller.celery_tasks import async_folder_copy_for_export
 
     all_files = get_files_with_postfix(folderid, '.kml', session) + get_files_with_postfix(folderid, '.geojson', session)
@@ -243,7 +243,7 @@ def export(userid, folderid, providerid, brandname, session):
     availability_csv.to_csv(output, index=False, encoding='utf-8')
     csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
 
-    async_folder_copy_for_export.apply_async(args=[userid, folderid, csv_data_str])
+    async_folder_copy_for_export.apply_async(args=[folderid, csv_data_str, brandname, deadline])
 
     return output
 

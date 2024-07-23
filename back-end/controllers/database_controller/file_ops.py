@@ -246,8 +246,8 @@ def file_belongs_to_organization(file_id, user_id, session):
         return False
 
     # Get the user's organization
-    organization = userVal.organization
-    if not organization:
+    user_organization = userVal.organization
+    if not user_organization:
         return False
 
     # Check if the file belongs to this organization
@@ -260,4 +260,4 @@ def file_belongs_to_organization(file_id, user_id, session):
     if not folder:
         return False
 
-    return folder.user.organization_id == organization.id
+    return folder.organization_id == user_organization.id

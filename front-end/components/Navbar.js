@@ -31,7 +31,8 @@ import { backend_url } from "../utils/settings";
 import ViewListIcon from '@mui/icons-material/ViewList';
 import HistoryIcon from '@mui/icons-material/History';
 import Swal from "sweetalert2";
-import {useFolder} from "../contexts/FolderContext.js";
+import { useFolder } from "../contexts/FolderContext.js";
+import { useGridLogger } from "@mui/x-data-grid";
 
 
 
@@ -98,7 +99,7 @@ export default function Navbar({
   const isMenuOpen = Boolean(anchorEl);
 
   const { isEditingMap, setEditingMap } = React.useContext(EditMapContext);
-  const {folderID, setFolderID} = useFolder();
+  const { folderID, setFolderID } = useFolder();
 
 
   const handleEditToolClick = () => {
@@ -173,8 +174,58 @@ export default function Navbar({
   };
 
   const downloadFiling = () => {
-    window.location.href = `${backend_url}/api/exportFiling/${folderID}`;
+    fetch(`${backend_url}/api/exportFiling/${folderID}`, {
+      method: 'GET',
+      headers: {
+        'Access-Control-Expose-Headers': 'Content-Disposition'
+      },
+      credentials: 'include',
+    })
+      .then(response => {
+        if (!response.ok) {
+          // When the response status code is not in the 2xx range
+          // it will read and parse JSON to display error
+          return response.json().then(data => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Oops...',
+              text: data.message,
+            });
+            if (data.message === "Please provide your provider ID and brand name") {
+              router.push("/profile");
+            }
+            throw new Error('Failed to download file.');
+          });
+        }
+        // Extract filename from Content-Disposition header
+        const filename = response.headers.get('Content-Disposition').split('filename=')[1].split(';')[0].replace(/"/g, '');
+        return response.blob().then(blob => ({
+          blob,
+          filename
+        }));
+      })
+      .then(({ blob, filename }) => {
+        // Create a new URL pointing to the blob object in memory
+        const url = window.URL.createObjectURL(blob);
+        // Create a temporary link element
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename; // Use the filename from the Content-Disposition header
+        document.body.appendChild(a);
+        a.click();
+        a.remove(); // Remove the element after download
+        window.URL.revokeObjectURL(url); // Clean up the URL object
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops...',
+          text: 'Unable to process your request.',
+        });
+      });
   };
+
 
   const downloadChallenge = () => {
     window.location.href = `${backend_url}/api/exportChallenge`;

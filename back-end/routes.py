@@ -23,7 +23,7 @@ from controllers.database_controller import organization_ops, fabric_ops, kml_op
 from utils.flask_app import app, mail
 from controllers.celery_controller.celery_config import celery 
 from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
-from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
+from utils.namingschemes import DATETIME_FORMAT, DATE_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
 from controllers.database_controller.towerinfo_ops import create_towerinfo
@@ -105,9 +105,9 @@ def submit_data(folderid):
                 # Asynchronous copy and create new folder with deadline
                 logger.debug("here 1")
                 task_chain = chain(
-                    async_folder_copy_for_import.s(userVal.id, import_folder_id, deadline),
+                    async_folder_copy_for_import.s(import_folder_id, deadline),
                     add_files_to_folder.s(file_contents=file_contents),
-                    process_data.s(recompute=True)
+                    process_data.s(recompute=3)
                 )
                 
             else:
@@ -119,7 +119,7 @@ def submit_data(folderid):
 
                 task_chain = chain(
                     add_files_to_folder.s(folderVal.id, file_contents),
-                    process_data.s(recompute=False)
+                    process_data.s(recompute=2)
                 )
             
         else:
@@ -128,7 +128,7 @@ def submit_data(folderid):
                 return jsonify({'status': 'error', "message": 'Operation failed because you are accessing a filing not belong to your organization'}), 400
             task_chain = chain(
                 add_files_to_folder.s(folderid, file_contents),
-                process_data.s(recompute=False)
+                process_data.s(recompute=1)
             )
 
         result = task_chain.apply_async()
@@ -466,19 +466,31 @@ def exportFiling(folderid):
         folderid = int(folderid)
         session = Session()
         try:
-            userVal = user_ops.get_user_with_id(identity['id'], session)
-            if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
-                return jsonify({'error': 'You are accessing a filing not belong to your organization'}), 400
+            if folderid == -1:
+                return jsonify({'status': 'error', 'message': 'Invalid filing requested'}), 400
             
-            csv_output = kml_ops.export(userVal.id, folderid, userVal.provider_id, userVal.brand_name, session)
+            if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
+                return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+            
+
+            folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
+            providerid = folderVal.organization.provider_id
+            brandname = folderVal.organization.brand_name
+            deadline = folderVal.deadline.strftime(DATE_FORMAT)
+
+            if not providerid or not brandname:
+                return jsonify({'status': 'error', 'message': 'Please provide your provider ID and brand name'}), 400
+
+
+            csv_output = kml_ops.export(folderid, providerid, brandname, deadline, session)
 
             if csv_output:
-                current_time = datetime.now().strftime(DATETIME_FORMAT)
-                
-                download_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.brand_name, current_datetime=current_time)
+                download_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=brandname, deadline=deadline)
                 
                 csv_output.seek(0)
-                return send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv")
+                response = make_response(send_file(csv_output, as_attachment=True, download_name=download_name, mimetype="text/csv"))
+                response.headers['Access-Control-Expose-Headers'] = "Content-Disposition"
+                return response
             else:
                 return jsonify({'status': 'error', "message": "internal server error"})
         except Exception as e:
@@ -516,19 +528,18 @@ def serve_tile_with_folderid(folder_id, zoom, x, y):
     if not folder_ops.folder_belongs_to_organization(folder_id, identity['id'], session):
         session.close()
         return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+    session.close()
 
     zoom = int(zoom)
     x = int(x)
     y = int(y)
     y = (2**zoom - 1) - y
 
-    tile = vt_ops.retrieve_tiles(zoom, x, y, folder_id, session)
+    tile = vt_ops.retrieve_tiles(zoom, x, y, folder_id)
 
     if tile is None:
-        session.close()
         return Response('No tile found', status=404)
 
-    session.close()   
     response = make_response(bytes(tile[0]))    
     response.headers['Content-Type'] = 'application/x-protobuf'
     response.headers['Content-Encoding'] = 'gzip'  
@@ -555,7 +566,7 @@ def toggle_markers():
         session.close()
 
 
-        task = toggle_tiles.apply_async(args=[markers, identity['id'], folderid, polygonfeatures])
+        task = toggle_tiles.apply_async(args=[markers, folderid, polygonfeatures])
         return jsonify({'status': "success", 'task_id': task.id}), 200
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
@@ -656,8 +667,7 @@ def get_network_files(folder_id):
     try:
         identity = get_jwt_identity()
         session = Session()
-        # Not using folder_id for now, it can be implemented along with
-        # multi-filing support
+        
         folder_id = int(folder_id) 
 
         if not folder_ops.folder_belongs_to_organization(folder_id, identity['id'], session):
@@ -679,7 +689,7 @@ def get_network_files(folder_id):
             }
             
             files_data.append(file_info)
-        return jsonify(files_data)
+        return jsonify({'status': 'success', 'files_data': files_data})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
@@ -701,20 +711,25 @@ def update_network_file(file_id):
         if not file:
             return jsonify({'status': 'error', 'message': 'File not found'}), 400
 
-        file.maxDownloadSpeed = kml_update['maxDownloadSpeed']
-        file.maxUploadSpeed = kml_update['maxUploadSpeed']
-        file.techType = kml_update['techType']
-        file.latency = kml_update['latency']
-        file.category = kml_update['category']
-
-        kml_update = data.get('network_info', [])
+        try:
+            file.maxDownloadSpeed = int(data['maxDownloadSpeed']) if 'maxDownloadSpeed' in data else file.maxDownloadSpeed
+            file.maxUploadSpeed = int(data['maxUploadSpeed']) if 'maxUploadSpeed' in data else file.maxUploadSpeed
+        except ValueError:
+            return jsonify({'status': 'error', 'message': 'maxDownloadSpeed and maxUploadSpeed must be integers'}), 400
+        logger.debug(data)
+        file.name = data['name']
+        file.maxDownloadSpeed = data['maxDownloadSpeed']
+        file.maxUploadSpeed = data['maxUploadSpeed']
+        file.techType = data['techType']
+        file.latency = data['latency']
+        file.category = data['category']
         kml_entries = kml_ops.get_kml_data_by_file(file_id, session)
         for kml_entry in kml_entries:
-            kml_entry.maxDownloadSpeed = kml_update['maxDownloadSpeed']
-            kml_entry.maxUploadSpeed = kml_update['maxUploadSpeed']
-            kml_entry.techType = kml_update['techType']
-            kml_entry.latency = kml_update['latency']
-            kml_entry.category = kml_update['category']
+            kml_entry.maxDownloadSpeed = data['maxDownloadSpeed']
+            kml_entry.maxUploadSpeed = data['maxUploadSpeed']
+            kml_entry.techType = data['techType']
+            kml_entry.latency = data['latency']
+            kml_entry.category = data['category']
 
         session.commit()
         return jsonify({'status': 'success', 'message': 'File and its KML data updated successfully'}), 200
@@ -1110,6 +1125,34 @@ def get_edit_geojson_centroid(fileid):
         return jsonify(centroid_coords), 200
     except Exception as e:
         return jsonify({'status': 'error', 'message': 'Failed to fetch file', 'details': str(e)}), 500
+    finally:
+        session.close()
+
+
+@app.route('/api/update_organization_info', methods=['POST'])
+@jwt_required()
+def update_organization():
+    identity = get_jwt_identity()
+    data = request.get_json()
+    provider_id = data.get('providerId')
+    brand_name = data.get('brandName')
+    
+    session = Session()
+    try:
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        organization = userVal.organization
+        if organization:
+            if provider_id:
+                organization.provider_id = provider_id
+            if brand_name:
+                organization.brand_name = brand_name
+            session.commit()
+            return jsonify({'status': 'success', 'message': 'Organization details updated successfully.'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Organization not found.'}), 404
+    except Exception as e:
+        session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         session.close()
     

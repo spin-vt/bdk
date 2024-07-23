@@ -32,10 +32,6 @@ db_lock = Lock()
 
 def extract_geometry(placemark):
     geometries = []
-    # if hasattr(placemark.geometry, 'geoms'):  # Check if this is a MultiGeometry
-    #     for geom in placemark.geometry.geoms:
-    #         geometries.append(geom.__geo_interface__)
-    # else:
     geometries.append(placemark.geometry.__geo_interface__)
     return geometries
 
@@ -56,8 +52,6 @@ def read_kml(fileid, session):
     doc = file_record.data
     kml_obj.from_string(doc)
 
-    network_type = None
-    polygon_encountered = False
 
     root_feature = list(kml_obj.features())[0]
     geojson_features = []
@@ -76,13 +70,7 @@ def read_kml(fileid, session):
                 }  # No properties extracted
             }
             geojson_features.append(geojson_feature)
-            if geom_type == "Polygon" or geom_type == "MultiPolygon":
-                network_type = "wireless"
-                polygon_encountered = True
-            elif geom_type == "LineString" and not polygon_encountered:
-                network_type = "wired"
-
-    update_file_type(fileid, network_type)
+            
     return geojson_features
 
 
@@ -97,15 +85,6 @@ def read_geojson(fileid, session):
 
     # Filter only polygons and linestrings
     desired_geometries = geojson_data[geojson_data.geometry.geom_type.isin(['Polygon', 'LineString', 'MultiPolygon'])]
-
-    # Determine the network type
-    if 'Polygon' or 'MultiPolygon' in desired_geometries.geometry.geom_type.tolist():
-        network_type = "wireless"
-    else:
-        network_type = "wired"
-
-    # Update the file type in the database
-    update_file_type(fileid, network_type)
 
     # Convert the GeoDataFrame with desired geometries to a similar format as in read_kml
     geojson_features = []
@@ -246,15 +225,19 @@ def create_tiles(geojson_array, folderid, session):
         command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
         run_tippecanoe(command, folderid, outputFile)
 
-def retrieve_tiles(zoom, x, y, folderid, session):
-    
-    tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
-        vector_tiles.zoom_level == int(zoom),
-        vector_tiles.tile_column == int(x),
-        vector_tiles.tile_row == int(y),
-        mbtiles.folder_id == folderid
-    ).order_by(desc(mbtiles.timestamp)).first()
-    
+def retrieve_tiles(zoom, x, y, folderid):
+    session = Session()
+    try:
+       
+        tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
+            vector_tiles.zoom_level == int(zoom),
+            vector_tiles.tile_column == int(x),
+            vector_tiles.tile_row == int(y),
+            mbtiles.folder_id == folderid
+        ).order_by(desc(mbtiles.timestamp)).first()
+       
 
-    return tile
+        return tile
+    finally:
+        session.close()
  

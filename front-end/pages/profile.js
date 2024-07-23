@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import Navbar from '../components/Navbar';
 import { Button, Container, Typography, TextField, Paper, Grid, Divider, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 import { ToastContainer, toast } from 'react-toastify';
+import "react-toastify/dist/ReactToastify.css";
 import { useRouter } from "next/router";
 import { backend_url } from "../utils/settings";
+
+
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -14,6 +17,36 @@ const Profile = () => {
   const [orgName, setOrgName] = useState('');
   const [joinOrgToken, setJoinOrgToken] = useState('');
   const router = useRouter();
+
+  const [providerId, setProviderId] = useState('');
+  const [brandName, setBrandName] = useState('');
+
+  const updateOrganizationDetails = () => {
+    if (!providerId && !brandName) {
+      toast.error("Please fill in provider id or brand name");
+      return;
+    }
+    fetch(`${backend_url}/api/update_organization_info`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        providerId: providerId,
+        brandName: brandName
+      }),
+      credentials: 'include',
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          toast.success("Organization details updated successfully!");
+          setUser({ ...user, organization: { ...user.organization, provider_id: providerId, brand_name: brandName } });
+        } else {
+          toast.error(data.message);
+        }
+      });
+  };
 
   useEffect(() => {
     fetch(`${backend_url}/api/user`, {
@@ -27,6 +60,10 @@ const Profile = () => {
       .then(data => {
         if (data.status === 'success') {
           setUser(data.userinfo);
+          if (data.userinfo.organization) {
+            setProviderId(data.userinfo.organization.provider_id || '');
+            setBrandName(data.userinfo.organization.brand_name || '');
+          }
         } else {
           toast.error("Failed to fetch user data");
           router.push('/login');
@@ -36,7 +73,7 @@ const Profile = () => {
         console.error("Fetch error:", error);
         toast.error("Network error or server issue");
       });
-  }, [router]);
+  }, []);
 
   const handleOpenCreateOrg = () => {
     setOpenCreateOrg(true);
@@ -184,6 +221,7 @@ const Profile = () => {
   return (
     <div>
       <Navbar />
+
       <Container component="main" maxWidth="md">
         <ToastContainer />
         <Grid container spacing={2} direction="column">
@@ -197,9 +235,6 @@ const Profile = () => {
               <Typography variant="body1" style={{ marginTop: 16 }}>
                 Email: {user.email}
               </Typography>
-              <Button variant="contained" color="secondary" style={{ marginTop: 16 }}>
-                Reset Password
-              </Button>
               {!user.verified && (
                 <>
                   <Typography color="error" style={{ marginTop: 16 }}>
@@ -247,15 +282,38 @@ const Profile = () => {
               <Divider />
               {user.organization ? (
                 <>
-                  <Typography variant="body1" style={{ marginTop: 16 }}>
-                    Name: {user.organization.organization_name}
-                  </Typography>
-                  <Typography variant="body1">
-                    Provider ID: {user.organization.provider_id}
-                  </Typography>
-                  <Typography variant="body1">
-                    Brand Name: {user.organization.brand_name}
-                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Typography variant="body1" style={{ marginTop: 16 }}>
+                        Name: {user.organization.organization_name}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        label="Provider ID"
+                        variant="outlined"
+                        value={providerId}
+                        onChange={(e) => setProviderId(e.target.value)}
+                        fullWidth
+                        margin="normal"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        label="Brand Name"
+                        variant="outlined"
+                        value={brandName}
+                        onChange={(e) => setBrandName(e.target.value)}
+                        fullWidth
+                        margin="normal"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Button variant="contained" color="primary" onClick={updateOrganizationDetails}>
+                        Update Details
+                      </Button>
+                    </Grid>
+                  </Grid>
                 </>
               ) : (
                 <>

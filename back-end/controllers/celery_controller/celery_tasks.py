@@ -42,32 +42,42 @@ def add_files_to_folder(self, folderid, file_contents):
     finally:
         session.close()  # Ensure session is closed even if there's an exception
 
+'''
+    There are four types of operation that makes use of this methods
+    1. Upload more files to an existing filing
+    2. Creating a new filing from scratch
+    3. Creating a new filing by importing from previous filings
+    4. Deletion of files in a filing
+'''
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def process_data(self, folderid, recompute): 
+def process_data(self, folderid, operation): 
     try:
         logger.debug(f"folder id in process data is {folderid}")
-        logger.debug(f"recompute is {recompute}")
+        logger.debug(f"operation is {operation}")
         session = Session()
 
+        recompute = operation in [3, 4]
         csv_files = file_ops.get_files_with_postfix(folderid, '.csv', session)
 
         coverage_files = file_ops.get_files_with_postfix(folderid, '.kml', session) + file_ops.get_files_with_postfix(folderid, '.geojson', session)
         logger.debug(coverage_files)
         for file in csv_files:
             if file.computed:
-                if not recompute:
+                if recompute:
                     continue
             task = fabric_ops.write_to_db(file.id)
             file.computed = True
 
         for file in coverage_files:
             if file.computed:
-                if not recompute:
+                if recompute:
                     continue
             
-            # if recompute:
-            #     # delete old kml_data
+            # When user deleted files, we should delete all the coverage computed for the current filing and recompute them based on all the files we have
+            # if operation == 4:
             #     pass
+
+            
             downloadSpeed = file.maxDownloadSpeed
             uploadSpeed = file.maxUploadSpeed
             techType = file.techType
@@ -97,13 +107,13 @@ def process_data(self, folderid, recompute):
         
         mbtiles_ops.delete_mbtiles(folderid, session)
         session.commit()
-        print("finished kml processing, now creating tiles")
+        logger.info("finished coverage points computation, now creating vector tiles")
         
         vt_ops.create_tiles(geojson_array, folderid, session)
         
         
         session.close()
-        return {'Status': "Ok"}
+        return {'status': "ok"}
     
     except Exception as e:
         session.close()
@@ -177,7 +187,7 @@ def deleteFiles(self, fileid, userid):
         session.close()
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
+def toggle_tiles(self, markers, folderid, polygonfeatures):
     message = ''
     status_code = 0
     session = Session()
@@ -235,12 +245,11 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
             for csv_file in existing_csvs:
                 session.delete(csv_file)
 
-            userVal = user_ops.get_user_with_id(userid=userid, session=session)
             # Generate and save a new CSV
             all_file_ids = [file.id for file in file_ops.get_files_with_postfix(user_folder.id, '.kml', session) + file_ops.get_files_with_postfix(user_folder.id, '.geojson', session)]
 
             results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
-            availability_csv = kml_ops.generate_csv_data(results, userVal.provider_id, userVal.brand_name)
+            availability_csv = kml_ops.generate_csv_data(results, user_folder.organization.provider_id, user_folder.organization.brand_name)
 
             csv_name = f"availability-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.csv"
             csv_data_str = availability_csv.to_csv(index=False, encoding='utf-8')
@@ -268,19 +277,17 @@ def toggle_tiles(self, markers, userid, folderid, polygonfeatures):
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def async_folder_copy_for_export(self, userid, folderid, serialized_csv):
+def async_folder_copy_for_export(self, folderid, serialized_csv, brandname, deadline):
     try:
         session = Session()
-        userVal = user_ops.get_user_with_id(userid)
-        deadline = datetime.now()
-        current_datetime = datetime.strptime(deadline, '%Y-%m-%d').date()
-        newfolder_name = f"Exported Filing at {current_datetime}"
+        
+        newfolder_name = f"Exported Filing for {deadline}"
 
 
-        csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=userVal.organization.brand_name, current_datetime=current_datetime)
+        csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=brandname, deadline=deadline)
 
         original_folder = folder_ops.get_folder_with_id(folderid=folderid, session=session)
-        new_folder = original_folder.copy(name=newfolder_name,type='export', deadline=current_datetime, export=True, session=session)
+        new_folder = original_folder.copy(name=newfolder_name, type='export', deadline=deadline, export=True, session=session)
         csv_file = file_ops.create_file(filename=csv_name, content=serialized_csv.encode('utf-8'), folderid=new_folder.id, filetype='export', session=session)
         session.add(csv_file)
         session.commit()
@@ -291,7 +298,7 @@ def async_folder_copy_for_export(self, userid, folderid, serialized_csv):
         session.close()  # Ensure session is closed even if there's an exception
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def async_folder_copy_for_import(self, userid, folderid, deadline):
+def async_folder_copy_for_import(self, folderid, deadline):
     try:
         session = Session()
         newfolder_name = f"Filing for Deadline {deadline}"
