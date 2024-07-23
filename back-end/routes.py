@@ -22,7 +22,7 @@ from database.sessions import Session
 from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops
 from utils.flask_app import app, mail
 from controllers.celery_controller.celery_config import celery 
-from controllers.celery_controller.celery_tasks import process_data, deleteFiles, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
+from controllers.celery_controller.celery_tasks import process_data, async_delete_files, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
 from utils.namingschemes import DATETIME_FORMAT, DATE_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
@@ -85,7 +85,6 @@ def submit_data(folderid):
             return jsonify({'status': 'error', 'message': "Create or join an organization to start working on a filing"}), 400
 
         import_folder_id = int(request.form.get('importFolder'))
-        logger.debug(f"import folder id is {import_folder_id}")
         # Prepare data for the task
         file_contents = [(f.filename, base64.b64encode(f.read()).decode('utf-8'), data) for f, data in zip(files, file_data_list)]
         if folderid == -1:
@@ -103,36 +102,36 @@ def submit_data(folderid):
                 if not folder_ops.folder_belongs_to_organization(import_folder_id, identity['id'], session):
                     return jsonify({'status': 'error', "message": 'Operation failed because you are accessing a filing not belong to your organization'}), 400
                 # Asynchronous copy and create new folder with deadline
-                logger.debug("here 1")
+                logger.info("In operation 3 of upload: create a new filing by importing from previous filings")
                 task_chain = chain(
                     async_folder_copy_for_import.s(import_folder_id, deadline),
                     add_files_to_folder.s(file_contents=file_contents),
-                    process_data.s(recompute=3)
+                    process_data.s(operation=3)
                 )
                 
             else:
                 # Create new folder with deadline
-                logger.debug("here 2")
+                logger.info("In operation 2 of upload: create a new filing from scratch")
                 new_folder_name = f"Filing for Deadline {deadline_date}"
                 folderVal = folder_ops.create_folder(new_folder_name, userVal.organization_id, deadline_date, 'upload', session)
                 session.commit()
 
                 task_chain = chain(
                     add_files_to_folder.s(folderVal.id, file_contents),
-                    process_data.s(recompute=2)
+                    process_data.si(folderid=folderVal.id, operation=2)
                 )
             
         else:
-            logger.debug("here 3")
+            logger.info("In operation 1 of upload: adding more files to a filing")
             if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
                 return jsonify({'status': 'error', "message": 'Operation failed because you are accessing a filing not belong to your organization'}), 400
             task_chain = chain(
                 add_files_to_folder.s(folderid, file_contents),
-                process_data.s(recompute=1)
+                process_data.si(folderid=folderid, operation=1)
             )
 
         result = task_chain.apply_async()
-        return jsonify({'status': "OK", 'task_id': result.id}), 200 # return task id to the client
+        return jsonify({'status': "success", 'task_id': result.id}), 200 # return task id to the client
     
         
     except NoAuthorizationError:
@@ -145,6 +144,7 @@ def submit_data(folderid):
         # General catch-all for other exceptions
         logger.debug(e)
         session.rollback()  # Rollback the session in case of error
+        session.close()
         return jsonify({'status': "error", 'message': str(e)}), 500
     finally:
         session.close()  # Always close the session at the end
@@ -739,23 +739,55 @@ def update_network_file(file_id):
     finally:
         session.close()
     
-@app.route('/api/delfiles/<int:fileid>', methods=['DELETE'])
+@app.route('/api/delfiles', methods=['DELETE'])
 @jwt_required()
-def delete_files(fileid):
-    fileid = int(fileid)
+def delete_files():
     try:
+        data = request.get_json()
+        file_ids = data.get('file_ids', [])
+        editfile_ids = data.get('editfile_ids', [])
         identity = get_jwt_identity()
         
+
+        logger.debug(file_ids)
+        logger.debug(editfile_ids)
+
+        if not file_ids and not editfile_ids:
+            return jsonify({'status': 'error', 'message': 'Please check the files to delete'}), 400
+
         session = Session()
-        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
-            session.close()
-            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+
+        for fileid in file_ids:
+            fileid = int(fileid)
+            if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+                session.close()
+                return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+
+        for editfileid in editfile_ids:
+            editfileid = int(editfileid)
+            if not editfile_ops.editfile_belongs_to_organization(file_id=editfileid, user_id=identity['id'], session=session):
+                session.close()
+                return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+            
+        if file_ids:
+            fileVal = file_ops.get_file_with_id(fileid=file_ids[0], session=session)
+            folderid = fileVal.folder_id
+        else:
+            editfileVal = editfile_ops.get_editfile_with_id(fileid=editfile_ids[0], session=session)
+            folderid = editfileVal.folder_id
+        
         session.close()
 
-        task = deleteFiles.apply_async(args=[fileid, identity['id']])
-        return jsonify({'status': "success", 'task_id': task.id}), 200 # return task id to the client
+        logger.info(f"folderid in delete files {folderid}")
+        task_chain = chain(
+                    async_delete_files.s(file_ids=file_ids, editfile_ids=editfile_ids),
+                    process_data.si(folderid=folderid, operation=4)
+        )
+        result = task_chain.apply_async()
+        return jsonify({'status': "success", 'task_id': result.id}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+
     
 @app.route('/api/export', methods=['GET'])
 @jwt_required()
@@ -1081,7 +1113,7 @@ def get_edit_geojson(fileid):
     try:
         identity = get_jwt_identity()
         fileid = int(fileid)
-        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+        if not editfile_ops.editfile_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
             return jsonify({'status': 'error', 'message': 'You are accessing a file not belong to your organization'}), 400
 
         editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)
@@ -1106,7 +1138,7 @@ def get_edit_geojson_centroid(fileid):
     session = Session()
     try:
         identity = get_jwt_identity()
-        if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
+        if not editfile_ops.editfile_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
             return jsonify({'status': 'error', 'message': 'You are accessing a file not belong to your organization'}), 400
 
         editfile = editfile_ops.get_editfile_with_id(fileid=fileid, session=session)

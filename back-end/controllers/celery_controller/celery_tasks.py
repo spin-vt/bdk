@@ -12,6 +12,7 @@ from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 from utils.logger_config import logger
 from utils.wireless_form2args import wireless_raster_file_format, wireless_vector_file_format
 from controllers.signalserver_controller.raster2vector import smooth_edges
+from sqlalchemy.exc import SQLAlchemyError
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
@@ -45,9 +46,9 @@ def add_files_to_folder(self, folderid, file_contents):
 '''
     There are four types of operation that makes use of this methods
     1. Upload more files to an existing filing
-    2. Creating a new filing from scratch
-    3. Creating a new filing by importing from previous filings
-    4. Deletion of files in a filing
+    2. Create new filing from scratch
+    3. Create a new filing by importing from previous filings
+    4. Delete files in a filing
 '''
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_data(self, folderid, operation): 
@@ -56,27 +57,32 @@ def process_data(self, folderid, operation):
         logger.debug(f"operation is {operation}")
         session = Session()
 
-        recompute = operation in [3, 4]
+        recompute_coverage = operation in [3, 4]
         csv_files = file_ops.get_files_with_postfix(folderid, '.csv', session)
 
         coverage_files = file_ops.get_files_with_postfix(folderid, '.kml', session) + file_ops.get_files_with_postfix(folderid, '.geojson', session)
         logger.debug(coverage_files)
         for file in csv_files:
             if file.computed:
-                if recompute:
+                # Only need to readd fabric points for import
+                if operation != 3:
                     continue
             task = fabric_ops.write_to_db(file.id)
             file.computed = True
 
+
+        # Delete all kml_data associated with the coverage_files if operation == 4
+        if operation == 4:
+            logger.info(f"Deleting all KML data for folder {folderid}")
+            for file in coverage_files:
+                # Delete all kml_data associated with each file
+                session.query(kml_data).filter(kml_data.file_id == file.id).delete()
+            session.commit()  # Commit the deletions
+
         for file in coverage_files:
             if file.computed:
-                if recompute:
+                if not recompute_coverage:
                     continue
-            
-            # When user deleted files, we should delete all the coverage computed for the current filing and recompute them based on all the files we have
-            # if operation == 4:
-            #     pass
-
             
             downloadSpeed = file.maxDownloadSpeed
             uploadSpeed = file.maxUploadSpeed
@@ -161,28 +167,23 @@ def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
     return result2.returncode
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def deleteFiles(self, fileid, userid):
+def async_delete_files(self, file_ids, editfile_ids):
+    session = Session()
     try:
-        session = Session()
-        file_to_del = file_ops.get_file_with_id(fileid)
-        folderid = file_to_del.folder_id
-        file_ops.delete_file(file_to_del.id, session)
-        mbtiles_ops.delete_mbtiles(folderid, session)
-        session.commit()
         
-        geojson_array = []
-        all_kmls = file_ops.get_files_with_postfix(folderid, '.kml', session)
-        for kml_f in all_kmls:
-            geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+        for fileid in file_ids:
+            file_ops.delete_file(fileid, session)
+        
+        for editfileid in editfile_ids:
+            editfile_ops.delete_editfile(editfileid, session)
 
-        all_geojsons = file_ops.get_files_with_postfix(folderid, '.geojson', session)
-        for geojson_f in all_geojsons:
-            geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
-        vt_ops.create_tiles(geojson_array, folderid, session)
-        return {'message': 'mbtiles successfully deleted'}  # Returning a dictionary
-    except Exception as e:
-        session.rollback()  # Rollback the session in case of error
-        return jsonify({'Status': "Failed, server failed", 'error': str(e)}), 500
+        session.commit()
+
+
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(f"Error occurred during file deletion: {str(e)}")
+        raise
     finally:
         session.close()
 

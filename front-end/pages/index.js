@@ -112,7 +112,7 @@ const CustomDrawer = ({ isOpen, children, onClose }) => {
           top: "10px",
           right: "10px",
           padding: "8px 16px",
-          background: "#d32f2f", // A more subdued shade of red
+          background: "#686df2", // A more subdued shade of red
           color: "white",
           border: "none",
           borderRadius: "8px", // More rounded corners

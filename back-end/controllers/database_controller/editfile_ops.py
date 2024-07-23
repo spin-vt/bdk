@@ -1,6 +1,6 @@
 import psycopg2
 from database.sessions import ScopedSession, Session
-from database.models import editfile
+from database.models import editfile, user, file_editfile_link
 from threading import Lock
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -94,5 +94,57 @@ def get_editfilesinfo_in_folder(folderid, session=None):
             session.close()
 
 
+def delete_editfile(editfileid, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
 
-# Implement delete logic
+    try:
+        editfile_to_del = session.query(editfile).filter(editfile.id == editfileid).first()
+        if editfile_to_del:
+            # Delete all associated file links first
+            links = session.query(file_editfile_link).filter(file_editfile_link.editfile_id == editfileid).all()
+            for link in links:
+                session.delete(link)
+
+            # Proceed to delete the editfile
+            session.delete(editfile_to_del)
+            if owns_session:
+                session.commit()
+
+    except SQLAlchemyError as e:
+        if owns_session:
+            session.rollback()
+        print(f"Error occurred during deletion: {str(e)}")
+        raise
+    finally:
+        if owns_session:
+            session.close()
+
+
+
+def editfile_belongs_to_organization(file_id, user_id, session):
+    # Retrieve the user based on user_id
+    userVal = session.query(user).filter(user.id == user_id).first()
+    if not userVal:
+        return False
+
+    # Get the user's organization
+    user_organization = userVal.organization
+    if not user_organization:
+        return False
+
+    # Check if the file belongs to this organization
+    fileVal = session.query(editfile).filter(editfile.id == file_id).first()
+    if not fileVal:
+        return False
+
+    # Check if the file's folder belongs to the same organization
+    folder = fileVal.folder
+    if not folder:
+        return False
+
+    return folder.organization_id == user_organization.id
+
+

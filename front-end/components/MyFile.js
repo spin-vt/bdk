@@ -15,7 +15,9 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Button,
+  Checkbox
 } from "@mui/material";
 import Swal from "sweetalert2";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -29,6 +31,8 @@ import { styled } from '@mui/material/styles';
 import { useFolder } from '../contexts/FolderContext';
 import { format } from "date-fns";
 import EditLayerVisibilityContext from "../contexts/EditLayerVisibilityContext.js";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 
 const StyledContainer = styled(Container)(({ }) => ({
@@ -220,9 +224,7 @@ const MyFile = () => {
             ...prevLayers,
             [file.name]: true, // Set the visibility of the layer to true
           }));
-        } else if (file.name.endsWith("/")) {
-          setManualEditFiles((prevFiles) => [...prevFiles, formattedFile]);
-        }
+        } 
       });
     }
   };
@@ -352,6 +354,78 @@ const MyFile = () => {
     setFolderID(newFolderID);
   }
 
+
+  const handleDeleteCheckedFiles = async () => {
+    setIsLoading(true);
+    try {
+      const fileIdsToDelete = [
+        ...fabricFiles,
+        ...networkDataFiles
+      ]
+        .filter((file) => file.checked)
+        .map((file) => file.id);
+  
+      const editFileIdsToDelete = manualEditFiles
+        .filter((file) => file.checked)
+        .map((file) => file.id);
+  
+        
+      if (fileIdsToDelete.length === 0 && editFileIdsToDelete.length === 0) {
+        toast.error("Please check the file you want to delete");
+        return;
+      }
+
+      const response = await fetch(`${backend_url}/api/delfiles`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ file_ids: fileIdsToDelete, editfile_ids: editFileIdsToDelete }),
+      });
+  
+      if (response.status === 401) {
+        setIsLoading(false);
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: "Session expired, please log in again!",
+        });
+        router.push("/login");
+        return;
+      }
+  
+      const data = await response.json();
+  
+      if (data.status === "success") {
+        const intervalId = setInterval(() => {
+          console.log(data.task_id);
+          fetch(`${backend_url}/api/status/${data.task_id}`)
+            .then((response) => response.json())
+            .then((status) => {
+              if (status.state !== "PENDING") {
+                clearInterval(intervalId);
+                setIsDataReady(true);
+                setIsLoading(false);
+                setTimeout(() => {
+                  setIsDataReady(false);
+                  router.reload();
+                }, 5000);
+              }
+            });
+        }, 5000);
+      } else {
+        toast.error(data.message);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setIsLoading(false);
+      toast.error(error);
+    }
+  };
+  
+
   return (
     <div>
       <div style={{ position: 'fixed', zIndex: 10000 }}>
@@ -362,6 +436,7 @@ const MyFile = () => {
           />
         )}
       </div>
+      <ToastContainer />
       <StyledContainer component="main" maxWidth="md">
         <FormControl style={{ width: '250px' }}>
           <InputLabel id="filing-select-label">You are working on filing for deadline:</InputLabel>
@@ -380,16 +455,17 @@ const MyFile = () => {
             ))}
           </Select>
         </FormControl>
+        <Button variant="contained" color="error" onClick={handleDeleteCheckedFiles} sx={{marginLeft: '30px'}}>
+          Delete Checked Files
+        </Button>
         {/* Fabric Files Table */}
         <StyledTypography component="h2" variant="h6">
           Fabric Files
         </StyledTypography>
         <FileTable
           files={fabricFiles}
-          handleDelete={handleDelete}
           setFiles={setFabricFiles}
           showSwitch={false}
-          showDelete={true}
         />
 
         {/* Network Data Files Table */}
@@ -398,10 +474,8 @@ const MyFile = () => {
         </StyledTypography>
         <FileTable
           files={networkDataFiles}
-          handleDelete={handleDelete}
           setFiles={setNetworkDataFiles}
           showSwitch={true}
-          showDelete={true}
         />
 
         {/* Manual Edit Files Table */}
@@ -411,8 +485,7 @@ const MyFile = () => {
         <ManualEditFilesTable
           files={manualEditFiles}
           handleLocateOnMap={handleLocateOnMap}
-          handleDelete={handleDelete}
-          setFiles={manualEditFiles}
+          setFiles={setManualEditFiles}
         />
       </StyledContainer>
     </div>
@@ -421,10 +494,8 @@ const MyFile = () => {
 
 const FileTable = ({
   files,
-  handleDelete,
   setFiles,
   showSwitch,
-  showDelete
 }) => {
   const { setLayers } = useContext(LayerVisibilityContext);
   const [checked, setChecked] = useState([]);
@@ -438,15 +509,20 @@ const FileTable = ({
     newChecked[i] = !newChecked[i];
     setChecked(newChecked);
 
-    // Update the layers visibility state
     setLayers((prevLayers) => ({
       ...prevLayers,
       [files[i].name]: newChecked[i],
     }));
   };
 
+  const handleCheck = (i) => () => {
+    const updatedFiles = [...files];
+    updatedFiles[i].checked = !updatedFiles[i].checked;
+    setFiles(updatedFiles);
+  };
+
   if (checked.length !== files.length) {
-    return null; // or return a loading spinner
+    return null;
   }
 
   return (
@@ -457,7 +533,7 @@ const FileTable = ({
           <TableCell>Created Time</TableCell>
           <TableCell align="right">Type</TableCell>
           {showSwitch && <TableCell align="right">Show on Map</TableCell>}
-          {showDelete && <TableCell align="right">Action</TableCell>}
+          <TableCell align="right">Check</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -479,18 +555,12 @@ const FileTable = ({
                 />
               </TableCell>
             )}
-            {showDelete && (
-              <TableCell align="right">
-                <StyledIconButton
-                  onClick={() => handleDelete(file.id, setFiles)}
-                >
-                  <DeleteIcon />
-                  <Typography sx={{ marginLeft: "10px" }}>
-                    Delete
-                  </Typography>
-                </StyledIconButton>
-              </TableCell>
-            )}
+            <TableCell align="right">
+              <Checkbox
+                checked={file.checked || false}
+                onChange={handleCheck(index)}
+              />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -501,10 +571,8 @@ const FileTable = ({
 const ManualEditFilesTable = ({
   files,
   handleLocateOnMap,
-  handleDelete,
   setFiles
 }) => {
-
   const [checked, setChecked] = useState([]);
   const { setEditLayers } = useContext(EditLayerVisibilityContext);
 
@@ -512,19 +580,16 @@ const ManualEditFilesTable = ({
     setChecked(new Array(files.length).fill(false));
   }, [files]);
 
-
-
-
   const fetchGeoJSONCentroid = (editfile_id) => {
     fetch(`${backend_url}/api/get-edit-geojson-centroid/${editfile_id}`, {
       method: "GET",
-      credentials: "include", // make sure to send credentials to maintain the session
+      credentials: "include",
     })
       .then(response => {
         if (!response.ok) {
           throw new Error('Failed to fetch coverage data');
         }
-        return response.json(); // Get the blob directly from the response
+        return response.json();
       })
       .then(data => {
         handleLocateOnMap({
@@ -541,26 +606,27 @@ const ManualEditFilesTable = ({
       });
   };
 
-
   const handleToggle = (i) => () => {
     const newChecked = [...checked];
     newChecked[i] = !newChecked[i];
     setChecked(newChecked);
 
-    // Assuming 'editLayers' is a state that stores the visible layers/files on the map
     setEditLayers((prevLayers) => {
       const fileId = files[i].id;
       if (newChecked[i]) {
-        // If the file is now checked, add it to the visible layers
         fetchGeoJSONCentroid(fileId);
         return [...prevLayers, fileId];
       } else {
-        // If the file is now unchecked, remove it from the visible layers
         return prevLayers.filter(layer => layer !== fileId);
       }
     });
   };
 
+  const handleCheck = (i) => () => {
+    const updatedFiles = [...files];
+    updatedFiles[i].checked = !updatedFiles[i].checked;
+    setFiles(updatedFiles);
+  };
 
   return (
     <StyledTable>
@@ -568,8 +634,8 @@ const ManualEditFilesTable = ({
         <TableRow>
           <TableCell>Filename</TableCell>
           <TableCell>Created Time</TableCell>
-          <TableCell align="right">Show On Map</TableCell>
-          <TableCell align="right">Action</TableCell>
+          <TableCell align="right">Locate On Map</TableCell>
+          <TableCell align="right">Check</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -578,7 +644,6 @@ const ManualEditFilesTable = ({
             <TableRow>
               <TableCell>{file.name}</TableCell>
               <TableCell>{file.uploadDate}</TableCell>
-
               <TableCell align="right">
                 <IOSSwitch
                   sx={{ m: 1 }}
@@ -588,25 +653,18 @@ const ManualEditFilesTable = ({
                   inputProps={{ "aria-label": "secondary checkbox" }}
                 />
               </TableCell>
-
               <TableCell align="right">
-                <StyledIconButton
-                  onClick={() => handleDelete(file.id, setFiles)}
-                >
-                  <DeleteIcon />
-                  <Typography sx={{ marginLeft: "10px" }}>
-                    Delete
-                  </Typography>
-                </StyledIconButton>
+                <Checkbox
+                  checked={file.checked || false}
+                  onChange={handleCheck(index)}
+                />
               </TableCell>
-
             </TableRow>
-
           </React.Fragment>
         ))}
       </TableBody>
     </StyledTable>
-  );
+  )
 };
 
 export default MyFile;
