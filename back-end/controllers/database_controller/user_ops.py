@@ -45,6 +45,7 @@ def get_userinfo_with_id(userid, session=None):
             'id': userVal.id,
             'email': userVal.username,
             'verified': userVal.verified,
+            'is_admin': userVal.is_admin,
             'organization': organization_info
         }
     except NoResultFound:

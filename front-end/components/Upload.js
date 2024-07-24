@@ -63,7 +63,7 @@ export default function Upload() {
 
     const [fileIdCounter, setFileIdCounter] = React.useState(0);
 
-    const [ previousFiles, setPreviousFiles ] = React.useState([]);
+    const [previousFiles, setPreviousFiles] = React.useState([]);
 
     const allowedExtensions = ["kml", "geojson", "csv"];
 
@@ -72,7 +72,7 @@ export default function Upload() {
             setPreviousFiles([]);
             return;
         }
-    
+
         const response = await fetch(`${backend_url}/api/files?folder_ID=${folderIdentity}`, {
             method: "GET",
             headers: {
@@ -80,7 +80,7 @@ export default function Upload() {
             },
             credentials: "include",
         });
-    
+
         if (response.status === 401) {
             Swal.fire({
                 icon: "error",
@@ -90,21 +90,21 @@ export default function Upload() {
             router.push("/login");
             return;
         }
-    
+
         const data = await response.json();
         if (data.status === 'error') {
             toast.error(data.message);
             return;
         }
-        
-    
+
+
         setPreviousFiles(data.map(file => ({ name: file.name })));
     };
 
-      React.useEffect(() => {
+    React.useEffect(() => {
 
         fetchFiles(folderID);
-      }, [folderID]);
+    }, [folderID]);
 
     const fetchFolders = async () => {
         try {
@@ -179,7 +179,7 @@ export default function Upload() {
         const fileArray = Array.from(event.target.files);
         let currentId = fileIdCounter;
         const newFiles = [];
-    
+
         for (const file of fileArray) {
             // Check if the file is already in the selected files
             const existingFile = files.find(f => f.name === file.name);
@@ -187,14 +187,14 @@ export default function Upload() {
                 toast.error(`File '${file.name}' is already selected.`);
                 continue;  // Skip to the next file
             }
-    
+
             // Check if the file exists on the server
             const fileExistsOnServer = previousFiles.some(f => f.name === file.name);
             if (fileExistsOnServer) {
                 toast.error(`The file "${file.name}" already exists on the server. If this is a different document, please rename it and upload again.`);
                 continue;  // Skip to the next file
             }
-    
+
             newFiles.push({
                 id: currentId++,
                 name: file.name,
@@ -207,7 +207,7 @@ export default function Upload() {
                 file,
             });
         }
-    
+
         setFileIdCounter(currentId); // Update fileIdCounter to the new value after all files are processed
         setFiles(prevFiles => [...prevFiles, ...newFiles]); // Properly append new files to the existing list
     };
@@ -236,7 +236,7 @@ export default function Upload() {
         { field: "networkType", headerName: "Network Type", type: 'singleSelect', valueOptions: ["wired", "wireless"], editable: true },
         { field: "latency", headerName: "Latency", type: 'singleSelect', valueOptions: Object.keys(latency_type), editable: true },
         { field: "categoryCode", headerName: "Category", type: 'singleSelect', valueOptions: Object.keys(bus_codes), editable: true },
-        { 
+        {
             field: "delete",
             headerName: "Delete",
             sortable: false,
@@ -270,8 +270,7 @@ export default function Upload() {
 
         let hasErrors = false;
         let newErrorRows = new Set();
-        
-        console.log(files);
+
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             if (file.file.name.endsWith('.csv')) {
@@ -310,7 +309,7 @@ export default function Upload() {
                 setIsLoading(false);
                 return;
             }
-            
+
             formData.append("fileData", JSON.stringify(fileDetails));
             formData.append("file", fileDetails.file);
         });
@@ -318,59 +317,59 @@ export default function Upload() {
 
         setIsLoading(true);
 
-          fetch(`${backend_url}/api/submit-data/${folderID}`, {
+        fetch(`${backend_url}/api/submit-data/${folderID}`, {
             method: "POST",
             body: formData,
             credentials: "include",
-          })
+        })
             .then((response) => {
-              if (response.status === 401) {
-                Swal.fire({
-                  icon: "error",
-                  title: "Oops...",
-                  text: "Session expired, please log in again!",
-                });
-                // Redirect to login page
-                router.push("/login");
-                setIsLoading(false);
-                return;
-              } else if (response.status === 200) {
-                return response.json();
-              } else if (response.status === 500 || response.status === 400) {
-                setIsLoading(false);
-                data = response.json()
-                toast.error(data.message);
-              }
+                if (response.status === 401) {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Oops...",
+                        text: "Session expired, please log in again!",
+                    });
+                    // Redirect to login page
+                    router.push("/login");
+                    setIsLoading(false);
+                    return;
+                } else if (response.status === 200) {
+                    return response.json();
+                } else if (response.status === 500 || response.status === 400) {
+                    setIsLoading(false);
+                    data = response.json()
+                    toast.error(data.message);
+                }
             })
             .then((data) => {
-              if (data) {
-                const intervalId = setInterval(() => {
-                  console.log(data.task_id);
-                  fetch(`${backend_url}/api/status/${data.task_id}`)
-                    .then((response) => response.json())
-                    .then((status) => {
-                      if (status.state !== "PENDING") {
-                        clearInterval(intervalId);
-                        setIsDataReady(true);
-                        setIsLoading(false);
-                        setTimeout(() => {
-                          setIsDataReady(false);
-                          router.reload();
-                        }, 5000);
-                      }
-                    });
-                }, 5000);
-              }
+                if (data) {
+                    const intervalId = setInterval(() => {
+                        console.log(data.task_id);
+                        fetch(`${backend_url}/api/status/${data.task_id}`)
+                            .then((response) => response.json())
+                            .then((status) => {
+                                if (status.state !== "PENDING") {
+                                    clearInterval(intervalId);
+                                    setIsDataReady(true);
+                                    setIsLoading(false);
+                                    setTimeout(() => {
+                                        setIsDataReady(false);
+                                        router.reload();
+                                    }, 5000);
+                                }
+                            });
+                    }, 5000);
+                }
             })
             .catch((error) => {
-              Swal.fire({
-                icon: "error",
-                title: "Oops...",
-                text: "There is an error on our end, please try again later",
-              });
-              console.error("Error:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Oops...",
+                    text: "There is an error on our end, please try again later",
+                });
+                console.error("Error:", error);
 
-              setIsLoading(false);
+                setIsLoading(false);
             });
     };
 

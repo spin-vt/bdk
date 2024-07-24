@@ -45,3 +45,13 @@ def get_admin_user_for_organization(org_id, session):
     except Exception as e:
         logger.debug(e)
         return str(e)
+    
+def get_all_users_for_organization(org_id, session):
+    try:
+        users = session.query(user).filter(user.organization_id == org_id).all()
+        return users
+    except NoResultFound:
+        return None
+    except Exception as e:
+        logger.debug(e)
+        return str(e)

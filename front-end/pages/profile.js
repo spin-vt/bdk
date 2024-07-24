@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Navbar from '../components/Navbar';
-import { Button, Container, Typography, TextField, Paper, Grid, Divider, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
+import { Button, Container, Typography, TextField, Paper, Grid, Divider, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import { ToastContainer, toast } from 'react-toastify';
 import "react-toastify/dist/ReactToastify.css";
 import { useRouter } from "next/router";
@@ -14,6 +14,8 @@ const Profile = () => {
   const [showTokenField, setShowTokenField] = useState(false);
   const [openCreateOrg, setOpenCreateOrg] = useState(false);
   const [openJoinOrg, setOpenJoinOrg] = useState(false);
+
+  const [email, setEmail] = useState('');
   const [orgName, setOrgName] = useState('');
   const [joinOrgToken, setJoinOrgToken] = useState('');
   const router = useRouter();
@@ -21,17 +23,104 @@ const Profile = () => {
   const [providerId, setProviderId] = useState('');
   const [brandName, setBrandName] = useState('');
 
+
+  // State for confirming exit/delete action
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+
+  // Function to handle the confirm action
+  const handleConfirmAction = () => {
+    if (user.is_admin) {
+      deleteOrganization();
+    } else {
+      exitOrganization();
+    }
+    setOpenConfirmDialog(false);
+  };
+
+  // Function to open the confirm dialog
+  const handleOpenConfirmDialog = () => {
+    setOpenConfirmDialog(true);
+  };
+
+  // Function to close the confirm dialog
+  const handleCloseConfirmDialog = () => {
+    setOpenConfirmDialog(false);
+  };
+
+
+  const deleteOrganization = () => {
+    fetch(`${backend_url}/api/delete_organization`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ organizationName: user.organization.organization_name }),
+      credentials: 'include',
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          toast.success("Organization deleted successfully!");
+          setUser({ ...user, organization: null });
+        } else {
+          toast.error(data.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error deleting organization:', error);
+        toast.error('Network error or server issue');
+      });
+  };
+
+  const exitOrganization = () => {
+    fetch(`${backend_url}/api/exit_organization`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ organizationName: user.organization.organization_name }),
+      credentials: 'include',
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          toast.success("Exited organization successfully!");
+          setUser({ ...user, organization: null });
+        } else {
+          toast.error(data.message);
+        }
+      })
+      .catch(error => {
+        console.error('Error exiting organization:', error);
+        toast.error('Network error or server issue');
+      });
+  };
+
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
+
   const updateOrganizationDetails = () => {
-    if (!providerId && !brandName) {
-      toast.error("Please fill in provider id or brand name");
+    if (!providerId && !brandName && !email && !orgName) {
+      toast.error("Please fill in the required fields");
       return;
     }
-    fetch(`${backend_url}/api/update_organization_info`, {
+
+    if (!validateEmail(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const emailUpdated = user.email !== email;
+    fetch(`${backend_url}/api/update_profile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        email: email,
+        organizationName: orgName,
         providerId: providerId,
         brandName: brandName
       }),
@@ -40,8 +129,18 @@ const Profile = () => {
       .then(response => response.json())
       .then(data => {
         if (data.status === 'success') {
-          toast.success("Organization details updated successfully!");
-          setUser({ ...user, organization: { ...user.organization, provider_id: providerId, brand_name: brandName } });
+          toast.success("Profile updated successfully!");
+          setUser({
+            ...user,
+            email: email,
+            verified: emailUpdated ? false : user.verified,
+            organization: {
+              ...user.organization,
+              organization_name: orgName,
+              provider_id: providerId,
+              brand_name: brandName
+            }
+          });
         } else {
           toast.error(data.message);
         }
@@ -60,9 +159,11 @@ const Profile = () => {
       .then(data => {
         if (data.status === 'success') {
           setUser(data.userinfo);
+          setEmail(data.userinfo.email || '');
           if (data.userinfo.organization) {
             setProviderId(data.userinfo.organization.provider_id || '');
             setBrandName(data.userinfo.organization.brand_name || '');
+            setOrgName(data.userinfo.organization.organization_name || '');
           }
         } else {
           toast.error("Failed to fetch user data");
@@ -74,6 +175,8 @@ const Profile = () => {
         toast.error("Network error or server issue");
       });
   }, []);
+
+
 
   const handleOpenCreateOrg = () => {
     setOpenCreateOrg(true);
@@ -232,9 +335,14 @@ const Profile = () => {
                 User Account Info
               </Typography>
               <Divider />
-              <Typography variant="body1" style={{ marginTop: 16 }}>
-                Email: {user.email}
-              </Typography>
+              <TextField
+                label="Email"
+                variant="outlined"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                fullWidth
+                margin="normal"
+              />
               {!user.verified && (
                 <>
                   <Typography color="error" style={{ marginTop: 16 }}>
@@ -282,11 +390,22 @@ const Profile = () => {
               <Divider />
               {user.organization ? (
                 <>
+                  {user.is_admin &&
+
+                    <Typography variant="body1" sx={{ color: '#429e64', marginTop: '10px' }}>
+                      You are the admin of the organization
+                    </Typography>
+                  }
                   <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <Typography variant="body1" style={{ marginTop: 16 }}>
-                        Name: {user.organization.organization_name}
-                      </Typography>
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        label="Organization Name"
+                        variant="outlined"
+                        value={orgName}
+                        onChange={(e) => setOrgName(e.target.value)}
+                        fullWidth
+                        margin="normal"
+                      />
                     </Grid>
                     <Grid item xs={12} md={6}>
                       <TextField
@@ -307,11 +426,6 @@ const Profile = () => {
                         fullWidth
                         margin="normal"
                       />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Button variant="contained" color="primary" onClick={updateOrganizationDetails}>
-                        Update Details
-                      </Button>
                     </Grid>
                   </Grid>
                 </>
@@ -355,8 +469,40 @@ const Profile = () => {
               )}
             </Paper>
           </Grid>
+          <Grid item xs={12}>
+            {/* <Paper style={{ padding: 16 }}> */}
+            <Button variant="contained" color="primary" onClick={updateOrganizationDetails}>
+              Update Info
+            </Button>
+            {user.organization &&
+              <Button variant="contained" color="secondary" onClick={handleOpenConfirmDialog} sx={{ marginLeft: 10 }}>
+                {user.is_admin ? 'Delete Organization' : 'Exit Organization'}
+              </Button>
+            }
+            {/* </Paper> */}
+          </Grid>
         </Grid>
       </Container>
+
+      <Dialog
+        open={openConfirmDialog}
+        onClose={handleCloseConfirmDialog}
+      >
+        <DialogTitle>{user.is_admin ? 'Delete Organization' : 'Exit Organization'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to {user.is_admin ? 'delete this organization? All your filings will also be deleted.' : 'exit this organization?'} This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseConfirmDialog} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmAction} color="secondary">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Create Organization Dialog */}
       <Dialog open={openCreateOrg} onClose={handleCloseCreateOrg}>

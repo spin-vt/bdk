@@ -57,7 +57,7 @@ def get_number_records(folderid):
 
             return jsonify(kml_ops.get_kml_data(folderid=folderid, session=session)), 200
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -148,7 +148,7 @@ def submit_data(folderid):
     
         
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except ValueError as ve:
     # Handle specific errors, e.g., value errors
         logger.debug(ve)
@@ -222,7 +222,7 @@ def search_location(folderid):
         finally:
             session.close()
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
 
 
 
@@ -345,12 +345,11 @@ def send_email_verification():
 @app.route('/api/create_organization', methods=['POST'])
 @jwt_required()
 def create_organization():
-    session = Session()
-    data = request.get_json()
-    org_name = data.get('orgName')
-    current_user = get_jwt_identity()
-
     try:
+        current_user = get_jwt_identity()
+        session = Session()
+        data = request.get_json()
+        org_name = data.get('orgName')
         user = user_ops.get_user_with_id(current_user['id'], session)
 
         if not user.verified:
@@ -370,6 +369,8 @@ def create_organization():
         session.commit()
 
         return jsonify({'status': 'success', 'message': 'Organization created successfully!'}), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         logger.error(f"Error creating organization: {e}")
         session.rollback()
@@ -380,11 +381,12 @@ def create_organization():
 @app.route('/api/join_organization', methods=['POST'])
 @jwt_required()
 def join_organization():
-    session = Session()
-    data = request.get_json()
-    org_name = data.get('name')
-    current_user = get_jwt_identity()
     try:
+        current_user = get_jwt_identity()
+
+        session = Session()
+        data = request.get_json()
+        org_name = data.get('name')
         user = user_ops.get_user_with_id(current_user['id'], session)
         
         if not user.verified:
@@ -405,10 +407,74 @@ def join_organization():
         send_verification_email_with_token(email=admin.username, token=email_token, title='Organization Join Request for BDK', content=f'finish their organization join request', join_org=True, join_org_email=user.username)
 
         return jsonify({'status': 'success', 'message': 'Join request sent to organization admin.'}), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         logger.error(f"Error joining organization: {e}")
         session.rollback()
         return jsonify({'status': 'error', 'message': 'An error occurred while trying to join the organization.'}), 500
+    finally:
+        session.close()
+
+@app.route('/api/delete_organization', methods=['DELETE'])
+@jwt_required()
+def delete_organization():
+    try:
+        identity = get_jwt_identity()
+        session = Session()
+        data = request.get_json()
+        orgName = data.get('organizationName')
+
+        userVal = user_ops.get_user_with_id(identity['id'], session=session)
+        organization = userVal.organization
+
+        if not organization:
+            return jsonify({'status': 'error', 'message': 'Organization not found'}), 400
+        
+        if not organization.name == orgName:
+            return jsonify({'status': 'error', 'message': 'Organization not found'}), 400
+        
+        users = organization_ops.get_all_users_for_organization(org_id=organization.id, session=session)
+        for user in users:
+            user.organization_id = None
+        
+        session.delete(organization)
+        session.commit()
+        
+
+        return jsonify({'status': 'success', 'message': 'Organization deleted successfully'}), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
+
+@app.route('/api/exit_organization', methods=['POST'])
+@jwt_required()
+def exit_organization():
+    try:
+        identity = get_jwt_identity()
+        session = Session()
+
+        user = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        data = request.get_json()
+        orgName = data.get('organizationName')
+
+        logger.debug(orgName)
+
+        userVal = user_ops.get_user_with_id(identity['id'], session=session)
+        organization = userVal.organization
+
+        if not organization:
+            return jsonify({'status': 'error', 'message': 'Organization not found'}), 400
+        
+        if not organization.name == orgName:
+            return jsonify({'status': 'error', 'message': 'Organization not found'}), 400
+        
+        user.organization_id = None
+        session.commit()
+
+        return jsonify({'status': 'success', 'message': 'Exited organization successfully'}), 200
+    
+    except NoAuthorizationError:
+            return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -468,7 +534,7 @@ def get_user_info():
         userinfo = user_ops.get_userinfo_with_id(identity['id'])
         return jsonify({'status': 'success', 'userinfo': userinfo}), 200
     except NoAuthorizationError:
-        return jsonify({'error': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
 
 
 @app.route('/api/exportFiling/<folderid>', methods=['GET'])
@@ -512,7 +578,7 @@ def exportFiling(folderid):
         finally:
             session.close()
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     
 @app.route('/api/exportChallenge', methods=['GET'])
 def exportChallenge():
@@ -582,7 +648,7 @@ def toggle_markers():
         task = toggle_tiles.apply_async(args=[markers, folderid, polygonfeatures])
         return jsonify({'status': "success", 'task_id': task.id}), 200
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
 
 
 @app.route('/api/files', methods=['GET'])
@@ -603,7 +669,7 @@ def get_files():
         else:
             return jsonify({'status': 'error', 'message': 'Invalid request'}), 404
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -626,7 +692,7 @@ def get_editfiles():
         else:
             return jsonify({'status': 'error', 'message': 'Invalid request'}), 404
     except NoAuthorizationError:
-        return jsonify({'status':'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -647,6 +713,8 @@ def get_folders_with_deadlines():
         } for folder in folders]
 
         return jsonify(folder_info), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
@@ -667,6 +735,8 @@ def get_last_folder():
         else:
             folderid = folderVal.id
         return jsonify(folderid), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -700,6 +770,8 @@ def get_network_files(folder_id):
             
             files_data.append(file_info)
         return jsonify({'status': 'success', 'files_data': files_data})
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
@@ -743,6 +815,8 @@ def update_network_file(file_id):
 
         session.commit()
         return jsonify({'status': 'success', 'message': 'File and its KML data updated successfully'}), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 400
@@ -796,15 +870,15 @@ def delete_files():
         result = task_chain.apply_async()
         return jsonify({'status': "success", 'task_id': result.id}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
 
     
 @app.route('/api/export', methods=['GET'])
 @jwt_required()
 def get_exported_folders():
-    session = Session()
     try:
         identity = get_jwt_identity()
+        session = Session()
         userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
         folders = folder_ops.get_folders_by_type_for_org(orgid=userVal.organization_id, foldertype='export', session=session)
 
@@ -825,7 +899,8 @@ def get_exported_folders():
                 response_data.append(file_data)
 
         return jsonify(response_data), 200
-
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
@@ -857,7 +932,7 @@ def delete_export(fileid):
         folder_ops.delete_folder(folderid=fileVal.folder_id, session=session)
         return jsonify({'status': "success"}), 200 
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.commit()
         session.close()
@@ -885,7 +960,7 @@ def compute_wireless_coverage():
         task = run_signalserver.apply_async(args=[command, outfile_name, towerVal.id, data]) # store the AsyncResult instance
         return jsonify({'status': "success", 'task_id': task.id}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
 
 @app.route('/api/get-raster-image/<string:towername>', methods=['GET'])
 @jwt_required()
@@ -911,7 +986,7 @@ def get_raster_image(towername):
         else:
             return jsonify({'status': 'error', 'message': 'Raster data not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -939,7 +1014,7 @@ def get_transparent_raster_image(towername):
         else:
             return jsonify({'status': 'error', 'message': 'Raster data not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -969,7 +1044,7 @@ def get_raster_bounds(towername):
         else:
             return jsonify({'status': 'error', 'message': 'Raster data not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -992,7 +1067,7 @@ def get_loss_color_mapping(towername):
             return jsonify({'status': 'error', 'message': 'Loss to color mapping not found'}), 404
 
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -1018,7 +1093,7 @@ def upload_csv():
         else:
             return jsonify({'status': 'error', 'message': 'Invalid CSV file'}), 400
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     
 @app.route('/api/downloadexport/<int:fileid>', methods=['GET'])
 @jwt_required()
@@ -1042,7 +1117,7 @@ def download_export(fileid):
                 mimetype="text/csv"
             )
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -1057,7 +1132,7 @@ def compute_wireless_prediction_fabric_coverage():
         kml_filename = outfile_name + '.kml'
         return jsonify({'status': "success", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     
 @app.route('/api/preview-wireless-prediction-fabric-coverage', methods=['POST'])
 @jwt_required()
@@ -1070,7 +1145,7 @@ def preview_wireless_prediction_fabric_coverage():
         kml_filename = outfile_name + '.kml'
         return jsonify({'status': "success", 'task_id': task.id, 'kml_filename': kml_filename}), 200 # return task id to the client
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
 
 @app.route('/api/download-kmlfile/<string:kml_filename>', methods=['GET'])
 @jwt_required()
@@ -1098,7 +1173,7 @@ def download_kmlfile(kml_filename):
             )
         
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -1114,7 +1189,7 @@ def get_preview_geojson(filename):
     except FileNotFoundError:
         return jsonify({'status': 'error', 'message': 'File not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message': 'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
 
 @app.route('/api/get-edit-geojson/<int:fileid>', methods=['GET'])
 @jwt_required()
@@ -1137,7 +1212,7 @@ def get_edit_geojson(fileid):
     except FileNotFoundError:
         return jsonify({'status': 'error', 'message': 'File not found'}), 404
     except NoAuthorizationError:
-        return jsonify({'status': 'error', 'message':'Token is invalid or expired'}), 401
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
         session.close()
 
@@ -1165,33 +1240,45 @@ def get_edit_geojson_centroid(fileid):
         centroid_coords = {'latitude': centroid.y, 'longitude': centroid.x}
         # Include centroid coordinates in the response
         return jsonify(centroid_coords), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         return jsonify({'status': 'error', 'message': 'Failed to fetch file', 'details': str(e)}), 500
     finally:
         session.close()
 
 
-@app.route('/api/update_organization_info', methods=['POST'])
+@app.route('/api/update_profile', methods=['POST'])
 @jwt_required()
-def update_organization():
-    identity = get_jwt_identity()
-    data = request.get_json()
-    provider_id = data.get('providerId')
-    brand_name = data.get('brandName')
-    
-    session = Session()
+def update_profile():
     try:
+        identity = get_jwt_identity()
+        data = request.get_json()
+        provider_id = data.get('providerId')
+        brand_name = data.get('brandName')
+        email = str(data.get('email'))
+        org_name = data.get('organizationName')
+        
+        session = Session()
         userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+
+        if email and email != userVal.username:
+            userVal.username = email
+            userVal.verified = False
+            
+
         organization = userVal.organization
         if organization:
             if provider_id:
                 organization.provider_id = provider_id
             if brand_name:
                 organization.brand_name = brand_name
-            session.commit()
-            return jsonify({'status': 'success', 'message': 'Organization details updated successfully.'}), 200
-        else:
-            return jsonify({'status': 'error', 'message': 'Organization not found.'}), 404
+            if org_name:
+                organization.name = org_name
+        session.commit()
+        return jsonify({'status': 'success', 'message': 'User profile updated successfully.'}), 200
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     except Exception as e:
         session.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
