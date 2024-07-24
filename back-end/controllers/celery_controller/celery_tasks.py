@@ -29,7 +29,7 @@ def add_files_to_folder(self, folderid, file_contents):
                 downloadSpeed = metadata.get('downloadSpeed', '')
                 uploadSpeed = metadata.get('uploadSpeed', '')
                 techType = metadata.get('techType', '')
-                networkType = metadata.get('networkType', '')
+                networkType = metadata.get('networkType', '').strip().lower()
                 latency = metadata.get('latency', '')
                 category = metadata.get('categoryCode', '')
 
@@ -92,7 +92,7 @@ def process_data(self, folderid, operation):
             category = file.category
             
 
-            if networkType == "Wired": 
+            if networkType.strip().lower() == "wired": 
                 networkType = 0
             else: 
                 networkType = 1

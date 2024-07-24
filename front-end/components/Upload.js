@@ -1,721 +1,494 @@
 import * as React from "react";
-import ButtonGroup from "@mui/material/ButtonGroup";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import ClickAwayListener from "@mui/material/ClickAwayListener";
-import Grow from "@mui/material/Grow";
-import Paper from "@mui/material/Paper";
-import Popper from "@mui/material/Popper";
-import MenuList from "@mui/material/MenuList";
-import Tooltip from "@mui/material/Tooltip";
-import Input from "@mui/material/Input";
-import ExportButton from "./SubmitButton";
 import { DataGrid } from "@mui/x-data-grid";
-import { FormControl, InputLabel, MenuItem, Select, Button, Dialog, DialogActions, DialogTitle, DialogContent, Box } from '@mui/material';
-import Grid from "@mui/material/Grid";
-import LoadingEffect from "./LoadingEffect";
+import { Button, FormControl, InputLabel, MenuItem, Select, Box, Grid, styled } from '@mui/material';
 import Swal from "sweetalert2";
-import { Typography } from "@mui/material";
-import { useRouter } from "next/router";
-import { backend_url } from "../utils/settings";
-import { styled } from "@mui/material/styles";
-import styles from "../styles/Map.module.css";
-
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useFolder } from '../contexts/FolderContext';
+import { useRouter } from "next/router";
 import { format } from "date-fns";
+import { backend_url } from "../utils/settings";
+import LoadingEffect from "./LoadingEffect";
 
 
-
-const StyledFormControl = styled(FormControl)({
-  margin: "4px",
-  minWidth: "150px",
-  backgroundColor: "white",
-  borderRadius: "4px",
-  height: "25px",
-  display: "flex",
-  alignItems: "center",
-});
-
-const StyledSelect = styled(Select)({
-  height: "25px",
-  padding: "0 0 0 10px",
-  minWidth: "150px",
-});
-
-const StyledInput = styled(Input)({
-  padding: '10px',
-  margin: '4px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  width: 'calc(100% - 24px)', // accounting for padding and margins
-  boxSizing: 'border-box', // make sure padding doesn't affect the width
-  maxHeight: '30%'
-});
-
-const StyledGridItem = styled(Grid)(({ theme }) => ({
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'flex-start', // Align items to the start of the flex container
-  alignItems: 'flex-start', // Align items to the start of the cross axis
-  padding: theme.spacing(1),
-  [theme.breakpoints.down('xs')]: {
-    width: '100%',
-    boxSizing: 'border-box',
-  },
-}));
-
-const options = ["Fabric", "Network"];
-const wiredWirelessOptions = {
-  Wired: "Wired",
-  Wireless: "Wireless",
-};
 
 const tech_types = {
-  "Copper Wire": 10,
-  "Coaxial Cable / HFC": 40,
-  "Optical Carrier / Fiber to the Premises": 50,
-  "Geostationary Satellite": 60,
-  "Non-geostationary Satellite": 61,
-  "Unlicensed Terrestrial Fixed Wireless": 70,
-  "Licensed Terrestrial Fixed Wireless": 71,
-  "Licensed-by-Rule Terrestrial Fixed Wireless": 72,
-  "Other": 0,
+    "(10) Copper Wire": 10,
+    "(40) Coaxial Cable / HFC": 40,
+    "(50) Optical Carrier / Fiber to the Premises": 50,
+    "(60) Geostationary Satellite": 60,
+    "(61) Non-geostationary Satellite": 61,
+    "(70) Unlicensed Terrestrial Fixed Wireless": 70,
+    "(71) Licensed Terrestrial Fixed Wireless": 71,
+    "(72) Licensed-by-Rule Terrestrial Fixed Wireless": 72,
+    "Other": 0,
 };
 
 const latency_type = {
-  "<= 100 ms": 1,
-  "> 100 ms": 0,
+    "<= 100 ms": 1,
+    "> 100 ms": 0,
 };
 
 const bus_codes = {
-  Business: "B",
-  Residential: "R",
-  Both: "X",
+    Business: "B",
+    Residential: "R",
+    Both: "X",
 };
 
+const StyledInput = styled('input')({
+    display: 'none',
+});
+
+
+
 export default function Upload() {
-  const [open, setOpen] = React.useState(false);
-  const anchorRef = React.useRef(null);
-  const buttonGroupRef = React.useRef(null);
-  const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [downloadSpeed, setDownloadSpeed] = React.useState("");
-  const [networkType, setNetworkType] = React.useState("");
-  const [uploadSpeed, setUploadSpeed] = React.useState("");
-  const [techType, setTechType] = React.useState("");
-  const [latency, setLatency] = React.useState("");
-  const [categoryCode, setCategoryCode] = React.useState("");
-  const idCounterRef = React.useRef(1); // Counter for generating unique IDs
+    const router = useRouter();
+    const [files, setFiles] = React.useState([]);
+    const [folders, setFolders] = React.useState([]);
 
-  const [files, setFiles] = React.useState([]);
+    const [isLoading, setIsLoading] = React.useState(false);
+    const [isDataReady, setIsDataReady] = React.useState(false);
+    const loadingTimeInMs = 3.5 * 60 * 1000;
+    const { folderID, setFolderID } = useFolder();
 
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isDataReady, setIsDataReady] = React.useState(false);
-  const loadingTimeInMs = 3.5 * 60 * 1000;
-  const router = useRouter();
+    const [importFolderID, setImportFolderID] = React.useState(-1);
 
-  const { folderID, setFolderID } = useFolder();
-  const [folders, setFolders] = React.useState([]);
+    const months = Array.from({ length: 12 }, (_, i) => i + 1); // Months 1-12
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
-  const [newDeadline, setNewDeadline] = React.useState({ month: '', year: '' });
+    const [newDeadline, setNewDeadline] = React.useState({ month: '', year: '' });
 
-  const [importFolderID, setImportFolderID] = React.useState(-1);
+    const [errorRows, setErrorRows] = React.useState(new Set());
 
-  const months = Array.from({ length: 12 }, (_, i) => i + 1); // Months 1-12
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+    const [fileIdCounter, setFileIdCounter] = React.useState(0);
 
-  const allowedExtensions = ["kml", "geojson", "csv"];
+    const [ previousFiles, setPreviousFiles ] = React.useState([]);
 
+    const allowedExtensions = ["kml", "geojson", "csv"];
 
-  const fetchFolders = async () => {
-    try {
-      const response = await fetch(`${backend_url}/api/folders-with-deadlines`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-
-      if (response.status === 401) {
-        Swal.fire({
-          icon: "error",
-          title: "Oops...",
-          text: "Session expired, please log in again!",
-        });
-        router.push("/login");
-        return;
-      }
-
-      const data = await response.json();
-      setFolders(data);
-
-    } catch (error) {
-      console.error("Error fetching folders:", error);
-    }
-  };
-
-
-  const handleFilingClick = (event) => {
-    event.preventDefault();
-
-    if (folderID === -1 && !files.some(file => file.file.name.endsWith('.csv'))) {
-      toast.error(
-        "Please upload your fabric",
-        {
-          position: toast.POSITION.TOP_RIGHT,
-          autoClose: 5000,
+    const fetchFiles = async (folderIdentity) => {
+        if (folderIdentity === -1) {
+            setPreviousFiles([]);
+            return;
         }
-      );
-      return; // Stop the function if the condition is met
-    }
-
-
-    const formData = new FormData();
-    formData.append("deadline", `${newDeadline.year}-${newDeadline.month}-03`);
-    formData.append("importFolder", importFolderID);
-    files.forEach((fileDetails) => {
-      const fileExtension = fileDetails.file.name
-        .split(".")
-        .pop()
-        .toLowerCase();
-
-      if (!allowedExtensions.includes(fileExtension)) {
-        toast.error(
-          "Invalid File Format. Please upload a KML, GeoJSON, or CSV file.",
-          {
-            position: toast.POSITION.TOP_RIGHT,
-            autoClose: 10000,
-          }
-        );
-
-        setIsLoading(false);
-        return;
-      }
-      formData.append("fileData", JSON.stringify(fileDetails));
-      formData.append("file", fileDetails.file);
-    });
-
-    setIsLoading(true);
-
-    fetch(`${backend_url}/api/submit-data/${folderID}`, {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-    })
-      .then((response) => {
+    
+        const response = await fetch(`${backend_url}/api/files?folder_ID=${folderIdentity}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+        });
+    
         if (response.status === 401) {
-          Swal.fire({
-            icon: "error",
-            title: "Oops...",
-            text: "Session expired, please log in again!",
-          });
-          // Redirect to login page
-          router.push("/login");
-          setIsLoading(false);
-          return;
-        } else if (response.status === 200) {
-          return response.json();
-        } else if (response.status === 500 || response.status === 400) {
-          setIsLoading(false);
-          data = response.json()
-          toast.error(
-            data.message,
-            {
-              position: toast.POSITION.TOP_RIGHT,
-              autoClose: 10000,
+            Swal.fire({
+                icon: "error",
+                title: "Oops...",
+                text: "Session expired, please log in again!",
+            });
+            router.push("/login");
+            return;
+        }
+    
+        const data = await response.json();
+        if (data.status === 'error') {
+            toast.error(data.message);
+            return;
+        }
+        
+    
+        setPreviousFiles(data.map(file => ({ name: file.name })));
+    };
+
+      React.useEffect(() => {
+
+        fetchFiles(folderID);
+      }, [folderID]);
+
+    const fetchFolders = async () => {
+        try {
+            const response = await fetch(`${backend_url}/api/folders-with-deadlines`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+            });
+
+            if (response.status === 401) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Oops...",
+                    text: "Session expired, please log in again!",
+                });
+                router.push("/login");
+                return;
             }
-          );
+
+            const data = await response.json();
+            setFolders(data);
+
+        } catch (error) {
+            console.error("Error fetching folders:", error);
         }
-      })
-      .then((data) => {
-        if (data) {
-          const intervalId = setInterval(() => {
-            console.log(data.task_id);
-            fetch(`${backend_url}/api/status/${data.task_id}`)
-              .then((response) => response.json())
-              .then((status) => {
-                if (status.state !== "PENDING") {
-                  clearInterval(intervalId);
-                  setIsDataReady(true);
-                  setIsLoading(false);
-                  setTimeout(() => {
-                    setIsDataReady(false);
-                    router.reload();
-                  }, 5000);
-                }
-              });
-          }, 5000);
+    };
+
+
+
+    const handleDeadlineSelect = (newFolderID) => {
+        if (newFolderID === folderID) {
+            return;
         }
-      })
-      .catch((error) => {
-        Swal.fire({
-          icon: "error",
-          title: "Oops...",
-          text: "There is an error on our end, please try again later",
+        if (newFolderID === -1) {
+            // Reset deadline selection
+            setNewDeadline({ month: '', year: '' });
+        }
+        else {
+            const selectedFolder = folders.find(folder => folder.folder_id === newFolderID);
+            if (selectedFolder) {
+                // Parse the deadline date of the selected folder
+                const date = new Date(selectedFolder.deadline);
+                const month = date.getMonth() + 1;  // getMonth() is zero-indexed, so add 1
+                const year = date.getFullYear();
+                // Set newDeadline to reflect the selected folder's deadline
+                setNewDeadline({ month: month.toString(), year: year.toString() });
+            }
+        }
+        setFolderID(newFolderID);
+    };
+
+    const handleImportChange = (event) => {
+        const selectedFolderID = event.target.value;
+        setImportFolderID(selectedFolderID);
+
+    };
+
+    const handleNewDeadlineChange = ({ month, year }) => {
+
+        setNewDeadline({ month, year });
+
+    };
+
+
+    const handleDelete = (id) => {
+        setFiles(files.filter(file => file.id !== id));
+    };
+
+    const handleFileChange = async (event) => {
+        const fileArray = Array.from(event.target.files);
+        let currentId = fileIdCounter;
+        const newFiles = [];
+    
+        for (const file of fileArray) {
+            // Check if the file is already in the selected files
+            const existingFile = files.find(f => f.name === file.name);
+            if (existingFile) {
+                toast.error(`File '${file.name}' is already selected.`);
+                continue;  // Skip to the next file
+            }
+    
+            // Check if the file exists on the server
+            const fileExistsOnServer = previousFiles.some(f => f.name === file.name);
+            if (fileExistsOnServer) {
+                toast.error(`The file "${file.name}" already exists on the server. If this is a different document, please rename it and upload again.`);
+                continue;  // Skip to the next file
+            }
+    
+            newFiles.push({
+                id: currentId++,
+                name: file.name,
+                downloadSpeed: '',
+                uploadSpeed: '',
+                techType: '',
+                networkType: '',
+                latency: '',
+                categoryCode: '',
+                file,
+            });
+        }
+    
+        setFileIdCounter(currentId); // Update fileIdCounter to the new value after all files are processed
+        setFiles(prevFiles => [...prevFiles, ...newFiles]); // Properly append new files to the existing list
+    };
+
+    const handleRowUpdate = (newRow) => {
+        setFiles(prevFiles => prevFiles.map(file => {
+            if (file.id === newRow.id) {
+                return newRow;  // return the modified newRow directly
+            }
+            return file;
+        }));
+        return newRow;  // Important: Return the modified newRow to the DataGrid
+    };
+
+
+    React.useEffect(() => {
+        fetchFolders();
+    }, []);
+
+
+    const columns = [
+        { field: "name", headerName: "File Name", width: 250, editable: true },
+        { field: "downloadSpeed", headerName: "Download Speed (Mbps)", type: 'number', editable: true },
+        { field: "uploadSpeed", headerName: "Upload Speed (Mbps)", type: 'number', editable: true },
+        { field: "techType", headerName: "Technology Type", width: 250, type: 'singleSelect', valueOptions: Object.keys(tech_types), editable: true },
+        { field: "networkType", headerName: "Network Type", type: 'singleSelect', valueOptions: ["wired", "wireless"], editable: true },
+        { field: "latency", headerName: "Latency", type: 'singleSelect', valueOptions: Object.keys(latency_type), editable: true },
+        { field: "categoryCode", headerName: "Category", type: 'singleSelect', valueOptions: Object.keys(bus_codes), editable: true },
+        { 
+            field: "delete",
+            headerName: "Delete",
+            sortable: false,
+            width: 100,
+            renderCell: (params) => (
+                <Button
+                    color="error"
+                    onClick={() => handleDelete(params.id)}
+                >
+                    Delete
+                </Button>
+            )
+        }
+    ];
+
+    const getRowClassName = (params) => {
+        return errorRows.has(params.id) ? 'error-row' : 'normal-row';
+    };
+
+    const processFiles = () => {
+
+        if (files.length === 0) {
+            toast.error("Please upload your file");
+            return;
+        }
+
+        if (folderID === -1 && !files.some(file => file.file.name.endsWith('.csv'))) {
+            toast.error("Please upload your fabric");
+            return; // Stop the function if the condition is met
+        }
+
+        let hasErrors = false;
+        let newErrorRows = new Set();
+        
+        console.log(files);
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.file.name.endsWith('.csv')) {
+                continue; // Skip the rest of the current iteration and continue with the next file
+            }
+            console.log(file);
+            if (!file.downloadSpeed || !file.uploadSpeed || !file.techType || !file.networkType || !file.latency || !file.categoryCode) {
+                hasErrors = true;
+                newErrorRows.add(file.id);
+            }
+        }
+
+
+        setErrorRows(newErrorRows);
+
+
+        if (hasErrors) {
+            toast.error("Please fill all required fields before submitting.");
+            return;
+        }
+
+
+        const formData = new FormData();
+        formData.append("deadline", `${newDeadline.year}-${newDeadline.month}-03`);
+        formData.append("importFolder", importFolderID);
+
+
+        files.forEach((fileDetails) => {
+            const fileExtension = fileDetails.file.name
+                .split(".")
+                .pop()
+                .toLowerCase();
+
+            if (!allowedExtensions.includes(fileExtension)) {
+                toast.error("Invalid File Format. Please upload a KML, GeoJSON, or CSV file.");
+                setIsLoading(false);
+                return;
+            }
+            
+            formData.append("fileData", JSON.stringify(fileDetails));
+            formData.append("file", fileDetails.file);
         });
-        console.error("Error:", error);
 
-        setIsLoading(false);
-      });
-  };
 
-  React.useEffect(() => {
-    fetchFolders();
-  }, []);
+        setIsLoading(true);
 
-  const handleFileChange = (event) => {
-    const newFileDetails = Object.values(event.target.files).map((file) => ({
-      id: idCounterRef.current++,
-      name: file.name,
-      option: options[selectedIndex],
-      downloadSpeed: options[selectedIndex] === "Network" ? downloadSpeed : "",
-      uploadSpeed: options[selectedIndex] === "Network" ? uploadSpeed : "",
-      techType: options[selectedIndex] === "Network" ? techType : "",
-      networkType: options[selectedIndex] === "Network" ? networkType : "",
-      latency: options[selectedIndex] === "Network" ? latency : "",
-      categoryCode: options[selectedIndex] === "Network" ? categoryCode : "",
-      file: file,
-    }));
+          fetch(`${backend_url}/api/submit-data/${folderID}`, {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+          })
+            .then((response) => {
+              if (response.status === 401) {
+                Swal.fire({
+                  icon: "error",
+                  title: "Oops...",
+                  text: "Session expired, please log in again!",
+                });
+                // Redirect to login page
+                router.push("/login");
+                setIsLoading(false);
+                return;
+              } else if (response.status === 200) {
+                return response.json();
+              } else if (response.status === 500 || response.status === 400) {
+                setIsLoading(false);
+                data = response.json()
+                toast.error(data.message);
+              }
+            })
+            .then((data) => {
+              if (data) {
+                const intervalId = setInterval(() => {
+                  console.log(data.task_id);
+                  fetch(`${backend_url}/api/status/${data.task_id}`)
+                    .then((response) => response.json())
+                    .then((status) => {
+                      if (status.state !== "PENDING") {
+                        clearInterval(intervalId);
+                        setIsDataReady(true);
+                        setIsLoading(false);
+                        setTimeout(() => {
+                          setIsDataReady(false);
+                          router.reload();
+                        }, 5000);
+                      }
+                    });
+                }, 5000);
+              }
+            })
+            .catch((error) => {
+              Swal.fire({
+                icon: "error",
+                title: "Oops...",
+                text: "There is an error on our end, please try again later",
+              });
+              console.error("Error:", error);
 
-    setFiles((prevFiles) => [...prevFiles, ...newFileDetails]);
-  };
+              setIsLoading(false);
+            });
+    };
 
-  const handleClick = () => {
-    anchorRef.current.click();
-  };
+    return (
+        <React.Fragment>
+            <div style={{ position: "fixed", zIndex: 10 }}>
+                {(isLoading || isDataReady) && (
+                    <LoadingEffect
+                        isLoading={isLoading}
+                        loadingTimeInMs={loadingTimeInMs}
+                    />
+                )}
+            </div>
+            <ToastContainer />
+            <div>
+                <FormControl style={{ width: '300px', marginBottom: '20px' }}>
+                    <InputLabel id="filing-select-label">You are working on filing for deadline:</InputLabel>
+                    <Select
+                        labelId="filing-select-label"
+                        id="filing-select"
+                        value={folderID}
+                        label="You are working on Filing for Deadline:"
+                        onChange={(e) => handleDeadlineSelect(e.target.value)}
+                    >
+                        <MenuItem value={-1}><em>Create New Filing for Deadline:</em></MenuItem>
+                        {folders.map((folder) => (
+                            <MenuItem key={folder.deadline} value={folder.folder_id}>
+                                {format(new Date(folder.deadline), 'MMMM yyyy')}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                {folderID === -1 && (
+                    <>
+                        <FormControl style={{ width: '120px' }}>
+                            <InputLabel id="month-select-label">Month</InputLabel>
+                            <Select
+                                labelId="month-select-label"
+                                id="month-select"
+                                value={newDeadline.month}
+                                label="Month"
+                                onChange={e => handleNewDeadlineChange({ ...newDeadline, month: e.target.value })}
+                            >
+                                {months.map(month => (
+                                    <MenuItem key={month} value={month}>{month}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl style={{ width: '120px', marginRight: '20px' }}>
+                            <InputLabel id="year-select-label">Year</InputLabel>
+                            <Select
+                                labelId="year-select-label"
+                                id="year-select"
+                                value={newDeadline.year}
+                                label="Year"
+                                onChange={e => handleNewDeadlineChange({ ...newDeadline, year: e.target.value })}
+                            >
+                                {years.map(year => (
+                                    <MenuItem key={year} value={year}>{year}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl style={{ width: '300px', border: '1px solid #78fff1' }}>
+                            <InputLabel id="import-select-label">Import Data from Previous Filing</InputLabel>
+                            <Select
+                                labelId="import-select-label"
+                                id="import-select"
+                                value={importFolderID}
+                                onChange={handleImportChange}
+                            >
+                                <MenuItem value={-1}>
+                                    <em>Don't Import</em>
+                                </MenuItem>
+                                {folders.map(folder => (
+                                    <MenuItem key={folder.folder_id} value={folder.folder_id}>
+                                        {format(new Date(folder.deadline), 'MMMM yyyy')}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </>
+                )}
+            </div>
+            <Box sx={{ width: '100%', minHeight: 400 }}>
 
-  const handleMenuItemClick = (event, index) => {
-    setSelectedIndex(index);
-    setOpen(false);
-  };
+                <DataGrid
+                    rows={files}
+                    columns={columns}
+                    editMode="row"
+                    pageSize={5}
+                    getRowClassName={({ id }) => getRowClassName({ id })}
+                    processRowUpdate={handleRowUpdate}
+                    sx={{
+                        '.MuiDataGrid-row': (theme) => ({
+                            '&.error-row': {
+                                backgroundColor: '#ffcccc', // Light red background for error rows
+                                color: '#cc0000', // Darker red text for error rows
+                            },
+                            '&.normal-row': {
+                                backgroundColor: '', // Light red background for error rows
+                                color: '', // Darker red text for error rows
+                            }
+                        })
+                    }}
+                />
+            </Box>
+            <Button color="primary" onClick={processFiles}>Submit Files</Button>
 
-  const handleToggle = () => {
-    setOpen((prevOpen) => !prevOpen);
-  };
-
-  const handleClose = (event) => {
-    if (anchorRef.current && anchorRef.current.contains(event.target)) {
-      return;
-    }
-
-    setOpen(false);
-  };
-
-  const handleDelete = (id) => {
-    // Iterate through the 'storage' array and remove the matching file
-    setFiles((prevFiles) =>
-      prevFiles.filter((fileDetails) => fileDetails.id !== id)
+            <Button component="label" color="secondary">
+                Add File
+                <StyledInput
+                    accept="*/*"
+                    type="file"
+                    multiple
+                    onChange={handleFileChange}
+                    hidden
+                />
+            </Button>
+        </React.Fragment>
     );
-
-    // Reset the file input element
-    const fileInput = anchorRef.current;
-    if (fileInput) {
-      fileInput.value = "";
-    }
-  };
-
-  const handleDeadlineSelect = (newFolderID) => {
-    if (newFolderID === folderID) {
-      return;
-    }
-    if (newFolderID === -1) {
-      // Reset deadline selection
-      setNewDeadline({ month: '', year: '' });
-    }
-    else {
-      const selectedFolder = folders.find(folder => folder.folder_id === newFolderID);
-      if (selectedFolder) {
-        // Parse the deadline date of the selected folder
-        const date = new Date(selectedFolder.deadline);
-        const month = date.getMonth() + 1;  // getMonth() is zero-indexed, so add 1
-        const year = date.getFullYear();
-        // Set newDeadline to reflect the selected folder's deadline
-        setNewDeadline({ month: month.toString(), year: year.toString() });
-      }
-    }
-    setFolderID(newFolderID);
-  };
-
-  const handleImportChange = (event) => {
-    const selectedFolderID = event.target.value;
-    setImportFolderID(selectedFolderID);
-
-  };
-
-  const handleNewDeadlineChange = ({ month, year }) => {
-
-    setNewDeadline({ month, year });
-
-  };
-
-
-  const columns = [
-    { field: "id", headerName: "ID" },
-    {
-      field: "name",
-      headerName: "File Name",
-      editable: true,
-    },
-    {
-      field: "option",
-      headerName: "Option",
-    },
-    {
-      field: "downloadSpeed",
-      headerName: "Download Speed",
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
-    },
-    {
-      field: "uploadSpeed",
-      headerName: "Upload Speed",
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
-    },
-    {
-      field: "techType",
-      headerName: "Tech Type",
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
-    },
-    {
-      field: "networkType",
-      headerName: "Network Type",
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
-    },
-    {
-      field: "latency",
-      headerName: "Latency",
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
-    },
-    {
-      field: "categoryCode",
-      headerName: "Category",
-      hide: selectedIndex !== 1, // Hide the column when "Network" is not selected
-    },
-    {
-      field: "actions",
-      headerName: "Actions",
-      renderCell: (params) => (
-        <Button
-          onClick={() => handleDelete(params.row.id)}
-          color="error"
-          variant="outlined"
-          size="small"
-        >
-          Delete
-        </Button>
-      ),
-    },
-  ];
-
-
-
-  return (
-    <React.Fragment>
-      <ToastContainer />
-      <div style={{ position: "fixed", zIndex: 10 }}>
-        {(isLoading || isDataReady) && (
-          <LoadingEffect
-            isLoading={isLoading}
-            loadingTimeInMs={loadingTimeInMs}
-          />
-        )}
-      </div>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-end", // This line
-          marginLeft: "20px",
-          zIndex: 1000,
-          position: "relative",
-        }}
-      >
-        <div>
-          <FormControl style={{ width: '300px', marginBottom: '20px' }}>
-            <InputLabel id="filing-select-label">You are working on filing for deadline:</InputLabel>
-            <Select
-              labelId="filing-select-label"
-              id="filing-select"
-              value={folderID}
-              label="You are working on Filing for Deadline:"
-              onChange={(e) => handleDeadlineSelect(e.target.value)}
-            >
-              <MenuItem value={-1}><em>Create New Filing for Deadline:</em></MenuItem>
-              {folders.map((folder) => (
-                <MenuItem key={folder.deadline} value={folder.folder_id}>
-                  {format(new Date(folder.deadline), 'MMMM yyyy')}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {folderID === -1 && (
-            <>
-              <FormControl style={{ width: '120px' }}>
-                <InputLabel id="month-select-label">Month</InputLabel>
-                <Select
-                  labelId="month-select-label"
-                  id="month-select"
-                  value={newDeadline.month}
-                  label="Month"
-                  onChange={e => handleNewDeadlineChange({ ...newDeadline, month: e.target.value })}
-                >
-                  {months.map(month => (
-                    <MenuItem key={month} value={month}>{month}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl style={{ width: '120px', marginRight: '20px' }}>
-                <InputLabel id="year-select-label">Year</InputLabel>
-                <Select
-                  labelId="year-select-label"
-                  id="year-select"
-                  value={newDeadline.year}
-                  label="Year"
-                  onChange={e => handleNewDeadlineChange({ ...newDeadline, year: e.target.value })}
-                >
-                  {years.map(year => (
-                    <MenuItem key={year} value={year}>{year}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl style={{ width: '300px', border: '1px solid #78fff1' }}>
-                <InputLabel id="import-select-label">Import Data from Previous Filing</InputLabel>
-                <Select
-                  labelId="import-select-label"
-                  id="import-select"
-                  value={importFolderID}
-                  onChange={handleImportChange}
-                >
-                  <MenuItem value={-1}>
-                    <em>Don't Import</em>
-                  </MenuItem>
-                  {folders.map(folder => (
-                    <MenuItem key={folder.folder_id} value={folder.folder_id}>
-                      {format(new Date(folder.deadline), 'MMMM yyyy')}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </>
-          )}
-        </div>
-        <ButtonGroup
-          variant="contained"
-          ref={buttonGroupRef}
-          style={{ width: "fit-content" }} // Add this line
-        >
-          <Button onClick={handleClick}>{options[selectedIndex]}</Button>
-          <Button
-            size="small"
-            aria-controls={open ? "split-button-menu" : undefined}
-            aria-expanded={open ? "true" : undefined}
-            aria-label="select merge strategy"
-            aria-haspopup="menu"
-            onClick={handleToggle}
-          >
-            <ArrowDropDownIcon />
-          </Button>
-        </ButtonGroup>
-        <Popper
-          sx={{
-            zIndex: 1,
-          }}
-          open={open}
-          anchorEl={buttonGroupRef.current}
-          role={undefined}
-          transition
-          disablePortal
-        >
-          {({ TransitionProps, placement }) => (
-            <Grow
-              {...TransitionProps}
-              style={{
-                transformOrigin:
-                  placement === "bottom" ? "center top" : "center bottom",
-              }}
-            >
-              <Paper>
-                <ClickAwayListener onClickAway={handleClose}>
-                  <MenuList id="split-button-menu" autoFocusItem>
-                    {options.map((option, index) => (
-                      <MenuItem
-                        key={option}
-                        selected={index === selectedIndex}
-                        onClick={(event) => handleMenuItemClick(event, index)}
-                      >
-                        {option}
-                      </MenuItem>
-                    ))}
-                  </MenuList>
-                </ClickAwayListener>
-              </Paper>
-            </Grow>
-          )}
-        </Popper>
-        {selectedIndex === 1 && (
-          <Box sx={{ marginTop: "1rem" }}>
-            <Grid container spacing={1}>
-              <StyledGridItem item xs={12} sm={2}>
-                <label style={{ display: "block" }} htmlFor="downloadSpeed">
-                  Download Speed(Mbps):{" "}
-                </label>
-                <StyledInput
-                  type="text"
-                  id="downloadSpeed"
-                  value={downloadSpeed}
-                  onChange={(e) => setDownloadSpeed(e.target.value)}
-                />
-              </StyledGridItem>
-              <StyledGridItem item xs={12} sm={2}>
-                <label style={{ display: "block" }} htmlFor="uploadSpeed">
-                  Upload Speed(Mbps):{" "}
-                </label>
-                <StyledInput
-                  type="text"
-                  id="uploadSpeed"
-                  value={uploadSpeed}
-                  onChange={(e) => setUploadSpeed(e.target.value)}
-                />
-              </StyledGridItem>
-              <StyledGridItem item xs={12} sm={2}>
-                <label style={{ display: "block" }} htmlFor="techType">
-                  Technology Type:{" "}
-                </label>
-                <StyledFormControl variant="outlined">
-                  <StyledSelect
-                    labelId="demo-simple-select-outlined-label"
-                    id="demo-simple-select-outlined"
-                    value={techType}
-                    onChange={(e) => setTechType(e.target.value)}
-                  >
-                    {Object.entries(tech_types).map(([key, value]) => (
-                      <MenuItem key={value} value={value}>
-                        <Tooltip title={key} placement="right">
-                          <div
-                            style={{
-                              maxWidth: techType === value ? "100px" : "none",
-                              textOverflow:
-                                techType === value ? "ellipsis" : "initial",
-                              overflow: techType === value ? "hidden" : "initial",
-                              whiteSpace:
-                                techType === value ? "nowrap" : "initial",
-                            }}
-                          >
-                            {key}
-                          </div>
-                        </Tooltip>
-                      </MenuItem>
-                    ))}
-                  </StyledSelect>
-                </StyledFormControl>
-              </StyledGridItem>
-              <StyledGridItem item xs={12} sm={2}>
-                <label style={{ display: "block" }} htmlFor="wiredWireless">
-                  Network Type:{" "}
-                </label>
-                <StyledFormControl variant="outlined">
-                  <StyledSelect
-                    labelId="demo-simple-select-outlined-label"
-                    id="demo-simple-select-outlined"
-                    value={networkType}
-                    onChange={(e) => setNetworkType(e.target.value)}
-                  >
-                    {Object.entries(wiredWirelessOptions).map(
-                      ([key, value]) => (
-                        <MenuItem key={value} value={value}>
-                          {key}
-                        </MenuItem>
-                      )
-                    )}
-                  </StyledSelect>
-                </StyledFormControl>
-              </StyledGridItem>
-              <StyledGridItem item xs={12} sm={2}>
-                <label style={{ display: "block" }} htmlFor="techType">
-                  Latency:{" "}
-                </label>
-                <StyledFormControl variant="outlined">
-                  <StyledSelect
-                    labelId="demo-simple-select-outlined-label"
-                    id="demo-simple-select-outlined"
-                    value={latency}
-                    onChange={(e) => setLatency(e.target.value)}
-                  >
-                    {Object.entries(latency_type).map(([key, value]) => (
-                      <MenuItem key={value} value={value}>
-                        <div
-                          style={{
-                            maxWidth: techType === value ? "100px" : "none",
-                            textOverflow:
-                              techType === value ? "ellipsis" : "initial",
-                            overflow: techType === value ? "hidden" : "initial",
-                            whiteSpace:
-                              techType === value ? "nowrap" : "initial",
-                          }}
-                        >
-                          {key}
-                        </div>
-                      </MenuItem>
-                    ))}
-                  </StyledSelect>
-                </StyledFormControl>
-              </StyledGridItem>
-              <StyledGridItem item xs={12} sm={2}>
-                <label style={{ display: "block" }} htmlFor="techType">
-                  Category:{" "}
-                </label>
-                <StyledFormControl variant="outlined">
-                  <StyledSelect
-                    labelId="demo-simple-select-outlined-label"
-                    id="demo-simple-select-outlined"
-                    value={categoryCode}
-                    onChange={(e) => setCategoryCode(e.target.value)}
-                  >
-                    {Object.entries(bus_codes).map(([key, value]) => (
-                      <MenuItem key={value} value={value}>
-                        <div
-                          style={{
-                            maxWidth: techType === value ? "100px" : "none",
-                            textOverflow:
-                              techType === value ? "ellipsis" : "initial",
-                            overflow: techType === value ? "hidden" : "initial",
-                            whiteSpace:
-                              techType === value ? "nowrap" : "initial",
-                          }}
-                        >
-                          {key}
-                        </div>
-                      </MenuItem>
-                    ))}
-                  </StyledSelect>
-                </StyledFormControl>
-              </StyledGridItem>
-            </Grid>
-          </Box>
-        )}
-        {/* Hidden file input to allow file selection */}
-        <input
-          type="file"
-          style={{ display: "none" }}
-          onChange={handleFileChange}
-          ref={anchorRef}
-        />
-        {/* Display the uploaded files in a DataGrid */}
-        <Box sx={{ height: 400 }} style={{ marginTop: "3vh" }}>
-          <DataGrid
-            rows={files}
-            columns={columns}
-            pageSize={5}
-            checkboxSelection
-          />
-        </Box>
-        <Box sx={{ display: "flex", marginTop: "1rem", gap: "1rem" }}>
-          <ExportButton
-            onClick={handleFilingClick}
-          />
-        </Box>
-      </Box>
-    </React.Fragment>
-  );
 }

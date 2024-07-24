@@ -187,7 +187,7 @@ def get_filesinfo_in_folder(folderid, session=None):
     try:
         files_in_folder = get_files_in_folder(folderid, session)
         if not files_in_folder:
-            return None
+            return []
 
         files_info = []
         for file in files_in_folder:

@@ -3,7 +3,6 @@ import Navbar from "../components/Navbar";
 import dynamic from "next/dynamic";
 import { Drawer } from "@mui/material";
 import MyFile from "../components/MyFile";
-import Upload from "../components/Upload";
 import { useContext, useState } from "react";
 import LayerVisibilityProvider from "../contexts/LayerVisibilityProvider";
 import SelectedLocationProvider from "../contexts/SelectedLocationProvider";
@@ -15,6 +14,7 @@ import EditLayerVisibilityProvider from "../contexts/EditLayerVisibilityProvider
 import { styled } from '@mui/material/styles';
 import { Typography, Container, Box } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
+import Upload from "../components/Upload";
 
 const DynamicMap = dynamic(() => import("../components/Map"), { ssr: false });
 const Editmap = dynamic(() => import("../components/Editmap"), { ssr: false });
@@ -66,7 +66,6 @@ const HomePage = () => {
                       <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
                         {isEditingMap ? <MyEdit /> : <MyFile />}
                       </CustomDrawer>
-
                       <Drawer
                         anchor="right"
                         open={uploadOpen}

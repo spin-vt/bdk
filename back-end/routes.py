@@ -79,6 +79,19 @@ def submit_data(folderid):
 
         file_data_list = request.form.getlist('fileData')
 
+        for file_data_str in file_data_list:
+            try:
+                file_data = json.loads(file_data_str)  # Decode JSON string to Python dictionary
+                if not file_data['name'].endswith('.csv'):  # Validate speeds only for non-csv files
+                    try:
+                        # Parse speeds as integers
+                        download_speed = int(file_data['downloadSpeed'])
+                        upload_speed = int(file_data['uploadSpeed'])
+                    except (ValueError, KeyError):
+                        return jsonify({'status': 'error', 'message': "Please enter valid integer values for download and upload speeds"}), 400
+            except json.JSONDecodeError:
+                return jsonify({'status': 'error', 'message': "Invalid JSON format in file data"}), 400
+
         userVal = user_ops.get_user_with_id(identity['id'], session=session)
 
         if not userVal.organization_id:
@@ -586,8 +599,6 @@ def get_files():
         
         if folder_ID:
             filesinfo = file_ops.get_filesinfo_in_folder(folder_ID, session=session)
-            if not filesinfo:
-                return jsonify({'status': 'error', 'message': 'No file found in filing'}), 404
             return jsonify(filesinfo), 200
         else:
             return jsonify({'status': 'error', 'message': 'Invalid request'}), 404
@@ -610,8 +621,7 @@ def get_editfiles():
 
         if folder_ID:
             filesinfo = editfile_ops.get_editfilesinfo_in_folder(folder_ID, session=session)
-            if not filesinfo:
-                return jsonify({'status': 'error', 'message': 'No edit file found in filing'}), 404
+            
             return jsonify(filesinfo), 200
         else:
             return jsonify({'status': 'error', 'message': 'Invalid request'}), 404

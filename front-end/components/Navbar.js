@@ -412,7 +412,7 @@ export default function Navbar({
             sx={{ fontWeight: "700", color: "#FFFFFF" }}
           >
             <Typography variant="h6" sx={{ marginRight: "4vw" }}>
-              BDK Project
+              BDK
             </Typography>
           </Link>
 
