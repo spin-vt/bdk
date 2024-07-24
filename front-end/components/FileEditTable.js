@@ -7,14 +7,14 @@ import 'react-toastify/dist/ReactToastify.css';
 // Predefined options for dropdowns
 const techTypesOptions = {
     "Not Entered": '',
-    "Copper Wire": 10,
-    "Coaxial Cable / HFC": 40,
-    "Optical Carrier / Fiber to the Premises": 50,
-    "Geostationary Satellite": 60,
-    "Non-geostationary Satellite": 61,
-    "Unlicensed Terrestrial Fixed Wireless": 70,
-    "Licensed Terrestrial Fixed Wireless": 71,
-    "Licensed-by-Rule Terrestrial Fixed Wireless": 72,
+    "(10) Copper Wire": 10,
+    "(40) Coaxial Cable / HFC": 40,
+    "(50) Optical Carrier / Fiber to the Premises": 50,
+    "(60) Geostationary Satellite": 60,
+    "(61) Non-geostationary Satellite": 61,
+    "(70) Unlicensed Terrestrial Fixed Wireless": 70,
+    "(71) Licensed Terrestrial Fixed Wireless": 71,
+    "(72) Licensed-by-Rule Terrestrial Fixed Wireless": 72,
     "Other": 0,
 };
 const latencyOptions = {
@@ -74,12 +74,12 @@ function FileEditTable({ folderId }) {
                     console.log('Update successful');
                     toast.success("Update successful!"); // Display a success toast
                 } else {
-                    throw new Error(data.message || "An error occurred during the update.");
+                    toast.error(data.message);
                 }
             })
             .catch(error => {
                 console.error("There was an error updating the file!", error);
-                toast.error(`Error updating file: ${error.message}`); // Display an error toast
+                toast.error(`Server error`); // Display an error toast
             });
     };
 

@@ -89,6 +89,11 @@ def submit_data(folderid):
                         upload_speed = int(file_data['uploadSpeed'])
                     except (ValueError, KeyError):
                         return jsonify({'status': 'error', 'message': "Please enter valid integer values for download and upload speeds"}), 400
+                    try:
+                        latency = int(file_data['latency'])
+                        techType = int(file_data['techType'])
+                    except (ValueError, KeyError):
+                        return jsonify({'status': 'error', 'message': "Please enter valid values for latency and techTypes"}), 400
             except json.JSONDecodeError:
                 return jsonify({'status': 'error', 'message': "Invalid JSON format in file data"}), 400
 
@@ -794,10 +799,17 @@ def update_network_file(file_id):
             return jsonify({'status': 'error', 'message': 'File not found'}), 400
 
         try:
-            file.maxDownloadSpeed = int(data['maxDownloadSpeed']) if 'maxDownloadSpeed' in data else file.maxDownloadSpeed
-            file.maxUploadSpeed = int(data['maxUploadSpeed']) if 'maxUploadSpeed' in data else file.maxUploadSpeed
+            int(data['maxDownloadSpeed']) if 'maxDownloadSpeed' in data else file.maxDownloadSpeed
+            int(data['maxUploadSpeed']) if 'maxUploadSpeed' in data else file.maxUploadSpeed
         except ValueError:
             return jsonify({'status': 'error', 'message': 'maxDownloadSpeed and maxUploadSpeed must be integers'}), 400
+        
+        try:
+            int(data['latency']) if 'latency' in data else file.latency
+            int(data['techType']) if 'techType' in data else file.techType
+        except ValueError:
+            return jsonify({'status': 'error', 'message': 'Please select valid tech types and latency'}), 400
+        
         logger.debug(data)
         file.name = data['name']
         file.maxDownloadSpeed = data['maxDownloadSpeed']

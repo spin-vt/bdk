@@ -287,68 +287,7 @@ const MyFile = () => {
     fetchEditFiles(folderID);
   }, [folderID]);
 
-  const handleDelete = async (id, setFiles) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${backend_url}/api/delfiles/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // Include cookies in the request
-      });
-
-      if (response.status === 401) {
-        setIsLoading(false);
-        Swal.fire({
-          icon: "error",
-          title: "Oops...",
-          text: "Session expired, please log in again!",
-        });
-        // Redirect to login page
-        router.push("/login");
-        return;
-      }
-
-      if (!response.ok) {
-        // If the response status is not ok (not 200)
-        Swal.fire({
-          icon: "error",
-          title: "Oops...",
-          text: "Error on our end, please try again later!",
-        });
-        throw new Error(
-          `HTTP error! status: ${response.status}, ${response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-
-      if (data) {
-        const intervalId = setInterval(() => {
-          console.log(data.task_id);
-          fetch(`${backend_url}/api/status/${data.task_id}`)
-            .then((response) => response.json())
-            .then((status) => {
-              if (status.state !== "PENDING") {
-                clearInterval(intervalId);
-                setIsDataReady(true);
-                setIsLoading(false);
-                setTimeout(() => {
-                  setIsDataReady(false);
-                  router.reload();
-                }, 5000);
-              }
-            });
-        }, 5000);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setIsLoading(false);
-      Swal.fire('Error', 'Error uploading file', 'error');
-
-    }
-  };
+  
 
   const handleDeadlineSelect = (newFolderID) => {
     setFolderID(newFolderID);

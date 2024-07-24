@@ -310,7 +310,16 @@ export default function Upload() {
                 return;
             }
 
-            formData.append("fileData", JSON.stringify(fileDetails));
+            const processedFileDetails = {
+                ...fileDetails,
+                techType: tech_types[fileDetails.techType],
+                latency: latency_type[fileDetails.latency],
+                categoryCode: bus_codes[fileDetails.categoryCode],
+            };
+
+            console.log(processedFileDetails);
+    
+            formData.append("fileData", JSON.stringify(processedFileDetails));
             formData.append("file", fileDetails.file);
         });
 
