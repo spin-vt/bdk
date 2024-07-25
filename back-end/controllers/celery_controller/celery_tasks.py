@@ -126,45 +126,6 @@ def process_data(self, folderid, operation):
         self.update_state(state='FAILURE')
         raise e
 
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def run_tippecanoe(self, command, folderid, mbtilepath):
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
-
-    if result.stderr:
-        print("Tippecanoe stderr:", result.stderr.decode())
-
-    vt_ops.add_values_to_VT(mbtilepath, folderid)
-    return result.returncode 
-
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def run_tippecanoe_tiles_join(self, command1, command2, folderid, mbtilepaths):
-    
-    # run first command
-    result1 = subprocess.run(command1, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result1.returncode != 0:
-        raise Exception(f"Command '{command1}' failed with return code {result1.returncode}")
-
-    # run second command
-    result2 = subprocess.run(command2, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result2.returncode != 0:
-        raise Exception(f"Command '{command2}' failed with return code {result2.returncode}")
-
-    # print outputs if any
-    if result1.stdout:
-        print("Tippecanoe stdout:", result1.stdout.decode())
-    if result1.stderr:
-        print("Tippecanoe stderr:", result1.stderr.decode())
-    if result2.stdout:
-        print("Tile-join stdout:", result2.stdout.decode())
-    if result2.stderr:
-        print("Tile-join stderr:", result2.stderr.decode())
-
-    # handle the result
-    vt_ops.add_values_to_VT(mbtilepaths[0], folderid)
-    for i in range(1, len(mbtilepaths)):
-        os.remove(mbtilepaths[i])
-        
-    return result2.returncode
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def async_delete_files(self, file_ids, editfile_ids):
