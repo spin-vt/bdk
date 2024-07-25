@@ -342,16 +342,12 @@ export default function Upload() {
                     router.push("/login");
                     setIsLoading(false);
                     return;
-                } else if (response.status === 200) {
+                } else {
                     return response.json();
-                } else if (response.status === 500 || response.status === 400) {
-                    setIsLoading(false);
-                    data = response.json()
-                    toast.error(data.message);
-                }
+                } 
             })
             .then((data) => {
-                if (data) {
+                if (data.status === 'success') {
                     const intervalId = setInterval(() => {
                         console.log(data.task_id);
                         fetch(`${backend_url}/api/status/${data.task_id}`)
@@ -368,6 +364,20 @@ export default function Upload() {
                                 }
                             });
                     }, 5000);
+                }
+                else {
+                    if (data.message === "Create or join an organization to start working on a filing"){
+                        Swal.fire({
+                            icon: "error",
+                            title: "Oops...",
+                            text: data.message,
+                        });
+                        router.push("/profile");
+                    }
+                    else {
+                        toast.error(data.message);
+                    }
+                    setIsLoading(false);
                 }
             })
             .catch((error) => {

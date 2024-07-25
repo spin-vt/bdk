@@ -43,7 +43,7 @@ def get_userinfo_with_id(userid, session=None):
 
         return {
             'id': userVal.id,
-            'email': userVal.username,
+            'email': userVal.email,
             'verified': userVal.verified,
             'is_admin': userVal.is_admin,
             'organization': organization_info
@@ -58,19 +58,19 @@ def get_userinfo_with_id(userid, session=None):
         if owns_session:
             session.close()
 
-def get_user_with_username(user_name, session=None):
+def get_user_with_email(email, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        userVal = session.query(user).filter(user.username == user_name).one()
+        userVal = session.query(user).filter(user.email == email).one()
         return userVal
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given username"
+        return "Multiple results found for the given email"
     except Exception as e:
         logger.debug(e)
         return str(e)
@@ -78,14 +78,14 @@ def get_user_with_username(user_name, session=None):
         if owns_session:
             session.close()
 
-def create_user_in_db(username, password, session):
+def create_user_in_db(email, password, session):
     try:
-        existing_user = get_user_with_username(username, session)
+        existing_user = get_user_with_email(email, session)
         if existing_user:
             return {"error": "Email already exists"}
 
         hashed_password = generate_password_hash(password, method='sha256')
-        new_user = user(username=username, password=hashed_password)
+        new_user = user(email=email, password=hashed_password)
         session.add(new_user)
     
         session.commit()
@@ -100,7 +100,7 @@ def create_user_in_db(username, password, session):
 
 def verify_user_email(user_id, email, session, setVerified=False):
     try:
-        userVal = session.query(user).filter(user.username == email, user.id == user_id).one()
+        userVal = session.query(user).filter(user.email == email, user.id == user_id).one()
         if userVal:
             if setVerified:
                 userVal.verified = True

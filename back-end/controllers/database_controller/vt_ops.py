@@ -23,7 +23,7 @@ from sqlalchemy import desc
 from .file_ops import get_files_by_type, get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
 from .folder_ops import get_upload_folder, get_export_folder, get_folder_with_id
 from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles, get_mbtiles_with_id
-from .user_ops import get_user_with_id, get_user_with_username
+from .user_ops import get_user_with_id
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 from utils.logger_config import logger
 

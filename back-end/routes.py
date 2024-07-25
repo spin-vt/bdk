@@ -101,7 +101,6 @@ def submit_data(folderid):
 
         if not userVal.organization_id:
             return jsonify({'status': 'error', 'message': "Create or join an organization to start working on a filing"}), 400
-
         import_folder_id = int(request.form.get('importFolder'))
         # Prepare data for the task
         file_contents = [(f.filename, base64.b64encode(f.read()).decode('utf-8'), data) for f, data in zip(files, file_data_list)]
@@ -242,10 +241,10 @@ def create_email_token(userid, email, operation, org_id=-1):
     )
     return email_token
 
-def send_verification_email_with_token(email, token, title, content, join_org=False, join_org_email=""):
+def send_verification_email_with_token(email, token, title, content, join_org=False, joining_email=""):
     msg = Message(title, recipients=[email])
     if join_org:
-        message_start = f'Please forward the token to {join_org_email} and ask them to copy the token to the BDK website to '
+        message_start = f'Please forward the token to {joining_email} and ask them to copy the token to the BDK website to '
     else:
         message_start = 'Please copy the token to the BDK website to '
     msg.body = f'{message_start} {content}: \n \n{token}'
@@ -256,13 +255,13 @@ def request_password_reset():
     session = Session()
     data = request.get_json()
     email = data.get('email')
-    user = user_ops.get_user_with_username(email, session)
+    user = user_ops.get_user_with_email(email, session)
 
     if not user:
         session.close()
         return jsonify({'status': 'error', 'message': 'Email address not found.'}), 400
 
-    email_token = create_email_token(userid=user.id, email=user.username, operation="reset_password")
+    email_token = create_email_token(userid=user.id, email=user.email, operation="reset_password")
     send_verification_email_with_token(email=email, token=email_token, title='Reset Your Password for BDK', content='reset your password')
     session.close()
     return jsonify({'status': 'success', 'message': 'Verification email resent.'}), 200
@@ -317,7 +316,7 @@ def verify_token():
                 user_ops.add_user_to_organization(user_id, org_id, session)
                     
 
-            access_token = create_access_token(identity={'id': user_id, 'verified': True})
+            access_token = create_access_token(identity={'id': user_id})
             response = make_response(jsonify({'status': 'success', 'token': access_token}))
             response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
             return response, 200
@@ -336,13 +335,13 @@ def send_email_verification():
     session = Session()
     data = request.get_json()
     email = data.get('email')
-    user = user_ops.get_user_with_username(email, session)
+    user = user_ops.get_user_with_email(email, session)
 
     if not user:
         session.close()
         return jsonify({'status': 'error', 'message': 'Email address not found.'}), 400
 
-    email_token = create_email_token(userid=user.id, email=user.username, operation="email_address_verification")
+    email_token = create_email_token(userid=user.id, email=user.email, operation="email_address_verification")
     send_verification_email_with_token(email=email, token=email_token, title='Verify Your Email Address for BDK', content='verify your email address')
     session.close()
     return jsonify({'status': 'success', 'message': 'Verification email sent.'}), 200
@@ -408,8 +407,8 @@ def join_organization():
         if not admin:
             return jsonify({'status': 'error', 'message': 'Organization admin not found.'}), 400
 
-        email_token = create_email_token(userid=user.id, email=user.username, operation="join_organization", org_id=org.id)
-        send_verification_email_with_token(email=admin.username, token=email_token, title='Organization Join Request for BDK', content=f'finish their organization join request', join_org=True, join_org_email=user.username)
+        email_token = create_email_token(userid=user.id, email=user.email, operation="join_organization", org_id=org.id)
+        send_verification_email_with_token(email=admin.email, token=email_token, title='Organization Join Request for BDK', content=f'finish their organization join request', join_org=True, joining_email=user.email)
 
         return jsonify({'status': 'success', 'message': 'Join request sent to organization admin.'}), 200
     except NoAuthorizationError:
@@ -496,7 +495,7 @@ def register():
         return jsonify({'status': 'error', 'message': response["error"]}), 400
 
     userVal = response["success"]
-    access_token = create_access_token(identity={'id': userVal.id, 'verified': False})
+    access_token = create_access_token(identity={'id': userVal.id})
 
     response = make_response(jsonify({'status': 'success', 'token': access_token}))
     response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
@@ -512,11 +511,11 @@ def login():
     pword = data.get('password')
 
     # Needs a try catch to return the correct message
-    user = user_ops.get_user_with_username(email)
+    user = user_ops.get_user_with_email(email)
 
     if user is not None and check_password_hash(user.password, pword):
         user_id = user.id
-        access_token = create_access_token(identity={'id': user_id, 'verified': user.verified})
+        access_token = create_access_token(identity={'id': user_id})
         response = make_response(jsonify({'status': 'success', 'token': access_token}))
         response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
         return response
@@ -603,10 +602,15 @@ def exportChallenge():
 def serve_tile_with_folderid(folder_id, zoom, x, y):
     if not folder_id:
         return Response('No tile found', status=404)
+    try:
+        folder_id = int(folder_id)
+    except ValueError:
+        return Response('No tile found', status=404)
     if folder_id == -1:
         return Response('No tile found', status=404)
-    folder_id = int(folder_id)
+    
     identity = get_jwt_identity()
+
 
     session = Session()
     if not folder_ops.folder_belongs_to_organization(folder_id, identity['id'], session):
@@ -662,8 +666,11 @@ def get_files():
     try:
         identity = get_jwt_identity()
         # Verify user own this folder
-        folder_ID = int(request.args.get('folder_ID'))
         session = Session()
+        try:
+            folder_ID = int(request.args.get('folder_ID'))
+        except ValueError:
+            return jsonify({'status': 'error', 'message': 'folderID must be integer'}), 400
 
         if not folder_ops.folder_belongs_to_organization(folder_ID, identity['id'], session):
                 return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
@@ -671,7 +678,7 @@ def get_files():
         if folder_ID:
             filesinfo = file_ops.get_filesinfo_in_folder(folder_ID, session=session)
             return jsonify(filesinfo), 200
-        else:
+        else:  
             return jsonify({'status': 'error', 'message': 'Invalid request'}), 404
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
@@ -1274,8 +1281,8 @@ def update_profile():
         session = Session()
         userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
 
-        if email and email != userVal.username:
-            userVal.username = email
+        if email and email != userVal.email:
+            userVal.email = email
             userVal.verified = False
             
 

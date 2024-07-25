@@ -11,7 +11,8 @@ import { backend_url } from "../utils/settings";
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState('');
-  const [showTokenField, setShowTokenField] = useState(false);
+  const [showEmailTokenField, setShowEmailTokenField] = useState(false);
+  const [showOrgTokenField, setShowOrgTokenField] = useState(false);
   const [openCreateOrg, setOpenCreateOrg] = useState(false);
   const [openJoinOrg, setOpenJoinOrg] = useState(false);
 
@@ -206,7 +207,13 @@ const Profile = () => {
       .then(data => {
         if (data.status === 'success') {
           toast.success("Organization created successfully!");
-          setUser({ ...user, organization: { organization_name: orgName } });
+          setUser({
+            ...user,
+            is_admin: true, // Set is_admin to true organization: { organization_name: orgName } });
+            organization: {
+              organization_name: orgName,
+            }
+          });
         } else {
           toast.error(data.message);
         }
@@ -230,7 +237,7 @@ const Profile = () => {
       .then(data => {
         if (data.status === 'success') {
           toast.success("Join request sent to organization admin.");
-          setShowTokenField(true);
+          setShowOrgTokenField(true);
         } else {
           toast.error(data.message);
         }
@@ -262,7 +269,7 @@ const Profile = () => {
       .then(data => {
         if (data.status === "success") {
           toast.success("Verification email resent");
-          setShowTokenField(true);
+          setShowEmailTokenField(true);
         } else {
           toast.error(data.message);
         }
@@ -282,7 +289,7 @@ const Profile = () => {
       .then(data => {
         if (data.status === 'success') {
           toast.success('Email address verified successfully.');
-          setShowTokenField(false);
+          setShowEmailTokenField(false);
           setUser({ ...user, verified: true });
         } else {
           toast.error(data.message);
@@ -307,7 +314,7 @@ const Profile = () => {
       .then(data => {
         if (data.status === 'success') {
           toast.success(`Joined ${orgName} successfully.`);
-          setShowTokenField(false);
+          setShowOrgTokenField(false);
           setUser({ ...user, organization: { organization_name: orgName } });
         } else {
           toast.error(data.message);
@@ -351,7 +358,7 @@ const Profile = () => {
                   <Button variant="contained" color="primary" onClick={resendVerification} style={{ marginTop: 8 }}>
                     Send Verification Email
                   </Button>
-                  {showTokenField && (
+                  {showEmailTokenField && (
                     <form onSubmit={handleVerifyToken} style={{ marginTop: 16 }}>
                       <TextField
                         variant="outlined"
@@ -440,7 +447,7 @@ const Profile = () => {
                   <Button variant="contained" color="secondary" onClick={handleOpenJoinOrg} style={{ marginLeft: 10, marginTop: 16 }}>
                     Join an Organization
                   </Button>
-                  {showTokenField && (
+                  {showOrgTokenField && (
                     <form onSubmit={handleVerifyJoinOrgToken} style={{ marginTop: 16 }}>
                       <TextField
                         variant="outlined"

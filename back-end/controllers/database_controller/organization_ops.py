@@ -16,7 +16,7 @@ def get_organization_with_orgname(org_name, session=None):
     except NoResultFound:
         return None
     except MultipleResultsFound:
-        return "Multiple results found for the given username"
+        return "Multiple results found for the given orgname"
     except Exception as e:
         logger.debug(e)
         return str(e)

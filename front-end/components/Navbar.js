@@ -194,8 +194,9 @@ export default function Navbar({
             if (data.message === "Please provide your provider ID and brand name") {
               router.push("/profile");
             }
-            throw new Error('Failed to download file.');
+            throw new Error(data.message); // Add this to prevent further execution
           });
+
         }
         // Extract filename from Content-Disposition header
         const filename = response.headers.get('Content-Disposition').split('filename=')[1].split(';')[0].replace(/"/g, '');
@@ -218,11 +219,6 @@ export default function Navbar({
       })
       .catch(error => {
         console.error('Error:', error);
-        Swal.fire({
-          icon: 'error',
-          title: 'Oops...',
-          text: 'Unable to process your request.',
-        });
       });
   };
 
