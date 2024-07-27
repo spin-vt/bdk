@@ -29,6 +29,11 @@ const categoryOptions = {
     Both: "X",
 };
 
+const typeOptions = {
+    "wired": 'wired',
+    "wireless": 'wireless',
+};
+
 
 function FileEditTable({ folderId }) {
     const [files, setFiles] = useState([]);
@@ -127,7 +132,7 @@ function FileEditTable({ folderId }) {
                             >
                                 
                                 <EditableCell file={file} field="name" onChange={(event) => handleChange(event, index, 'name')} />
-                                <TableCell>{file.type}</TableCell>
+                                <EditableCell file={file} field="type" onChange={(event) => handleChange(event, index, 'type')} />
                                 <EditableCell file={file} field="maxDownloadSpeed" onChange={(event) => handleIntegerChange(event, index, 'maxDownloadSpeed')} />
                                 <EditableCell file={file} field="maxUploadSpeed" onChange={(event) => handleIntegerChange(event, index, 'maxUploadSpeed')} />
                                 <EditableCell file={file} field="techType" onChange={(event) => handleChange(event, index, 'techType')} />
@@ -165,6 +170,8 @@ function EditableCell({ file, field, onChange }) {
     const width = field === "name" ? '300px' : '100px'; 
     // Conditionally render Select or TextField based on the field
     switch (field) {
+        case 'type':
+            return <TableCell>{renderDropdown(typeOptions)}</TableCell>;
         case 'techType':
             return <TableCell>{renderDropdown(techTypesOptions)}</TableCell>;
         case 'latency':

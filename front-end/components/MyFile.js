@@ -175,7 +175,6 @@ const MyFile = () => {
   const fetchFiles = async (folderIdentity) => {
     setFabricFiles([]);
     setNetworkDataFiles([]);
-    setManualEditFiles([]);
     if (folderIdentity === -1) {
       return;
     }
@@ -269,6 +268,7 @@ const MyFile = () => {
           id: file.id,
           name: file.name,
           uploadDate: new Date(file.timestamp).toLocaleString(),
+          associated_files: file.associated_files,
         };
 
         setManualEditFiles((prevFiles) => [...prevFiles, formattedFile]);
@@ -573,6 +573,7 @@ const ManualEditFilesTable = ({
         <TableRow>
           <TableCell>Filename</TableCell>
           <TableCell>Created Time</TableCell>
+          <TableCell>Edit On</TableCell>
           <TableCell align="right">Locate On Map</TableCell>
           <TableCell align="right">Check</TableCell>
         </TableRow>
@@ -583,6 +584,7 @@ const ManualEditFilesTable = ({
             <TableRow>
               <TableCell>{file.name}</TableCell>
               <TableCell>{file.uploadDate}</TableCell>
+              <TableCell>{file.associated_files.join(', ')}</TableCell>
               <TableCell align="right">
                 <IOSSwitch
                   sx={{ m: 1 }}
@@ -603,7 +605,7 @@ const ManualEditFilesTable = ({
         ))}
       </TableBody>
     </StyledTable>
-  )
+  );
 };
 
 export default MyFile;

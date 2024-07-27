@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { TextField, Button, Typography, Container } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -6,6 +6,8 @@ import Swal from 'sweetalert2';
 import { backend_url } from '../utils/settings';
 import styles from '../styles/Login.module.css';
 import Navbar from '../components/Navbar';
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const LoginContainer = styled("div")({
   display: "flex",
@@ -39,20 +41,25 @@ const AuthContainer = styled("div")({
 });
 
 
-const Divider = styled("div")({
-  height: "400px",
-  width: "2px",
-  backgroundColor: "#d3d3d3",
-  margin: "0 20px",
-});
 
 const Login = () => {
   const router = useRouter();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+  };
+
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    if (!validateEmail(email)) {
+      toast.error("Please enter a valid email address");
+    }
 
     try {
       const response = await fetch(`${backend_url}/api/login`, {
@@ -60,7 +67,7 @@ const Login = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
         credentials: 'include',
       });
 
@@ -70,16 +77,12 @@ const Login = () => {
           router.push('/');
         } else {
           if (data.message === 'Invalid credentials') {
-            Swal.fire('Error', 'Incorrect username or password.', 'error');
+            toast.error('Incorrect email or password.', 'error');
           }
         }
-      } else {
-        console.log("Login failed")
-        Swal.fire('Error', 'Incorrect credentials', 'error');
       }
     } catch (error) {
-      console.log("Login error ", error)
-      Swal.fire('Error', 'Incorrect credentials', 'error');
+      toast.error('Error on server side');
     }
   };
 
@@ -88,16 +91,15 @@ const Login = () => {
     router.push('/register');
   };
 
-  
-
   return (
     <div>
       <Navbar />
       <Container component="main">
+        <ToastContainer />
         <AuthContainer>
           <LoginContainer>
             <Typography component="h1" variant="h5">
-              Sign in with Username and Password
+              Sign in with Email and Password
             </Typography>
             <LoginForm onSubmit={handleLogin} noValidate>
               <TextField
@@ -105,13 +107,13 @@ const Login = () => {
                 margin="normal"
                 required
                 fullWidth
-                id="username"
-                label="Username"
-                name="username"
-                autoComplete="username"
+                id="email"
+                label="Email"
+                name="email"
+                autoComplete="email"
                 autoFocus
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
               <TextField
                 variant="outlined"
@@ -145,7 +147,6 @@ const Login = () => {
               </LoginButtonContainer>
             </LoginForm>
           </LoginContainer>
-
         </AuthContainer>
       </Container>
     </div>

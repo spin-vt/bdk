@@ -48,7 +48,7 @@ def add_files_to_folder(self, folderid, file_contents):
     1. Upload more files to an existing filing
     2. Create new filing from scratch
     3. Create a new filing by importing from previous filings
-    4. Delete files in a filing
+    4. Regenrate map for file deletion or file info change
 '''
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def process_data(self, folderid, operation): 
@@ -158,11 +158,9 @@ def toggle_tiles(self, markers, folderid, polygonfeatures):
         if user_folder:
             # Process each polygon feature
             for index, feature in enumerate(polygonfeatures):
-                filenames = '-'.join(set(
-                    filename for marker in markers[index] for filename in marker['editedFile']
-                ))
+               
                 formatted_datetime = datetime.now().strftime(DATETIME_FORMAT)
-                editfile_name = f"edit_on_{filenames}_at_{formatted_datetime}"
+                editfile_name = f"edit_at_{formatted_datetime}"
                 
                 feature_binary = json.dumps(feature).encode('utf-8')
                 new_editfile = editfile_ops.create_editfile(filename=editfile_name, content=feature_binary, folderid=folderid, session=session)

@@ -67,13 +67,18 @@ export default function Upload() {
 
     const allowedExtensions = ["kml", "geojson", "csv"];
 
-    const fetchFiles = async (folderIdentity) => {
-        if (folderIdentity === -1) {
-            setPreviousFiles([]);
-            return;
+    const fetchFiles = async (folderId, importFolderId) => {
+        let folderToFetch = folderId;
+        if (folderToFetch === -1) {
+            if (importFolderId != -1) {
+                folderToFetch = importFolderId;
+            }
+            else {
+                return;
+            }
         }
 
-        const response = await fetch(`${backend_url}/api/files?folder_ID=${folderIdentity}`, {
+        const response = await fetch(`${backend_url}/api/files?folder_ID=${folderToFetch}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
@@ -103,8 +108,8 @@ export default function Upload() {
 
     React.useEffect(() => {
 
-        fetchFiles(folderID);
-    }, [folderID]);
+        fetchFiles(folderID, importFolderID);
+    }, [folderID, importFolderID]);
 
     const fetchFolders = async () => {
         try {

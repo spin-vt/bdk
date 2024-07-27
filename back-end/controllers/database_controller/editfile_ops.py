@@ -1,6 +1,6 @@
 import psycopg2
 from database.sessions import ScopedSession, Session
-from database.models import editfile, user, file_editfile_link
+from database.models import editfile, user, file_editfile_link, file
 from threading import Lock
 from datetime import datetime
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -72,18 +72,21 @@ def get_editfilesinfo_in_folder(folderid, session=None):
         owns_session = True
 
     try:
-        files_in_folder = get_editfiles_in_folder(folderid, session)
+        files_in_folder = session.query(editfile).filter_by(folder_id=folderid).all()
         if not files_in_folder:
             return []
 
         files_info = []
-        for file in files_in_folder:
+        for editf in files_in_folder:
+            associated_files = session.query(file).join(file_editfile_link, file.id == file_editfile_link.file_id).filter(file_editfile_link.editfile_id == editf.id).all()
+            associated_file_names = [associated_file.name for associated_file in associated_files]
 
             file_dict = {
-                'id': file.id,
-                'name': file.name,
-                'timestamp': file.timestamp,
-                'folder_id': file.folder_id,
+                'id': editf.id,
+                'name': editf.name,
+                'timestamp': editf.timestamp,
+                'folder_id': editf.folder_id,
+                'associated_files': associated_file_names
             }
             
             files_info.append(file_dict)
@@ -92,6 +95,7 @@ def get_editfilesinfo_in_folder(folderid, session=None):
     finally:
         if owns_session:
             session.close()
+
 
 
 def delete_editfile(editfileid, session=None):

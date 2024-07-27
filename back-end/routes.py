@@ -99,6 +99,8 @@ def submit_data(folderid):
 
         userVal = user_ops.get_user_with_id(identity['id'], session=session)
 
+        if not userVal.verified:
+            return jsonify({'status': 'error', 'message': "Please Verify your email to start working on a filing"}), 400
         if not userVal.organization_id:
             return jsonify({'status': 'error', 'message': "Create or join an organization to start working on a filing"}), 400
         import_folder_id = int(request.form.get('importFolder'))
@@ -639,6 +641,8 @@ def serve_tile_with_folderid(folder_id, zoom, x, y):
 @jwt_required()
 def toggle_markers():
     try:
+        identity = get_jwt_identity()
+        session = Session()
         request_data = request.json
         markers = request_data['marker']
         folderid = request_data['folderid']
@@ -646,8 +650,10 @@ def toggle_markers():
         if folderid == -1:
             return jsonify({'error': 'Invalid folder id'}), 400
         
-        identity = get_jwt_identity()
-        session = Session()
+        userVal = user_ops.get_user_with_id(identity['id'], session=session)
+
+        if not userVal.verified:
+            return jsonify({'status': 'error', 'message': "Please Verify your email to start working on a filing"}), 400
         if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
                 session.close()
                 return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
@@ -818,7 +824,12 @@ def update_network_file(file_id):
             return jsonify({'status': 'error', 'message': 'Please select valid tech types and latency'}), 400
         
         logger.debug(data)
+        lowercase_type = data['type'].lower()
+        name_or_type_changed = False
+        if file.name != data['name'] or file.type != lowercase_type:
+            name_or_type_changed = True
         file.name = data['name']
+        file.type = lowercase_type
         file.maxDownloadSpeed = data['maxDownloadSpeed']
         file.maxUploadSpeed = data['maxUploadSpeed']
         file.techType = data['techType']
@@ -833,6 +844,9 @@ def update_network_file(file_id):
             kml_entry.category = data['category']
 
         session.commit()
+
+        # if name_or_type_changed:
+        #     process_data.apply_async(args=[file.folder_id, 4])
         return jsonify({'status': 'success', 'message': 'File and its KML data updated successfully'}), 200
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
