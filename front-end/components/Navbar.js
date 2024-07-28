@@ -33,6 +33,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import Swal from "sweetalert2";
 import { useFolder } from "../contexts/FolderContext.js";
 import { useGridLogger } from "@mui/x-data-grid";
+import TaskInfo from "./TaskInfo.js";
 
 
 
@@ -413,6 +414,8 @@ export default function Navbar({
           </Link>
 
           <Searchbar />
+
+          <TaskInfo />
 
           {showOnHome && (
             <IconButton onClick={handleEditToolClick}>

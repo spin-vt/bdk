@@ -14,6 +14,7 @@ class organization(Base):
     users = relationship('user', back_populates='organization')
     folders = relationship('folder', back_populates='organization', cascade='all, delete')
     towers = relationship('tower', back_populates='organization', cascade='all, delete')
+    celerytasksinfo = relationship('celerytaskinfo', back_populates='organization', cascade='all, delete')
 
 class user(Base):
     __tablename__ = 'user'
@@ -25,7 +26,22 @@ class user(Base):
     verified = Column(Boolean, default=False)
     organization_id = Column(Integer, ForeignKey('organization.id'))
     organization = relationship('organization', back_populates='users')
+    celerytasksinfo = relationship('celerytaskinfo', back_populates='user')
+
     
+class celerytaskinfo(Base):
+    __tablename__ = 'celerytaskinfo'
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(String(36), nullable=False)
+    status = Column(String(20), nullable=False)
+    result = Column(String, nullable=True)
+    operation = Column(String, nullable=False)
+    timestamp = Column(DateTime)
+    user_id = Column(Integer, ForeignKey('user.id'))
+    user = relationship('user', back_populates='celerytasksinfo')
+    organization_id = Column(Integer, ForeignKey('organization.id'))
+    organization = relationship('organization', back_populates='celerytasksinfo')
 
 class tower(Base):
     __tablename__ = 'tower'

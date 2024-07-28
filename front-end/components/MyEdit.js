@@ -18,7 +18,6 @@ import { styled } from "@mui/material/styles";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Box } from "@mui/system";
 import Swal from "sweetalert2";
-import LoadingEffect from "./LoadingEffect";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
@@ -27,7 +26,9 @@ import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
 import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import {useFolder} from "../contexts/FolderContext.js";
+import { useFolder } from "../contexts/FolderContext.js";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 
 const HeaderText = styled(Typography)({
@@ -60,15 +61,11 @@ const MyEdit = () => {
 
     const router = useRouter();
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [isDataReady, setIsDataReady] = useState(false);
-    const loadingTimeInMs = 3.5 * 60 * 1000;
-
     const { setLocation } = useContext(SelectedLocationContext);
     const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
     const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
-    const {folderID, setFolderID} = useFolder();
+    const { folderID, setFolderID } = useFolder();
 
     const handleLocateOnMap = (option) => {
         if (option !== undefined && option !== null) {
@@ -89,12 +86,12 @@ const MyEdit = () => {
         // Clone the arrays before modifications to avoid side-effects
         const updatedPolygons = [...selectedPolygons];
         const updatedPolygonsArea = [...selectedPolygonsArea];
-    
+
         // Check if the index is valid before trying to remove the item
         if (index >= 0 && index < updatedPolygons.length) {
             updatedPolygons.splice(index, 1);
             updatedPolygonsArea.splice(index, 1);
-            
+
             // Update state with new arrays
             setSelectedPolygons(updatedPolygons);
             setSelectedPolygonsArea(updatedPolygonsArea);
@@ -103,20 +100,19 @@ const MyEdit = () => {
         }
     };
 
-    
+
     const toggleMarkers = async () => {
-        setIsLoading(true);
         try {
-            const polygonPoints = selectedPolygons.map(polygon => 
+            const polygonPoints = selectedPolygons.map(polygon =>
                 polygon.slice(1).map(point => ({
                     id: point.id,
                     served: point.served,
                     editedFile: Array.isArray(point.editedFile) ? point.editedFile : Array.from(point.editedFile) // Ensure editedFile is serialized correctly
                 }))
             );
-    
-    
-            
+
+
+
             const requestBody = {
                 marker: polygonPoints,
                 polygonfeatures: selectedPolygonsArea,
@@ -133,7 +129,6 @@ const MyEdit = () => {
             });
 
             if (response.status === 401) {
-                setIsLoading(false);
                 // Redirect the user to the login page or other unauthorized handling page
                 Swal.fire({
                     icon: "error",
@@ -143,32 +138,17 @@ const MyEdit = () => {
                 router.push("/login");
             }
             if (!response.ok) {
-                setIsLoading(false);
                 // If the response status is not ok (not 200)
                 throw new Error(`HTTP error! status: ${response.status}, ${response.statusText}`);
             }
             const data = await response.json();
             if (data) {
-                const intervalId = setInterval(() => {
-                    console.log(data.task_id);
-                    fetch(`${backend_url}/api/status/${data.task_id}`)
-                        .then((response) => response.json())
-                        .then((status) => {
-                            if (status.state !== "PENDING") {
-                                clearInterval(intervalId);
-                                setIsDataReady(true);
-                                setIsLoading(false);
-                                setTimeout(() => {
-                                    setIsDataReady(false);
-                                    router.reload();
-                                }, 5000);
-                            }
-                        });
-                }, 5000);
+                toast.success("Your edit request has been successfully submitted");
+                setSelectedPolygons([]);
+                setSelectedPolygonsArea([]);
             }
         } catch (error) {
             console.error("Error:", error);
-            setIsLoading(false);
         }
     };
 
@@ -176,14 +156,6 @@ const MyEdit = () => {
 
     return (
         <div>
-            <div style={{ position: 'fixed', zIndex: 10000 }}>
-                {(isLoading || isDataReady) && (
-                    <LoadingEffect
-                        isLoading={isLoading}
-                        loadingTimeInMs={loadingTimeInMs}
-                    />
-                )}
-            </div>
             <StyledContainer component="main" maxWidth="md">
                 <PolygonEditTable
                     polygons={selectedPolygons}
@@ -219,6 +191,7 @@ const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap }
 
     return (
         <div>
+            <ToastContainer />
             <Typography variant="h6" sx={{ margin: "20px 0" }}>
                 Bulk Edits
             </Typography>

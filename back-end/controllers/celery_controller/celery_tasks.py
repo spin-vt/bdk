@@ -14,7 +14,6 @@ from utils.wireless_form2args import wireless_raster_file_format, wireless_vecto
 from controllers.signalserver_controller.raster2vector import smooth_edges
 from sqlalchemy.exc import SQLAlchemyError
 
-
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def add_files_to_folder(self, folderid, file_contents):
     logger.debug(f"folder id in add files to folder is {folderid}")
@@ -119,7 +118,6 @@ def process_data(self, folderid, operation):
         
         
         session.close()
-        return {'status': "ok"}
     
     except Exception as e:
         session.close()
@@ -218,22 +216,13 @@ def toggle_tiles(self, markers, folderid, polygonfeatures):
 
         
 
-        message = 'Markers toggled successfully'
-        status_code = 200
-        
-        
-        
-
     except Exception as e:
         session.rollback()  # rollback transaction on error
-        message = str(e)  # send the error message to client
-        status_code = 500
 
     finally:
         session.commit()
         session.close()
 
-    return (message, status_code)
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
@@ -304,15 +293,14 @@ def run_signalserver(self, command, outfile_name, tower_id, data):
                                             ebound=bbox['ebound'],
                                             wbound=bbox['wbound'],
                                             session=session)
-        if isinstance(raster_data_val, str):  # In case create_rasterdata returned an error message
-            return {'error': raster_data_val}
+       
 
         for f_extension in wireless_raster_file_format:
             os.remove(outfile_name + f_extension)
         os.remove(transparent_image_name)
-        return result.returncode 
     except Exception as e:
-        return {'error': str(e)}
+        session.rollback()
+        raise e
     finally:
         session.commit()
         session.close()

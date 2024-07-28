@@ -22,7 +22,6 @@ import {
 import Swal from "sweetalert2";
 import DeleteIcon from "@mui/icons-material/Delete";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
-import LoadingEffect from "./LoadingEffect";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { backend_url } from "../utils/settings";
@@ -120,9 +119,6 @@ const MyFile = () => {
   const { folderID, setFolderID } = useFolder();
   const { setLayers } = useContext(LayerVisibilityContext);
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDataReady, setIsDataReady] = useState(false);
-  const loadingTimeInMs = 3.5 * 60 * 1000;
 
   const { setLocation } = useContext(SelectedLocationContext);
 
@@ -295,7 +291,6 @@ const MyFile = () => {
 
 
   const handleDeleteCheckedFiles = async () => {
-    setIsLoading(true);
     try {
       const fileIdsToDelete = [
         ...fabricFiles,
@@ -324,7 +319,6 @@ const MyFile = () => {
       });
   
       if (response.status === 401) {
-        setIsLoading(false);
         Swal.fire({
           icon: "error",
           title: "Oops...",
@@ -337,29 +331,14 @@ const MyFile = () => {
       const data = await response.json();
   
       if (data.status === "success") {
-        const intervalId = setInterval(() => {
-          console.log(data.task_id);
-          fetch(`${backend_url}/api/status/${data.task_id}`)
-            .then((response) => response.json())
-            .then((status) => {
-              if (status.state !== "PENDING") {
-                clearInterval(intervalId);
-                setIsDataReady(true);
-                setIsLoading(false);
-                setTimeout(() => {
-                  setIsDataReady(false);
-                  router.reload();
-                }, 5000);
-              }
-            });
-        }, 5000);
+        toast.success("Your deletion request has been successfully submitted");
+        fetchFiles(folderID);
+        fetchEditFiles(folderID);
       } else {
         toast.error(data.message);
-        setIsLoading(false);
       }
     } catch (error) {
       console.error("Error:", error);
-      setIsLoading(false);
       toast.error(error);
     }
   };
@@ -367,14 +346,6 @@ const MyFile = () => {
 
   return (
     <div>
-      <div style={{ position: 'fixed', zIndex: 10000 }}>
-        {(isLoading || isDataReady) && (
-          <LoadingEffect
-            isLoading={isLoading}
-            loadingTimeInMs={loadingTimeInMs}
-          />
-        )}
-      </div>
       <ToastContainer />
       <StyledContainer component="main" maxWidth="md">
         <FormControl style={{ width: '250px' }}>

@@ -1,5 +1,7 @@
-from celery import Celery
+from celery import Celery, signals
 from utils.config import Config
+from database.sessions import Session
+from database.models import celerytaskinfo
 
 def make_celery():
     celery = Celery(__name__,
@@ -14,7 +16,20 @@ def make_celery():
 celery = make_celery()
 
 
-
+@signals.task_postrun.connect
+def task_postrun_handler(task_id, **kwargs):
+    session = Session()
+    try:
+        task = session.query(celerytaskinfo).filter(celerytaskinfo.task_id==task_id).first()
+        if task:
+            task.status = kwargs['state']
+            task.result = str(kwargs['retval'])
+            session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
 # app = Flask(__name__)
 # CORS(app)
 # You can adjust this to switch between environments as needed

@@ -8,7 +8,6 @@ import { useFolder } from '../contexts/FolderContext';
 import { useRouter } from "next/router";
 import { format } from "date-fns";
 import { backend_url } from "../utils/settings";
-import LoadingEffect from "./LoadingEffect";
 
 
 
@@ -46,9 +45,7 @@ export default function Upload() {
     const [files, setFiles] = React.useState([]);
     const [folders, setFolders] = React.useState([]);
 
-    const [isLoading, setIsLoading] = React.useState(false);
-    const [isDataReady, setIsDataReady] = React.useState(false);
-    const loadingTimeInMs = 3.5 * 60 * 1000;
+
     const { folderID, setFolderID } = useFolder();
 
     const [importFolderID, setImportFolderID] = React.useState(-1);
@@ -311,7 +308,6 @@ export default function Upload() {
 
             if (!allowedExtensions.includes(fileExtension)) {
                 toast.error("Invalid File Format. Please upload a KML, GeoJSON, or CSV file.");
-                setIsLoading(false);
                 return;
             }
 
@@ -329,7 +325,6 @@ export default function Upload() {
         });
 
 
-        setIsLoading(true);
 
         fetch(`${backend_url}/api/submit-data/${folderID}`, {
             method: "POST",
@@ -345,7 +340,6 @@ export default function Upload() {
                     });
                     // Redirect to login page
                     router.push("/login");
-                    setIsLoading(false);
                     return;
                 } else {
                     return response.json();
@@ -353,22 +347,8 @@ export default function Upload() {
             })
             .then((data) => {
                 if (data.status === 'success') {
-                    const intervalId = setInterval(() => {
-                        console.log(data.task_id);
-                        fetch(`${backend_url}/api/status/${data.task_id}`)
-                            .then((response) => response.json())
-                            .then((status) => {
-                                if (status.state !== "PENDING") {
-                                    clearInterval(intervalId);
-                                    setIsDataReady(true);
-                                    setIsLoading(false);
-                                    setTimeout(() => {
-                                        setIsDataReady(false);
-                                        router.reload();
-                                    }, 5000);
-                                }
-                            });
-                    }, 5000);
+                    toast.success("Your file is uploaded to the server for processing");
+                    setFiles([]);
                 }
                 else {
                     if (data.message === "Create or join an organization to start working on a filing"){
@@ -382,7 +362,6 @@ export default function Upload() {
                     else {
                         toast.error(data.message);
                     }
-                    setIsLoading(false);
                 }
             })
             .catch((error) => {
@@ -393,20 +372,12 @@ export default function Upload() {
                 });
                 console.error("Error:", error);
 
-                setIsLoading(false);
             });
     };
 
     return (
         <React.Fragment>
-            <div style={{ position: "fixed", zIndex: 10 }}>
-                {(isLoading || isDataReady) && (
-                    <LoadingEffect
-                        isLoading={isLoading}
-                        loadingTimeInMs={loadingTimeInMs}
-                    />
-                )}
-            </div>
+           
             <ToastContainer />
             <div>
                 <FormControl style={{ width: '300px', marginBottom: '20px' }}>

@@ -63,7 +63,6 @@ function Editmap() {
   const [combinationToPoints, setCombinationToPoints] = useState({});
 
 
-  const [selectedPoints, setSelectedPoints] = useState([]);
   const [selectedPolygonFeature, setSelectedPolygonFeature] = useState(null);
 
   var colorsArrayIndex = 0;
@@ -283,7 +282,6 @@ function Editmap() {
 
 
       const { combinationToColorMap, combinationToPoints } = initializeCombinationToColorMap(selected);
-      setSelectedPoints(selected);
       setSelectedPolygonFeature(polygon);
       setCombinationToColorMap(combinationToColorMap);
       setCombinationToPoints(combinationToPoints);
@@ -306,23 +304,6 @@ function Editmap() {
         }
       });
 
-      // if (selected !== undefined && selected.length > 0) {
-
-
-
-      //   const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
-
-      //   // Prepend the ID to the selected array
-      //   selected.unshift({ id: polygonId });
-
-      //   selectedPolygonsRef.current.push(selected);
-      //   setSelectedPolygons(selectedPolygonsRef.current);
-
-      //   setSelectedPolygonsArea((prevAreas) => [
-      //     ...prevAreas, polygon
-      //   ]);
-
-      // }
     });
 
     map.current.on("click", "custom-point", function (e) {

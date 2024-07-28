@@ -19,7 +19,7 @@ from celery.result import AsyncResult
 from celery import chain
 from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port, frontend_url
 from database.sessions import Session
-from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops
+from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops, celerytaskinfo_ops
 from utils.flask_app import app, mail
 from controllers.celery_controller.celery_config import celery 
 from controllers.celery_controller.celery_tasks import process_data, async_delete_files, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
@@ -150,6 +150,8 @@ def submit_data(folderid):
             )
 
         result = task_chain.apply_async()
+
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation="Upload", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
         return jsonify({'status': "success", 'task_id': result.id}), 200 # return task id to the client
     
         
@@ -168,34 +170,57 @@ def submit_data(folderid):
     finally:
         session.close()  # Always close the session at the end
 
+@app.route('/api/user-tasks', methods=['GET'])
+@jwt_required()
+def get_user_tasks():
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        if not userVal:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 400
+        if not userVal.organization:
+            return jsonify({'status': 'error', 'message': 'User not associated with organization'}), 400
+
+        in_progress_tasks, finished_tasks = celerytaskinfo_ops.get_celerytasksinfo_for_org(orgid=userVal.organization_id, session=session)
+        
+        return jsonify({
+            'status': 'success',
+            'in_progress_tasks': in_progress_tasks,
+            'finished_tasks': finished_tasks
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        session.close()
 
 
+# @app.route('/api/status/<task_id>')
+# def taskstatus(task_id):
+#     task = AsyncResult(task_id, app=celery)
 
-@app.route('/api/status/<task_id>')
-def taskstatus(task_id):
-    task = AsyncResult(task_id, app=celery)
-
-    if task.state == 'PENDING':
-        response = {
-            'state': task.state,
-            'status': 'Pending...'
-        }
-    elif task.state != 'FAILURE':
-        response = {
-            'state': task.state,
-            'status': str(task.result)
-        }
-    elif task.state == 'SUCCESS':
-        response = {
-            'state': task.state,
-            'status': task.result
-        }
-    else:
-        response = {
-            'state': task.state,
-            'status': str(task.info)
-        }
-    return jsonify(response)
+#     if task.state == 'PENDING':
+#         response = {
+#             'state': task.state,
+#             'status': 'Pending...'
+#         }
+#     elif task.state != 'FAILURE':
+#         response = {
+#             'state': task.state,
+#             'status': str(task.result)
+#         }
+#     elif task.state == 'SUCCESS':
+#         response = {
+#             'state': task.state,
+#             'status': task.result
+#         }
+#     else:
+#         response = {
+#             'state': task.state,
+#             'status': str(task.info)
+#         }
+#     return jsonify(response)
 
 @app.route('/api')
 def home():
@@ -654,6 +679,8 @@ def toggle_markers():
 
         if not userVal.verified:
             return jsonify({'status': 'error', 'message': "Please Verify your email to start working on a filing"}), 400
+        if not userVal.organization_id:
+            return jsonify({'status': 'error', 'message': "Create or join an organization to start working on a filing"}), 400
         if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
                 session.close()
                 return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
@@ -661,6 +688,7 @@ def toggle_markers():
 
 
         task = toggle_tiles.apply_async(args=[markers, folderid, polygonfeatures])
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=task.task_id, status='PENDING', operation="Edit", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
         return jsonify({'status': "success", 'task_id': task.id}), 200
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
@@ -874,6 +902,13 @@ def delete_files():
 
         session = Session()
 
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        
+        if not userVal.verified:
+            return jsonify({'status': 'error', 'message': "Please Verify your email to start working on a filing"}), 400
+        if not userVal.organization_id:
+            return jsonify({'status': 'error', 'message': "Create or join an organization to start working on a filing"}), 400
+        
         for fileid in file_ids:
             fileid = int(fileid)
             if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
@@ -901,6 +936,7 @@ def delete_files():
                     process_data.si(folderid=folderid, operation=4)
         )
         result = task_chain.apply_async()
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation="Delete", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
         return jsonify({'status': "success", 'task_id': result.id}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401

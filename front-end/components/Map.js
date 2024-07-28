@@ -4,11 +4,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import SelectedLocationContext from "../contexts/SelectedLocationContext";
 import { MenuItem, IconButton, Menu } from "@mui/material";
 import { styled } from '@mui/material/styles';
-import LoadingEffect from "./LoadingEffect";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import * as maptilersdk from "@maptiler/sdk";
 import LayersIcon from "@mui/icons-material/Layers";
-import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 
