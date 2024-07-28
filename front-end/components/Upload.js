@@ -8,6 +8,7 @@ import { useFolder } from '../contexts/FolderContext';
 import { useRouter } from "next/router";
 import { format } from "date-fns";
 import { backend_url } from "../utils/settings";
+import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext";
 
 
 
@@ -63,6 +64,7 @@ export default function Upload() {
     const [previousFiles, setPreviousFiles] = React.useState([]);
 
     const allowedExtensions = ["kml", "geojson", "csv"];
+    const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
 
     const fetchFiles = async (folderId, importFolderId) => {
         let folderToFetch = folderId;
@@ -349,6 +351,7 @@ export default function Upload() {
                 if (data.status === 'success') {
                     toast.success("Your file is uploaded to the server for processing");
                     setFiles([]);
+                    setShouldFetchTaskInfo(true);
                 }
                 else {
                     if (data.message === "Create or join an organization to start working on a filing"){

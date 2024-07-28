@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { useRouter } from "next/router";
 import { TextField, Button, Typography, Container } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -8,6 +8,7 @@ import styles from '../styles/Login.module.css';
 import Navbar from '../components/Navbar';
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext";
 
 const LoginContainer = styled("div")({
   display: "flex",
@@ -46,7 +47,7 @@ const Login = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
+  const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
 
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -75,6 +76,7 @@ const Login = () => {
         const data = await response.json();
         if (data.status === 'success') {
           router.push('/');
+          setShouldFetchTaskInfo(true);
         } else {
           if (data.message === 'Invalid credentials') {
             toast.error('Incorrect email or password.', 'error');

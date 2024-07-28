@@ -29,6 +29,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { useFolder } from "../contexts/FolderContext.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext.js";
 
 
 const HeaderText = styled(Typography)({
@@ -66,6 +67,8 @@ const MyEdit = () => {
     const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
     const { folderID, setFolderID } = useFolder();
+
+    const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
 
     const handleLocateOnMap = (option) => {
         if (option !== undefined && option !== null) {
@@ -146,6 +149,8 @@ const MyEdit = () => {
                 toast.success("Your edit request has been successfully submitted");
                 setSelectedPolygons([]);
                 setSelectedPolygonsArea([]);
+                setShouldFetchTaskInfo(true);
+
             }
         } catch (error) {
             console.error("Error:", error);

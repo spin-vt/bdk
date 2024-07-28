@@ -1,40 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Box, Typography, Collapse, List, ListItem, ListItemText, Button, Drawer, IconButton } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import MenuIcon from '@mui/icons-material/Menu';
 import { backend_url } from "../utils/settings";
+import FetchTaskInfoContext from '../contexts/FetchTaskInfoContext';
 
-const TaskInfo = () => {
+const useFetchTaskInfo = (shouldFetchTaskInfo, setShouldFetchTaskInfo) => {
     const [inProgressTasks, setInProgressTasks] = useState([]);
     const [finishedTasks, setFinishedTasks] = useState([]);
-    const [open, setOpen] = useState(false);
-    const [drawerOpen, setDrawerOpen] = useState(false);
-    
+
     useEffect(() => {
+        if (!shouldFetchTaskInfo) return;
+
         const fetchTasks = async () => {
-            fetch(`${backend_url}/api/user-tasks`, {
-                method: "GET",
-                credentials: "include",
-            })
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.status === 'success') {
-                        setInProgressTasks(data.in_progress_tasks);
-                        setFinishedTasks(data.finished_tasks);
-                    }
-                })
-                .catch((error) => {
-                   console.log(error);
+            try {
+                const response = await fetch(`${backend_url}/api/user-tasks`, {
+                    method: "GET",
+                    credentials: "include",
                 });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    setInProgressTasks(data.in_progress_tasks);
+                    setFinishedTasks(data.finished_tasks);
+                }
+            } catch (error) {
+                console.log(error);
+            } finally {
+                setShouldFetchTaskInfo(false);
+            }
         };
 
         fetchTasks();
-        const intervalId = setInterval(fetchTasks, 5000); // Fetch every 10 seconds
+    }, [shouldFetchTaskInfo, setShouldFetchTaskInfo]);
+
+    return { inProgressTasks, finishedTasks };
+};
+
+
+const TaskInfo = () => {
+   
+    const [open, setOpen] = useState(false);
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const { shouldFetchTaskInfo, setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
+
+    const { inProgressTasks, finishedTasks } = useFetchTaskInfo(shouldFetchTaskInfo, setShouldFetchTaskInfo);
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            setShouldFetchTaskInfo(true);
+        }, 60000); // Set to true every 60 seconds
 
         return () => clearInterval(intervalId);
-    }, []);
+    }, [setShouldFetchTaskInfo]);
+
+    const handleDrawerOpen = () => {
+        setDrawerOpen(true);
+        setShouldFetchTaskInfo(true);
+    };
+
 
     return (
         <Box>
@@ -45,13 +70,13 @@ const TaskInfo = () => {
                     edge="start"
                     color="inherit"
                     aria-label="menu"
-                    onClick={() => setDrawerOpen(true)}
+                    onClick={() => handleDrawerOpen()}
                 >
                     <MenuIcon />
                 </IconButton>
                 <Alert
                     severity="info"
-                    onClick={() => setDrawerOpen(true)}
+                    onClick={() => handleDrawerOpen()}
                     style={{ cursor: 'pointer' }}
                 >
                     {`Your organization has ${inProgressTasks.length} ongoing tasks`}

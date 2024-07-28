@@ -32,6 +32,7 @@ import { format } from "date-fns";
 import EditLayerVisibilityContext from "../contexts/EditLayerVisibilityContext.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext.js";
 
 
 const StyledContainer = styled(Container)(({ }) => ({
@@ -121,6 +122,8 @@ const MyFile = () => {
 
 
   const { setLocation } = useContext(SelectedLocationContext);
+
+  const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
 
   const router = useRouter();
 
@@ -334,6 +337,7 @@ const MyFile = () => {
         toast.success("Your deletion request has been successfully submitted");
         fetchFiles(folderID);
         fetchEditFiles(folderID);
+        setShouldFetchTaskInfo(true);
       } else {
         toast.error(data.message);
       }
