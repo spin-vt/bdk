@@ -3,7 +3,7 @@ import Navbar from "../components/Navbar";
 import dynamic from "next/dynamic";
 import { Drawer } from "@mui/material";
 import MyFile from "../components/MyFile";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import LayerVisibilityProvider from "../contexts/LayerVisibilityProvider";
 import SelectedLocationProvider from "../contexts/SelectedLocationProvider";
 import EditMapContext from "../contexts/EditMapContext";
@@ -15,6 +15,8 @@ import { styled } from '@mui/material/styles';
 import { Typography, Container, Box } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Upload from "../components/Upload";
+import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext";
+import ReloadMapContext from "../contexts/ReloadMapContext";
 
 const DynamicMap = dynamic(() => import("../components/Map"), { ssr: false });
 const Editmap = dynamic(() => import("../components/Editmap"), { ssr: false });
@@ -29,6 +31,14 @@ const HomePage = () => {
   const [myFileOpen, setMyFileOpen] = useState(false);
   const [uploadOpen, setOpen] = useState(false);
   const { isEditingMap } = useContext(EditMapContext);
+
+  const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
+  const { setShouldReloadMap } = useContext(ReloadMapContext);
+
+  useEffect(() => {
+    setShouldFetchTaskInfo(true);
+    setShouldReloadMap(true);
+  }, []);
 
   const handleDrawerOpen = () => {
     setMyFileOpen(true);
@@ -48,41 +58,41 @@ const HomePage = () => {
 
   return (
 
-          <div>
+    <div>
 
-            <LayerVisibilityProvider>
-              <EditLayerVisibilityProvider>
-                <SelectedLocationProvider>
-                  <SelectedPolygonProvider>
-                    <SelectedPolygonAreaProvider>
-                      <Navbar
-                        sx={{ height: "10%" }}
-                        handleMyFilingOpen={handleDrawerOpen}
-                        handleUploadOpen={handleDrawerOpen2}
-                        showOnHome={true}
-                      />
-                      {isEditingMap ? <Editmap /> : <DynamicMap />}
-                      {/* This is where I will add filing logic */}
-                      <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
-                        {isEditingMap ? <MyEdit /> : <MyFile />}
-                      </CustomDrawer>
-                      <Drawer
-                        anchor="right"
-                        open={uploadOpen}
-                        onClose={handleDrawerClose2}
-                      >
-                        <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
-                          Upload Network Files Below:
-                        </StyledTypography>
-                        <Upload />
-                      </Drawer>
-                    </SelectedPolygonAreaProvider>
-                  </SelectedPolygonProvider>
-                </SelectedLocationProvider>
-              </EditLayerVisibilityProvider>
-            </LayerVisibilityProvider>
+      <LayerVisibilityProvider>
+        <EditLayerVisibilityProvider>
+          <SelectedLocationProvider>
+            <SelectedPolygonProvider>
+              <SelectedPolygonAreaProvider>
+                <Navbar
+                  sx={{ height: "10%" }}
+                  handleMyFilingOpen={handleDrawerOpen}
+                  handleUploadOpen={handleDrawerOpen2}
+                  showOnHome={true}
+                />
+                {isEditingMap ? <Editmap /> : <DynamicMap />}
+                {/* This is where I will add filing logic */}
+                <CustomDrawer isOpen={myFileOpen} onClose={handleDrawerClose}>
+                  {isEditingMap ? <MyEdit /> : <MyFile />}
+                </CustomDrawer>
+                <Drawer
+                  anchor="right"
+                  open={uploadOpen}
+                  onClose={handleDrawerClose2}
+                >
+                  <StyledTypography component="h1" variant="h5" marginLeft={"1vw"}>
+                    Upload Network Files Below:
+                  </StyledTypography>
+                  <Upload />
+                </Drawer>
+              </SelectedPolygonAreaProvider>
+            </SelectedPolygonProvider>
+          </SelectedLocationProvider>
+        </EditLayerVisibilityProvider>
+      </LayerVisibilityProvider>
 
-          </div>
+    </div>
 
   );
 };

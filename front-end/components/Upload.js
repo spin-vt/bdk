@@ -64,7 +64,7 @@ export default function Upload() {
     const [previousFiles, setPreviousFiles] = React.useState([]);
 
     const allowedExtensions = ["kml", "geojson", "csv"];
-    const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
+    const { setShouldFetchTaskInfo } = React.useContext(FetchTaskInfoContext);
 
     const fetchFiles = async (folderId, importFolderId) => {
         let folderToFetch = folderId;

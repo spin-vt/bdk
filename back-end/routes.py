@@ -195,32 +195,67 @@ def get_user_tasks():
     finally:
         session.close()
 
+@app.route('/api/estimated-task-runtime/<taskid>', methods=['GET'])
+@jwt_required()
+def get_estimated_task_runtime(taskid):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        taskid = str(taskid)
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        if not userVal:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 400
+        if not userVal.organization:
+            return jsonify({'status': 'error', 'message': 'User not associated with organization'}), 400
+        if not celerytaskinfo_ops.task_belongs_to_organization(task_id=taskid, user_id=userVal.id, session=session):
+            return jsonify({'status': 'error', 'message': 'You are accessing a task not belong to your organization'}), 400
 
-# @app.route('/api/status/<task_id>')
-# def taskstatus(task_id):
-#     task = AsyncResult(task_id, app=celery)
+        estimated_runtime_seconds = celerytaskinfo_ops.get_estimated_runtime_for_task(task_id=taskid, session=session)
+        
+        return jsonify({
+            'status': 'success',
+            'estimated_runtime': estimated_runtime_seconds
+        }), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        session.close()
 
-#     if task.state == 'PENDING':
-#         response = {
-#             'state': task.state,
-#             'status': 'Pending...'
-#         }
-#     elif task.state != 'FAILURE':
-#         response = {
-#             'state': task.state,
-#             'status': str(task.result)
-#         }
-#     elif task.state == 'SUCCESS':
-#         response = {
-#             'state': task.state,
-#             'status': task.result
-#         }
-#     else:
-#         response = {
-#             'state': task.state,
-#             'status': str(task.info)
-#         }
-#     return jsonify(response)
+@app.route('/api/update-task-status/<taskid>', methods=['POST'])
+@jwt_required()
+def update_task_status(taskid):
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        taskid = str(taskid)
+        if not userVal:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 400
+        
+        if not userVal.organization:
+            return jsonify({'status': 'error', 'message': 'User not associated with organization'}), 400
+        
+        if not celerytaskinfo_ops.task_belongs_to_organization(task_id=taskid, user_id=userVal.id, session=session):
+            return jsonify({'status': 'error', 'message': 'You are accessing a task not belonging to your organization'}), 400
+        
+        # Get the new status from the request body
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if not new_status:
+            return jsonify({'status': 'error', 'message': 'Status is required'}), 400
+        
+        # Update the task status
+        celerytaskinfo_ops.update_task_status(task_id=taskid, status=new_status, session=session)
+        
+        return jsonify({'status': 'success', 'message': 'Task status updated successfully'}), 200
+    
+    except Exception as e:
+        session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    finally:
+        session.close()
 
 @app.route('/api')
 def home():
@@ -873,8 +908,10 @@ def update_network_file(file_id):
 
         session.commit()
 
-        # if name_or_type_changed:
-        #     process_data.apply_async(args=[file.folder_id, 4])
+        if name_or_type_changed:
+            userVal = user_ops.get_user_with_id(identity['id'], session=session)
+            result = process_data.apply_async(args=[file.folder_id, 4])
+            celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation="Update Filename", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
         return jsonify({'status': 'success', 'message': 'File and its KML data updated successfully'}), 200
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401

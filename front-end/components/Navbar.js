@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
@@ -34,6 +34,7 @@ import Swal from "sweetalert2";
 import { useFolder } from "../contexts/FolderContext.js";
 import { useGridLogger } from "@mui/x-data-grid";
 import TaskInfo from "./TaskInfo.js";
+import ReloadMapContext from "../contexts/ReloadMapContext.js";
 
 
 
@@ -102,9 +103,11 @@ export default function Navbar({
   const { isEditingMap, setEditingMap } = React.useContext(EditMapContext);
   const { folderID, setFolderID } = useFolder();
 
+  const { setShouldReloadMap } = useContext(ReloadMapContext);
 
   const handleEditToolClick = () => {
     setEditingMap(!isEditingMap); // <-- toggle isEditing state
+    setShouldReloadMap(true);
   };
 
   function useLocalStorage(key, initialValue) {
@@ -317,7 +320,6 @@ export default function Navbar({
       console.error("Fetching user info error:", error);
       setUsername(null); // Clear the username state variable
       localStorage.removeItem("username");
-      Swal.fire('Error', 'Error fetching profile info', 'error');
 
     }
   };

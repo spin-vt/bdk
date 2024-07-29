@@ -14,6 +14,7 @@ import {useFolder} from "../contexts/FolderContext.js";
 import Swal from "sweetalert2";
 import { backend_url } from "../utils/settings";
 import EditLayerVisibilityContext from "../contexts/EditLayerVisibilityContext.js";
+import ReloadMapContext from '../contexts/ReloadMapContext';
 
 const StyledBaseMapIconButton = styled(IconButton)({
   width: "33px",
@@ -64,6 +65,8 @@ function Map() {
   const [selectedBaseMap, setSelectedBaseMap] = useState("STREETS");
 
   const [basemapAnchorEl, setBasemapAnchorEl] = useState(null);
+
+  const { shouldReloadMap, setShouldReloadMap } = useContext(ReloadMapContext);
 
   const handleBasemapMenuOpen = (event) => {
     setBasemapAnchorEl(event.currentTarget);
@@ -617,6 +620,9 @@ function Map() {
   }, []);
 
   useEffect(() => {
+    if (!shouldReloadMap) {
+      return;
+    }
     const initialStyle = baseMaps[selectedBaseMap];
     console.log(initialStyle);
     // Get current zoom level and center
@@ -652,9 +658,11 @@ function Map() {
     const handleBaseMapChange = () => {
       removeVectorTiles();
       addVectorTiles();
+      setShouldReloadMap(false);
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap, folderID]);
+    
+  }, [selectedBaseMap, folderID, shouldReloadMap]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);

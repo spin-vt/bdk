@@ -19,6 +19,7 @@ import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
 import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
 import { useFolder } from "../contexts/FolderContext.js";
 import { Typography, Checkbox, Box, Paper, Button } from '@mui/material';
+import ReloadMapContext from "../contexts/ReloadMapContext.js";
 
 
 const StyledBaseMapIconButton = styled(IconButton)({
@@ -61,7 +62,7 @@ function Editmap() {
 
   const [combinationToColorMap, setCombinationToColorMap] = useState({});
   const [combinationToPoints, setCombinationToPoints] = useState({});
-
+  const { shouldReloadMap, setShouldReloadMap } = useContext(ReloadMapContext);
 
   const [selectedPolygonFeature, setSelectedPolygonFeature] = useState(null);
 
@@ -477,6 +478,9 @@ function Editmap() {
   };
 
   useEffect(() => {
+    if (!shouldReloadMap) {
+      return;
+    }
     const initialStyle = baseMaps[selectedBaseMap];
     // Get current zoom level and center
     let currentZoom = 4;
@@ -538,9 +542,11 @@ function Editmap() {
     const handleBaseMapChange = () => {
       removeVectorTiles();
       addVectorTiles();
+      setShouldReloadMap(false);
     };
     map.current.on("load", handleBaseMapChange);
-  }, [selectedBaseMap, folderID]);
+    
+  }, [selectedBaseMap, folderID, shouldReloadMap]);
 
   const { location } = useContext(SelectedLocationContext);
   const distinctMarkerRef = useRef(null);
