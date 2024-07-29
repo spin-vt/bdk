@@ -12,7 +12,7 @@ import LayerVisibilityContext from "../contexts/LayerVisibilityContext";
 
 import {useFolder} from "../contexts/FolderContext.js";
 import Swal from "sweetalert2";
-import { backend_url } from "../utils/settings";
+import { backend_url, maptile_street, maptile_satelite, maptile_dark } from "../utils/settings";
 import EditLayerVisibilityContext from "../contexts/EditLayerVisibilityContext.js";
 import ReloadMapContext from '../contexts/ReloadMapContext';
 
@@ -55,11 +55,9 @@ function Map() {
   const router = useRouter();
 
   const baseMaps = {
-    STREETS:
-      "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
-    SATELLITE:
-      "https://api.maptiler.com/maps/satellite/style.json?key=QE9g8fJij2HMMqWYaZlN",
-    DARK: "https://api.maptiler.com/maps/backdrop-dark/style.json?key=QE9g8fJij2HMMqWYaZlN",
+    STREETS: maptile_street,
+    SATELLITE: maptile_satelite,
+    DARK: maptile_dark,
   };
 
   const [selectedBaseMap, setSelectedBaseMap] = useState("STREETS");
@@ -79,6 +77,7 @@ function Map() {
   const handleBaseMapToggle = (baseMapName) => {
     console.log(baseMapName);
     setSelectedBaseMap(baseMapName);
+    setShouldReloadMap(true);
     setBasemapAnchorEl(null);
   };
 
@@ -106,6 +105,7 @@ function Map() {
       const data = await response.json();
   
       setFolderID(data); // Set the maximum folder_id as the default
+      setShouldReloadMap(true);
     } catch (error) {
       console.error("Error fetching folders:", error);
     }

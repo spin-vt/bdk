@@ -4,7 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Menu, IconButton, MenuItem } from '@mui/material';
 import LayersIcon from "@mui/icons-material/Layers";
 import SelectedLocationContext from '../contexts/SelectedLocationContext'
-import { backend_url } from "../utils/settings";
+import { backend_url, maptile_street, maptile_satelite, maptile_dark } from "../utils/settings";
 import { styled } from "@mui/material/styles";
 
 const StyledBaseMapIconButton = styled(IconButton)({
@@ -29,11 +29,9 @@ function Minimap({ id }) {
     const mapContainer = useRef(null);
     const map = useRef(null);
     const baseMaps = {
-        STREETS:
-            "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
-        SATELLITE:
-            "https://api.maptiler.com/maps/satellite/style.json?key=QE9g8fJij2HMMqWYaZlN",
-        DARK: "https://api.maptiler.com/maps/backdrop-dark/style.json?key=QE9g8fJij2HMMqWYaZlN",
+        STREETS: maptile_street,
+        SATELLITE: maptile_satelite,
+        DARK: maptile_dark,
     };
 
     const [selectedBaseMap, setSelectedBaseMap] = useState("STREETS");
@@ -119,8 +117,8 @@ function Minimap({ id }) {
             filter: [
                 "all",
                 ["any", // Use the "any" logical operator
-                  ["==", ["get", "feature_type"], "Polygon"],
-                  ["==", ["get", "feature_type"], "MultiPolygon"]
+                    ["==", ["get", "feature_type"], "Polygon"],
+                    ["==", ["get", "feature_type"], "MultiPolygon"]
                 ],
             ], // Only apply this layer to polygons
             "source-layer": "data",

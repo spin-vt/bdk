@@ -14,7 +14,7 @@ import { IconButton, Menu, MenuItem } from '@mui/material';
 import SmallLoadingEffect from "./SmallLoadingEffect";
 import { useRouter } from "next/router";
 import Swal from 'sweetalert2';
-import { backend_url } from "../utils/settings";
+import { backend_url, maptile_street, maptile_satelite, maptile_dark } from "../utils/settings";
 import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
 import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.js";
 import { useFolder } from "../contexts/FolderContext.js";
@@ -73,11 +73,9 @@ function Editmap() {
   const currentPopup = useRef(null);
 
   const baseMaps = {
-    STREETS:
-      "https://api.maptiler.com/maps/streets/style.json?key=QE9g8fJij2HMMqWYaZlN",
-    SATELLITE:
-      "https://api.maptiler.com/maps/satellite/style.json?key=QE9g8fJij2HMMqWYaZlN",
-    DARK: "https://api.maptiler.com/maps/backdrop-dark/style.json?key=QE9g8fJij2HMMqWYaZlN",
+    STREETS: maptile_street,
+    SATELLITE: maptile_satelite,
+    DARK: maptile_dark,
   };
 
   const [selectedBaseMap, setSelectedBaseMap] = useState("STREETS");
@@ -95,6 +93,7 @@ function Editmap() {
   const handleBaseMapToggle = (baseMapName) => {
     console.log(baseMapName);
     setSelectedBaseMap(baseMapName);
+    setShouldReloadMap(true);
     setBasemapAnchorEl(null);
   };
 

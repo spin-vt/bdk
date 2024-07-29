@@ -23,9 +23,12 @@ def get_celerytasksinfo_for_org(orgid, session):
                 'task_id': task.task_id,
                 'status': task.status,
                 'result': task.result,
-                'operation': task.operation,
-                'user': task.user.email if task.user else None,
-                'start_time': task.start_time
+                'operation_type': task.operation_type,
+                'operation_detail': task.operation_detail,
+                'user_email': task.user_email,
+                'start_time': task.start_time,
+                'folder_deadline': task.folder_deadline.strftime('%Y-%m'),
+                'files_changed': task.files_changed
             }
             if task.status in ['PENDING', 'STARTED', 'RETRY']:  # Adjust statuses as per your Celery setup
                 in_progress_tasks.append(task_info)
@@ -48,7 +51,7 @@ def get_estimated_runtime_for_task(task_id, session):
 
         # Fetch the last 5 finished tasks of the same operation
         recent_tasks = session.query(celerytaskinfo.runtime).filter(
-            celerytaskinfo.operation == task.operation,
+            celerytaskinfo.operationtype == task.operationtype,
             celerytaskinfo.status == 'SUCCESS',
             celerytaskinfo.runtime.isnot(None)
         ).order_by(celerytaskinfo.start_time.desc()).limit(5).all()
@@ -77,7 +80,7 @@ def update_task_status(task_id, status, session):
         logger.error(e)
         session.rollback()
 
-def create_celery_taskinfo(task_id, status, operation, user_id, organization_id, session, result=None):
+def create_celery_taskinfo(task_id, status, operation_type, operation_detail, user_email, organization_id, folder_deadline, session, files_changed=None, result=None):
     """
     Helper function to create a new celery task info entry.
 
@@ -94,11 +97,14 @@ def create_celery_taskinfo(task_id, status, operation, user_id, organization_id,
         task_info = celerytaskinfo(
             task_id=task_id,
             status=status,
-            operation=operation,
+            operation_type=operation_type,
+            operation_detail=operation_detail,
             start_time=datetime.now(),
-            user_id=user_id,
+            user_email=user_email,
             organization_id=organization_id,
-            result=result
+            result=result,
+            folder_deadline=folder_deadline,
+            files_changed=files_changed
         )
 
         session.add(task_info)

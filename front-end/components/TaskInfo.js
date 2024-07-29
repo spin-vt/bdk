@@ -8,7 +8,7 @@ import { backend_url } from "../utils/settings";
 import FetchTaskInfoContext from '../contexts/FetchTaskInfoContext';
 import DoneIcon from '@mui/icons-material/Done';
 import ErrorIcon from '@mui/icons-material/Error';
-import { green, red, grey } from '@mui/material/colors';
+import { grey, green, red, blue, purple, orange } from '@mui/material/colors';
 import ReloadMapContext from '../contexts/ReloadMapContext';
 
 const useFetchTaskInfo = (shouldFetchTaskInfo, setShouldFetchTaskInfo, setShouldReloadMap) => {
@@ -135,7 +135,7 @@ const TaskInfo = () => {
                 <ListItemText
                     primary={
                         <Box component="span">
-                            <strong>{task.user}</strong> initiate <strong>{task.operation}</strong> operation at <strong>{task.start_time}</strong>
+                            <strong>{task.user_email}</strong> initiate <strong>{task.operation_detail}</strong> at <strong>{task.start_time}</strong>
                             {estimatedRuntime && (task.status === 'PENDING' || task.status === 'STARTED' || task.status === 'RETRY') ? (
                                 <Box display="flex" alignItems="center">
                                     <CircularProgress
@@ -148,6 +148,12 @@ const TaskInfo = () => {
                                     </Typography>
                                 </Box>
                             ) : null}
+                        </Box>
+                    }
+                    secondary={
+                        <Box component="span">
+                            <strong>Deadline of Filing Modified:</strong> {task.folder_deadline}<br />
+                            <strong>Files Changed:</strong> {task.files_changed ? task.files_changed : 'None'}
                         </Box>
                     }
 
@@ -212,9 +218,16 @@ const TaskInfo = () => {
                                 <ListItemText
                                     primary={
                                         <Box component="span">
-                                            <strong>{task.user}</strong> initiate <strong>{task.operation}</strong> operation at <strong>{task.start_time}</strong>
+                                            <Box component="span" sx={{ color: blue[700] }}>{task.user_email}</Box> <Box component="span" sx={{ color: purple[700] }}>{task.operation_detail}</Box>
                                             {task.status === 'SUCCESS' && <DoneIcon sx={{ color: green[500], ml: 1 }} />}
                                             {task.status === 'FAILURE' && <ErrorIcon sx={{ color: red[500], ml: 1 }} />}
+                                        </Box>
+                                    }
+                                    secondary={
+                                        <Box component="span">
+                                            <strong>Deadline of Filing Modified:</strong> {task.folder_deadline}<br />
+                                            <strong>Files Changed:</strong> {task.files_changed ? task.files_changed : 'None'} <br />
+                                            <strong>Timestamp:</strong> {task.start_time}
                                         </Box>
                                     }
                                 />

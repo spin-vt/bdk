@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { format } from "date-fns";
 import { backend_url } from "../utils/settings";
 import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext";
+import ReloadMapContext from "../contexts/ReloadMapContext";
 
 
 
@@ -65,6 +66,8 @@ export default function Upload() {
 
     const allowedExtensions = ["kml", "geojson", "csv"];
     const { setShouldFetchTaskInfo } = React.useContext(FetchTaskInfoContext);
+
+    const { setShouldReloadMap } = React.useContext(ReloadMapContext);
 
     const fetchFiles = async (folderId, importFolderId) => {
         let folderToFetch = folderId;
@@ -160,6 +163,7 @@ export default function Upload() {
             }
         }
         setFolderID(newFolderID);
+        setShouldReloadMap(true);
     };
 
     const handleImportChange = (event) => {

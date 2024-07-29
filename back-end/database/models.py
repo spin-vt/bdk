@@ -26,7 +26,6 @@ class user(Base):
     verified = Column(Boolean, default=False)
     organization_id = Column(Integer, ForeignKey('organization.id'))
     organization = relationship('organization', back_populates='users')
-    celerytasksinfo = relationship('celerytaskinfo', back_populates='user')
 
     
 class celerytaskinfo(Base):
@@ -36,11 +35,13 @@ class celerytaskinfo(Base):
     task_id = Column(String(36), nullable=False)
     status = Column(String(20), nullable=False)
     result = Column(String, nullable=True)
-    operation = Column(String, nullable=False)
+    operation_type = Column(String, nullable=False)
+    operation_detail = Column(String, nullable=True)
     start_time = Column(DateTime)
     runtime = Column(Float, nullable=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    user = relationship('user', back_populates='celerytasksinfo')
+    user_email = Column(String, nullable=False)
+    folder_deadline = Column(Date)
+    files_changed = Column(String, nullable=True)
     organization_id = Column(Integer, ForeignKey('organization.id'))
     organization = relationship('organization', back_populates='celerytasksinfo')
 

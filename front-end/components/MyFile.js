@@ -38,6 +38,7 @@ import EditLayerVisibilityContext from "../contexts/EditLayerVisibilityContext.j
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext.js";
+import ReloadMapContext from "../contexts/ReloadMapContext.js";
 
 
 const StyledContainer = styled(Container)(({ }) => ({
@@ -150,6 +151,8 @@ const MyFile = () => {
 
   const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
 
+  const { setShouldReloadMap } = useContext(ReloadMapContext);
+
   const router = useRouter();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -180,6 +183,7 @@ const MyFile = () => {
       if (data.status === "success") {
         toast.success("Filing deleted successfully");
         setFolderID(-1);
+        setShouldReloadMap(true);
         setFolders((prevFolders) => prevFolders.filter(folder => folder.folder_id !== folderID));
       }
       else {
@@ -354,6 +358,7 @@ const MyFile = () => {
 
   const handleDeadlineSelect = (newFolderID) => {
     setFolderID(newFolderID);
+    setShouldReloadMap(true);
   }
 
 

@@ -17,6 +17,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import {useFolder} from "../contexts/FolderContext.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ReloadMapContext from "../contexts/ReloadMapContext.js";
 
 
 const Minimap = dynamic(
@@ -67,7 +68,7 @@ const PreviousExport = () => {
 
   const {folderID, setFolderID} = useFolder();
 
-
+  const { setShouldReloadMap } = useContext(ReloadMapContext);
   const fetchExportedFiles = async () => {
     try {
       const response = await fetch(`${backend_url}/api/export`, {
@@ -202,6 +203,7 @@ const PreviousExport = () => {
     const file = filesByPeriod[period][fileIndex];
     setFolderID(file.folder_id);
     setEditingMap(true);
+    setShouldReloadMap(true);
     router.push("/");
   };
 

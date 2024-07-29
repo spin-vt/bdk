@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useContext } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { styled } from "@mui/material/styles";
-import { backend_url } from "../utils/settings";
+import { backend_url, maptile_street, maptile_satelite, maptile_dark } from "../utils/settings";
 import {
   Box,
   Button,
@@ -60,7 +60,7 @@ const WirelessCoveragemap = ({ imageUrl, transparentImageUrl, bounds, formData, 
   useEffect(() => {
     mapRef.current = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: 'https://api.maptiler.com/maps/satellite/style.json?key=QE9g8fJij2HMMqWYaZlN',
+      style: maptile_satelite,
       center: [(bounds.east + bounds.west) / 2, (bounds.north + bounds.south) / 2],
       zoom: 4, // Adjust the zoom level appropriately
       transformRequest: (url) => {

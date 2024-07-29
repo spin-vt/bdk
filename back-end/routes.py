@@ -69,7 +69,6 @@ def submit_data(folderid):
         identity = get_jwt_identity()
         folderid = int(folderid)
         
-
         if 'file' not in request.files:
             return jsonify({'status': "error", 'message': "no file uploaded"}), 400
 
@@ -77,8 +76,9 @@ def submit_data(folderid):
         if len(files) <= 0:
             return jsonify({'status': "error", 'message': "no file uploaded"}), 400
 
+        operation_detail = "Added more files to a filing"
         file_data_list = request.form.getlist('fileData')
-
+        filenames = []
         for file_data_str in file_data_list:
             try:
                 file_data = json.loads(file_data_str)  # Decode JSON string to Python dictionary
@@ -98,6 +98,8 @@ def submit_data(folderid):
                         techType = int(file_data['techType'])
                     except (ValueError, KeyError):
                         return jsonify({'status': 'error', 'message': "Please enter valid values for latency and techTypes"}), 400
+                
+                filenames.append(file_data['name'])  # Collect the filename
             except json.JSONDecodeError:
                 return jsonify({'status': 'error', 'message': "Invalid JSON format in file data"}), 400
 
@@ -127,10 +129,13 @@ def submit_data(folderid):
                 # Asynchronous copy and create new folder with deadline
                 logger.info("In operation 3 of upload: create a new filing by importing from previous filings")
                 task_chain = chain(
-                    async_folder_copy_for_import.s(import_folder_id, deadline),
+                    async_folder_copy_for_import.s(import_folder_id, deadline_date),
                     add_files_to_folder.s(file_contents=file_contents),
                     process_data.s(operation=3)
                 )
+
+                import_folderval = folder_ops.get_folder_with_id(import_folder_id, session=session)
+                operation_detail = f"Create a new Filing by importing from filing with deadline {import_folderval.deadline.strftime('%Y-%m')}"
                 
             else:
                 # Create new folder with deadline
@@ -143,6 +148,8 @@ def submit_data(folderid):
                     add_files_to_folder.s(folderVal.id, file_contents),
                     process_data.si(folderid=folderVal.id, operation=2)
                 )
+
+                operation_detail = f"Create a new filing"
             
         else:
             logger.info("In operation 1 of upload: adding more files to a filing")
@@ -153,9 +160,18 @@ def submit_data(folderid):
                 process_data.si(folderid=folderid, operation=1)
             )
 
+            operation_detail = "Add more files to a filing"
+
         result = task_chain.apply_async()
 
-        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation="Upload", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
+        if folderid != -1:
+            deadline = folderVal.deadline
+        else:
+            deadline_str = request.form.get('deadline')
+            deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date()
+
+        concatenated_filenames = ", ".join(filenames)
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Upload", operation_detail=operation_detail, user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=deadline, session=session, files_changed=concatenated_filenames)
         return jsonify({'status': "success", 'task_id': result.id}), 200 # return task id to the client
     
         
@@ -725,12 +741,19 @@ def toggle_markers():
                 return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
         session.close()
 
+        folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
 
-        task = toggle_tiles.apply_async(args=[markers, folderid, polygonfeatures])
-        celerytaskinfo_ops.create_celery_taskinfo(task_id=task.task_id, status='PENDING', operation="Edit", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
-        return jsonify({'status': "success", 'task_id': task.id}), 200
+        result = toggle_tiles.apply_async(args=[markers, folderid, polygonfeatures])
+
+        ## Fix this after front end fix for edit file
+        concatenated_filenames = ""
+
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Edit", operation_detail="Edit a filing", user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=folderVal.deadline, session=session, files_changed=concatenated_filenames)
+        return jsonify({'status': "success"}), 200
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
+    finally:
+        session.close()
 
 
 @app.route('/api/files', methods=['GET'])
@@ -925,7 +948,8 @@ def update_network_file(file_id):
         if name_or_type_changed:
             userVal = user_ops.get_user_with_id(identity['id'], session=session)
             result = process_data.apply_async(args=[file.folder_id, 4])
-            celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation="Update Filename", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
+            folderVal = folder_ops.get_folder_with_id(folderid=file.folder_id, session=session)
+            celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Update", operation_detail="Update filename or filetype in a filing", user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=folderVal.deadline, session=session, files_changed=file.name)
         return jsonify({'status': 'success', 'message': 'File and its KML data updated successfully'}), 200
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
@@ -971,26 +995,41 @@ def delete_files():
             if not editfile_ops.editfile_belongs_to_organization(file_id=editfileid, user_id=identity['id'], session=session):
                 session.close()
                 return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
-            
+        
+        filenames = []
         if file_ids:
             fileVal = file_ops.get_file_with_id(fileid=file_ids[0], session=session)
             folderid = fileVal.folder_id
+
+            for fileid in file_ids:
+                fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
+                filenames.append(fileVal.name)
+
         else:
             editfileVal = editfile_ops.get_editfile_with_id(fileid=editfile_ids[0], session=session)
             folderid = editfileVal.folder_id
+
+            for editfileid in editfile_ids:
+                fileVal = editfile_ops.get_editfile_with_id(fileid=editfileid, session=session)
+                filenames.append(fileVal.name)
         
-        session.close()
+        folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
+        deadline = folderVal.deadline
+        concatenated_filenames = ", ".join(filenames)
+        
 
         logger.info(f"folderid in delete files {folderid}")
         task_chain = chain(
-                    async_delete_files.s(file_ids=file_ids, editfile_ids=editfile_ids),
-                    process_data.si(folderid=folderid, operation=4)
+            async_delete_files.s(file_ids=file_ids, editfile_ids=editfile_ids),
+            process_data.si(folderid=folderid, operation=4)
         )
         result = task_chain.apply_async()
-        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation="Delete", user_id=userVal.id, organization_id=userVal.organization_id, session=session)
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Delete", operation_detail="Delete files in a filing", user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=deadline, session=session, files_changed=concatenated_filenames)
         return jsonify({'status': "success", 'task_id': result.id}), 200 # return task id to the client
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
+    finally:
+        session.close()
 
     
 @app.route('/api/export', methods=['GET'])
@@ -1051,9 +1090,11 @@ def delete_export(fileid):
         fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
         userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
         
-        task = async_folder_delete.apply_async(args=[fileVal.folder_id])
-        celerytaskinfo_ops.create_celery_taskinfo(task_id=task.id, status='PENDING', operation='Delete Export Snapshot', user_id=userVal.id, organization_id=userVal.organization_id, session=session)
-        return jsonify({'status': "success", 'task_id': task.id}), 200 
+        folderVal = folder_ops.get_folder_with_id(fileVal.folder_id, session=session)
+        deadline = folderVal.deadline
+        result = async_folder_delete.apply_async(args=[fileVal.folder_id])
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Delete", operation_detail="Delete a filing export snapshot", user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=deadline, session=session)
+        return jsonify({'status': "success"}), 200 
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
@@ -1071,9 +1112,10 @@ def delete_filing():
             return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
 
         userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
-        
-        task = async_folder_delete.apply_async(args=[folderid])
-        celerytaskinfo_ops.create_celery_taskinfo(task_id=task.id, status='PENDING', operation='Delete Filing', user_id=userVal.id, organization_id=userVal.organization_id, session=session)
+        folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
+        deadline = folderVal.deadline
+        result = async_folder_delete.apply_async(args=[folderid])
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Delete", operation_detail="Delete a filing", user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=deadline, session=session)
         return jsonify({'status': "success"}), 200 
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401

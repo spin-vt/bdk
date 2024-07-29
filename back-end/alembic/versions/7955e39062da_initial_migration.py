@@ -1,8 +1,8 @@
 """Initial migration
 
-Revision ID: b7c028b5a36a
+Revision ID: 7955e39062da
 Revises: 
-Create Date: 2024-07-28 20:56:24.480788
+Create Date: 2024-07-29 20:47:23.527591
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'b7c028b5a36a'
+revision = '7955e39062da'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -67,6 +67,22 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
+    op.create_table('celerytaskinfo',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('task_id', sa.String(length=36), nullable=False),
+    sa.Column('status', sa.String(length=20), nullable=False),
+    sa.Column('result', sa.String(), nullable=True),
+    sa.Column('operation_type', sa.String(), nullable=False),
+    sa.Column('operation_detail', sa.String(), nullable=True),
+    sa.Column('start_time', sa.DateTime(), nullable=True),
+    sa.Column('runtime', sa.Float(), nullable=True),
+    sa.Column('user_email', sa.String(), nullable=False),
+    sa.Column('folder_deadline', sa.Date(), nullable=True),
+    sa.Column('files_changed', sa.String(), nullable=True),
+    sa.Column('organization_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['organization_id'], ['organization.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('folder',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
@@ -93,20 +109,6 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['organization_id'], ['organization.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')
-    )
-    op.create_table('celerytaskinfo',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('task_id', sa.String(length=36), nullable=False),
-    sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('result', sa.String(), nullable=True),
-    sa.Column('operation', sa.String(), nullable=False),
-    sa.Column('start_time', sa.DateTime(), nullable=True),
-    sa.Column('runtime', sa.Float(), nullable=True),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('organization_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['organization_id'], ['organization.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
-    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('editfile',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -244,10 +246,10 @@ def downgrade() -> None:
     op.drop_table('mbtiles')
     op.drop_table('file')
     op.drop_table('editfile')
-    op.drop_table('celerytaskinfo')
     op.drop_table('user')
     op.drop_table('tower')
     op.drop_table('folder')
+    op.drop_table('celerytaskinfo')
     op.drop_table('organization')
     op.drop_table('fabric_data_temp')
     op.drop_table('challenge_locations')
