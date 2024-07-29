@@ -82,6 +82,10 @@ def submit_data(folderid):
         for file_data_str in file_data_list:
             try:
                 file_data = json.loads(file_data_str)  # Decode JSON string to Python dictionary
+                filename, file_extension = os.path.splitext(file_data['name'])
+                if file_extension not in ['.csv', '.kml', '.geojson']:
+                    return jsonify({'status': 'error', 'message': "Invalid file extension. Allowed extensions are .csv, .kml, and .geojson"}), 400
+                
                 if not file_data['name'].endswith('.csv'):  # Validate speeds only for non-csv files
                     try:
                         # Parse speeds as integers
@@ -837,10 +841,10 @@ def get_network_files(folder_id):
         files = file_ops.get_all_network_files_for_fileinfoedit_table(folder_id, session)
         files_data = []
         for file in files:
-            
+            filename_without_extension = os.path.splitext(file.name)[0]
             file_info = {
                 'id': file.id,
-                'name': file.name,
+                'name': filename_without_extension,
                 'type': file.type,
                 'maxDownloadSpeed': file.maxDownloadSpeed,
                 'maxUploadSpeed': file.maxUploadSpeed,
@@ -888,10 +892,20 @@ def update_network_file(file_id):
         
         logger.debug(data)
         lowercase_type = data['type'].lower()
+        if lowercase_type not in ['wired', 'wireless']:
+            return jsonify({'status': 'error', 'message': 'Please select a valid type'}), 400
         name_or_type_changed = False
-        if file.name != data['name'] or file.type != lowercase_type:
+
+        # Separate the filename and extension
+        file_root, file_ext = os.path.splitext(file.name)
+
+        if file_root != data['name'] or file.type != lowercase_type:
             name_or_type_changed = True
-        file.name = data['name']
+
+        # Update the filename while keeping the original extension
+        new_filename = data['name'] + file_ext
+
+        file.name = new_filename
         file.type = lowercase_type
         file.maxDownloadSpeed = data['maxDownloadSpeed']
         file.maxUploadSpeed = data['maxUploadSpeed']
