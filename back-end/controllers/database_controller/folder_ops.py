@@ -140,7 +140,6 @@ def delete_folder(folderid, session=None):
 
     try:
         folder_to_delete = session.query(folder).filter(folder.id == folderid).one()
-        print(f'folder id is {folder_to_delete.id}', flush=True)
         session.delete(folder_to_delete)
         if owns_session:
             session.commit()

@@ -17,7 +17,12 @@ import {
   Select,
   MenuItem,
   Button,
-  Checkbox
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from "@mui/material";
 import Swal from "sweetalert2";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -112,6 +117,26 @@ const IOSSwitch = styled((props) => (
   },
 }));
 
+const DeleteConfirmationDialog = ({ open, onClose, onConfirm }) => (
+  <Dialog
+    open={open}
+    onClose={onClose}
+    aria-labelledby="delete-confirmation-dialog-title"
+    aria-describedby="delete-confirmation-dialog-description"
+  >
+    <DialogTitle id="delete-confirmation-dialog-title">{"Confirm Delete"}</DialogTitle>
+    <DialogContent>
+      <DialogContentText id="delete-confirmation-dialog-description">
+        Are you sure you want to delete the filing? This action cannot be undone.
+      </DialogContentText>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={onClose} color="primary">Cancel</Button>
+      <Button onClick={onConfirm} color="primary" autoFocus>Delete</Button>
+    </DialogActions>
+  </Dialog>
+);
+
 const MyFile = () => {
   const [fabricFiles, setFabricFiles] = useState([]);
   const [networkDataFiles, setNetworkDataFiles] = useState([]);
@@ -126,6 +151,45 @@ const MyFile = () => {
   const { setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
 
   const router = useRouter();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handleDeleteFiling = () => {
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    setDialogOpen(false);
+    try {
+      const response = await fetch(`${backend_url}/api/delfiling`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ folderID }), // Adjust the payload as needed
+        credentials: "include",
+      });
+
+
+      // Assuming the API returns the updated list of files
+      const data = await response.json();
+      if (data.status === "success") {
+        toast.success("Filing deleted successfully");
+        setFolderID(-1);
+        setFolders((prevFolders) => prevFolders.filter(folder => folder.folder_id !== folderID));
+      }
+      else {
+        toast.error(data.message);
+      }
+
+    } catch (error) {
+      toast.error("Error on our end. Please try again later");
+    }
+  };
 
   const handleLocateOnMap = (option) => {
     if (option !== undefined && option !== null) {
@@ -222,7 +286,7 @@ const MyFile = () => {
             ...prevLayers,
             [file.name]: true, // Set the visibility of the layer to true
           }));
-        } 
+        }
       });
     }
   };
@@ -286,7 +350,7 @@ const MyFile = () => {
     fetchEditFiles(folderID);
   }, [folderID]);
 
-  
+
 
   const handleDeadlineSelect = (newFolderID) => {
     setFolderID(newFolderID);
@@ -301,12 +365,12 @@ const MyFile = () => {
       ]
         .filter((file) => file.checked)
         .map((file) => file.id);
-  
+
       const editFileIdsToDelete = manualEditFiles
         .filter((file) => file.checked)
         .map((file) => file.id);
-  
-        
+
+
       if (fileIdsToDelete.length === 0 && editFileIdsToDelete.length === 0) {
         toast.error("Please check the file you want to delete");
         return;
@@ -320,7 +384,7 @@ const MyFile = () => {
         credentials: "include",
         body: JSON.stringify({ file_ids: fileIdsToDelete, editfile_ids: editFileIdsToDelete }),
       });
-  
+
       if (response.status === 401) {
         Swal.fire({
           icon: "error",
@@ -330,9 +394,9 @@ const MyFile = () => {
         router.push("/login");
         return;
       }
-  
+
       const data = await response.json();
-  
+
       if (data.status === "success") {
         toast.success("Your deletion request has been successfully submitted");
         fetchFiles(folderID);
@@ -346,7 +410,7 @@ const MyFile = () => {
       toast.error(error);
     }
   };
-  
+
 
   return (
     <div>
@@ -369,7 +433,7 @@ const MyFile = () => {
             ))}
           </Select>
         </FormControl>
-        <Button variant="contained" color="error" onClick={handleDeleteCheckedFiles} sx={{marginLeft: '30px'}}>
+        <Button variant="contained" color="error" onClick={handleDeleteCheckedFiles} sx={{ marginLeft: '30px' }}>
           Delete Checked Files
         </Button>
         {/* Fabric Files Table */}
@@ -401,7 +465,16 @@ const MyFile = () => {
           handleLocateOnMap={handleLocateOnMap}
           setFiles={setManualEditFiles}
         />
+        <Button variant="contained" color="error" onClick={handleDeleteFiling} sx={{ marginTop: '20px' }}>
+          Delete this Filing
+        </Button>
       </StyledContainer>
+
+      <DeleteConfirmationDialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 };

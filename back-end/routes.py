@@ -22,7 +22,7 @@ from database.sessions import Session
 from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops, celerytaskinfo_ops
 from utils.flask_app import app, mail
 from controllers.celery_controller.celery_config import celery 
-from controllers.celery_controller.celery_tasks import process_data, async_delete_files, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder
+from controllers.celery_controller.celery_tasks import process_data, async_delete_files, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder, async_folder_delete
 from utils.namingschemes import DATETIME_FORMAT, DATE_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
@@ -1047,14 +1047,37 @@ def delete_export(fileid):
         identity = get_jwt_identity()
         if not file_ops.file_belongs_to_organization(file_id=fileid, user_id=identity['id'], session=session):
             return jsonify({'status': 'error', 'message': 'You are accessing a file not belong to your organization'}), 400
-
+        
         fileVal = file_ops.get_file_with_id(fileid=fileid, session=session)
-        folder_ops.delete_folder(folderid=fileVal.folder_id, session=session)
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        
+        task = async_folder_delete.apply_async(args=[fileVal.folder_id])
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=task.id, status='PENDING', operation='Delete Export Snapshot', user_id=userVal.id, organization_id=userVal.organization_id, session=session)
+        return jsonify({'status': "success", 'task_id': task.id}), 200 
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
+    finally:
+        session.close()
+
+@app.route('/api/delfiling', methods=['DELETE'])
+@jwt_required()
+def delete_filing():
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        request_data = request.json
+        folderid = request_data['folderID']
+        if not folder_ops.folder_belongs_to_organization(folder_id=folderid, user_id=identity['id'], session=session):
+            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        
+        task = async_folder_delete.apply_async(args=[folderid])
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=task.id, status='PENDING', operation='Delete Filing', user_id=userVal.id, organization_id=userVal.organization_id, session=session)
         return jsonify({'status': "success"}), 200 
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
     finally:
-        session.commit()
         session.close()
 
 @app.route('/api/compute-wireless-coverage', methods=['POST'])

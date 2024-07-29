@@ -15,6 +15,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import DownloadIcon from '@mui/icons-material/Download';
 import {useFolder} from "../contexts/FolderContext.js";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 
 const Minimap = dynamic(
@@ -145,20 +147,18 @@ const PreviousExport = () => {
         credentials: 'include',
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete report');
-      }
+      const data = await response.json();
+      if (data.status === "success") {
 
       const newFilesByPeriod = { ...filesByPeriod };
       newFilesByPeriod[period].splice(fileIndex, 1);
       setFilesByPeriod(newFilesByPeriod);
+      }
+      else {
+        toast.error(data.message);
+      }
     } catch (error) {
-      console.error(error);
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Failed to delete the report. Please try again.'
-      });
+      toast.error("Error on server side, please try again later");
     }
   };
 
@@ -215,6 +215,7 @@ const PreviousExport = () => {
   return (
     <div>
       <Navbar />
+      <ToastContainer />
       <StyledContainer component="main" maxWidth="md">
         <HeaderText component="h1" variant="h5">
           Your Previous Exported Filings

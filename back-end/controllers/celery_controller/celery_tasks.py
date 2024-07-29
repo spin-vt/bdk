@@ -263,6 +263,20 @@ def async_folder_copy_for_import(self, folderid, deadline):
         session.close()  # Ensure session is closed even if there's an exception
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def async_folder_delete(self, folderid):
+    try:
+        session = Session()
+        folder_to_delete = folder_ops.get_folder_with_id(folderid=folderid, session=session)
+        session.delete(folder_to_delete)
+        session.commit()
+    except Exception as e:
+        session.rollback()  # Rollback any changes if there's an exception
+        raise e
+    finally:
+        session.close()
+
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def run_signalserver(self, command, outfile_name, tower_id, data):
     session = Session()
     try:

@@ -89,7 +89,7 @@ const TaskInfo = () => {
     const { shouldFetchTaskInfo, setShouldFetchTaskInfo } = useContext(FetchTaskInfoContext);
     const { setShouldReloadMap } = useContext(ReloadMapContext);
     const { inProgressTasks, finishedTasks } = useFetchTaskInfo(shouldFetchTaskInfo, setShouldFetchTaskInfo, setShouldReloadMap);
-    
+
 
     useEffect(() => {
         const intervalId = setInterval(() => {
@@ -136,23 +136,21 @@ const TaskInfo = () => {
                     primary={
                         <Box component="span">
                             <strong>{task.user}</strong> initiate <strong>{task.operation}</strong> operation at <strong>{task.start_time}</strong>
-                            {statusIcon}
+                            {estimatedRuntime && (task.status === 'PENDING' || task.status === 'STARTED' || task.status === 'RETRY') ? (
+                                <Box display="flex" alignItems="center">
+                                    <CircularProgress
+                                        variant="determinate"
+                                        value={(elapsedTime / estimatedRuntime) * 100}
+                                        size={24}
+                                    />
+                                    <Typography variant="body2" sx={{ ml: 1 }}>
+                                        {Math.round((elapsedTime / estimatedRuntime) * 100)}%
+                                    </Typography>
+                                </Box>
+                            ) : null}
                         </Box>
                     }
-                    secondary={
-                        estimatedRuntime && (task.status === 'PENDING' || task.status === 'STARTED' || task.status === 'RETRY') ? (
-                            <Box display="flex" alignItems="center">
-                                <CircularProgress
-                                    variant="determinate"
-                                    value={(elapsedTime / estimatedRuntime) * 100}
-                                    size={24}
-                                />
-                                <Typography variant="body2" sx={{ ml: 1 }}>
-                                    {Math.round((elapsedTime / estimatedRuntime) * 100)}%
-                                </Typography>
-                            </Box>
-                        ) : null
-                    }
+
                 />
             </ListItem>
         );
