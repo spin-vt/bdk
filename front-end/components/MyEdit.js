@@ -32,16 +32,6 @@ import "react-toastify/dist/ReactToastify.css";
 import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext.js";
 
 
-const HeaderText = styled(Typography)({
-    marginBottom: "20px",
-    marginTop: "20px",
-});
-
-
-const StyledTable = styled(Table)({
-    minWidth: 650,
-});
-
 const StyledContainer = styled(Container)({
     zIndex: 1000,
     position: "relative",
@@ -167,16 +157,15 @@ const MyEdit = () => {
                     handleUndoPolygonEdit={handleUndoPolygonEdit}
                     handleLocateOnMap={handleLocateOnMap}
                 />
-            </StyledContainer>
-            <div style={{ marginTop: '20px', marginLeft: '20px' }}>
                 <Button
                     variant="contained"
                     color="primary"
                     onClick={toggleMarkers}
+                    sx={{ marginTop: '20px' }}
                 >
                     Submit Changes
                 </Button>
-            </div>
+            </StyledContainer>
         </div>
 
     );
