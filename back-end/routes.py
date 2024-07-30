@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import shortuuid
 from celery.result import AsyncResult
 from celery import chain
-from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port, frontend_url
+from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
 from database.sessions import Session
 from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops, celerytaskinfo_ops
 from utils.flask_app import app, mail
@@ -1455,9 +1455,9 @@ def update_profile():
         identity = get_jwt_identity()
         data = request.get_json()
         provider_id = data.get('providerId')
-        brand_name = data.get('brandName')
+        brand_name = str(data.get('brandName'))
         email = str(data.get('email'))
-        org_name = data.get('organizationName')
+        org_name = str(data.get('organizationName'))
         
         session = Session()
         userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
