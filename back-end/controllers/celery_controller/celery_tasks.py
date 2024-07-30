@@ -148,8 +148,6 @@ def async_delete_files(self, file_ids, editfile_ids):
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def toggle_tiles(self, markers, folderid, polygonfeatures):
-    message = ''
-    status_code = 0
     session = Session()
     try:
         user_folder = folder_ops.get_folder_with_id(folderid=folderid, session=session)

@@ -51,7 +51,7 @@ def get_estimated_runtime_for_task(task_id, session):
 
         # Fetch the last 5 finished tasks of the same operation
         recent_tasks = session.query(celerytaskinfo.runtime).filter(
-            celerytaskinfo.operationtype == task.operationtype,
+            celerytaskinfo.operation_type == task.operation_type,
             celerytaskinfo.status == 'SUCCESS',
             celerytaskinfo.runtime.isnot(None)
         ).order_by(celerytaskinfo.start_time.desc()).limit(5).all()

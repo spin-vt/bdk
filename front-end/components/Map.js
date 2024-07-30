@@ -75,7 +75,6 @@ function Map() {
   };
 
   const handleBaseMapToggle = (baseMapName) => {
-    console.log(baseMapName);
     setSelectedBaseMap(baseMapName);
     setShouldReloadMap(true);
     setBasemapAnchorEl(null);
@@ -244,7 +243,6 @@ function Map() {
     });
 
     Object.keys(allKmlLayerRef.current).forEach((layer) => {
-      console.log(layer);
       map.current.addLayer({
         id: `served-points-${layer}`,
         type: "circle",
@@ -387,7 +385,6 @@ function Map() {
         return response.json();
       })
       .then((data) => {
-        console.log(data);
         addSource();
         function handleSourcedata(e) {
           if (e.sourceId === "custom" && map.current.isSourceLoaded("custom")) {
@@ -538,7 +535,6 @@ function Map() {
         return response.json(); // Get the blob directly from the response
       })
       .then(geoJSONData => {
-        console.log(geoJSONData);
         addGeoJSONLayer(geoJSONData, editfile_id); // Pass the GeoJSON data directly
       })
       .catch((error) => {
@@ -555,8 +551,7 @@ function Map() {
       map.current.removeLayer(`editfile${editfile_id}-layer`);
       map.current.removeSource(`editfile${editfile_id}-layer`);
     }
-    // const geojsonObject = JSON.parse(geojsonData);
-    // console.log(geojsonObject);
+    
     map.current.addSource(`editfile${editfile_id}-layer`, {
       type: 'geojson',
       data: geojsonData
@@ -624,7 +619,6 @@ function Map() {
       return;
     }
     const initialStyle = baseMaps[selectedBaseMap];
-    console.log(initialStyle);
     // Get current zoom level and center
     let currentZoom = 4;
     let currentCenter = [-98.35, 39.5];

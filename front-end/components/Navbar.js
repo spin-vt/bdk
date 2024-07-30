@@ -10,6 +10,7 @@ import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
+import Alert from "@mui/material/Alert"
 import Link from "next/link";
 import { Menu, MenuItem, Modal } from "@mui/material";
 import { useRouter } from "next/router";
@@ -410,7 +411,7 @@ export default function Navbar({
             component="div"
             sx={{ fontWeight: "700", color: "#FFFFFF" }}
           >
-            <Typography variant="h6" sx={{ marginRight: "4vw" }}>
+            <Typography variant="h6" sx={{ marginRight: 10 }}>
               BDK
             </Typography>
           </Link>
@@ -437,8 +438,13 @@ export default function Navbar({
               />
               <Typography sx={{ color: "white" }}>Your Edits</Typography>
             </IconButton>
-          )}
 
+          )}
+          {showOnHome && isEditingMap && (
+           <Alert severity="warning">
+            Please avoid drawing overlapping polygons
+           </Alert>
+          )}
           {/* Potentially show this on edit map view */}
           {showOnHome && !isEditingMap && (
             <IconButton onClick={handleMyFilingOpen}>

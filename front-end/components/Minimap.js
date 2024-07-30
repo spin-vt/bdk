@@ -193,7 +193,6 @@ function Minimap({ id }) {
 
     useEffect(() => {
         const initialStyle = baseMaps[selectedBaseMap];
-        console.log(initialStyle);
         // Get current zoom level and center
         let currentZoom = 4;
         let currentCenter = [-98.35, 39.5];

@@ -127,5 +127,3 @@ def address_query(folderid, query, session):
 
     return results_dict
 
-if __name__ == "__main__":
-    write_to_db("FCC_Active_BSL_12312022_ver1.csv", 1)

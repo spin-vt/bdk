@@ -135,7 +135,7 @@ const TaskInfo = () => {
                 <ListItemText
                     primary={
                         <Box component="span">
-                            <strong>{task.user_email}</strong> initiate <strong>{task.operation_detail}</strong> at <strong>{task.start_time}</strong>
+                            <Box component="span" sx={{ color: blue[700] }}>{task.user_email}</Box> <Box component="span" sx={{ color: purple[700] }}>{task.operation_detail}</Box>
                             {estimatedRuntime && (task.status === 'PENDING' || task.status === 'STARTED' || task.status === 'RETRY') ? (
                                 <Box display="flex" alignItems="center">
                                     <CircularProgress
@@ -153,7 +153,8 @@ const TaskInfo = () => {
                     secondary={
                         <Box component="span">
                             <strong>Deadline of Filing Modified:</strong> {task.folder_deadline}<br />
-                            <strong>Files Changed:</strong> {task.files_changed ? task.files_changed : 'None'}
+                            <strong>Files Changed:</strong> {task.files_changed ? task.files_changed : 'N/A'}<br />
+                            <strong>Timestamp:</strong> {task.start_time}
                         </Box>
                     }
 
@@ -173,7 +174,6 @@ const TaskInfo = () => {
                     aria-label="menu"
                     onClick={() => handleDrawerOpen()}
                 >
-                    <MenuIcon />
                 </IconButton>
                 {inProgressTasks.length > 0 ? (
                     <Alert
@@ -226,7 +226,7 @@ const TaskInfo = () => {
                                     secondary={
                                         <Box component="span">
                                             <strong>Deadline of Filing Modified:</strong> {task.folder_deadline}<br />
-                                            <strong>Files Changed:</strong> {task.files_changed ? task.files_changed : 'None'} <br />
+                                            <strong>Files Changed:</strong> {task.files_changed ? task.files_changed : 'N/A'} <br />
                                             <strong>Timestamp:</strong> {task.start_time}
                                         </Box>
                                     }

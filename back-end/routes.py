@@ -728,7 +728,7 @@ def toggle_markers():
         folderid = request_data['folderid']
         polygonfeatures = request_data['polygonfeatures']
         if folderid == -1:
-            return jsonify({'error': 'Invalid folder id'}), 400
+            return jsonify({'status': 'error', 'message': 'Invalid folder id'}), 400
         
         userVal = user_ops.get_user_with_id(identity['id'], session=session)
 
@@ -737,16 +737,31 @@ def toggle_markers():
         if not userVal.organization_id:
             return jsonify({'status': 'error', 'message': "Create or join an organization to start working on a filing"}), 400
         if not folder_ops.folder_belongs_to_organization(folderid, identity['id'], session):
-                session.close()
-                return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
-        session.close()
+            session.close()
+            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+        
 
         folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
+        
+        # Filter out points where editedFile is empty
+        filtered_markers = []
+        for polygon in markers:
+            filtered_polygon = [point for point in polygon if point['editedFile'] and len(point['editedFile']) > 0]
+            if filtered_polygon:
+                filtered_markers.append(filtered_polygon)
 
-        result = toggle_tiles.apply_async(args=[markers, folderid, polygonfeatures])
 
-        ## Fix this after front end fix for edit file
-        concatenated_filenames = ""
+        if len(filtered_markers) == 0:
+            return jsonify({'status': 'error', 'message': "No valid edits submitted"}), 400
+        
+        # Generate concatenated_filenames
+        all_filenames = set()
+        for polygon in filtered_markers:
+            for point in polygon:
+                all_filenames.update(point['editedFile'])
+        concatenated_filenames = ', '.join(sorted(all_filenames))
+        logger.debug(polygonfeatures)
+        result = toggle_tiles.apply_async(args=[filtered_markers, folderid, polygonfeatures])
 
         celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Edit", operation_detail="Edit a filing", user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=folderVal.deadline, session=session, files_changed=concatenated_filenames)
         return jsonify({'status': "success"}), 200

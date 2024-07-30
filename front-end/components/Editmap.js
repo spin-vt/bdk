@@ -55,18 +55,16 @@ function Editmap() {
   const { selectedPolygonsArea, setSelectedPolygonsArea } = useContext(SelectedPolygonAreaContext);
 
   const { folderID, setFolderID } = useFolder();
-  const colors = ["#a6cee3", "#1f78b4", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a", "#ffff99", "#b15928"];
 
   const colorRed = "#FF0000";
   const colorGreen = "#46DF39";
 
-  const [combinationToColorMap, setCombinationToColorMap] = useState({});
-  const [combinationToPoints, setCombinationToPoints] = useState({});
   const { shouldReloadMap, setShouldReloadMap } = useContext(ReloadMapContext);
 
   const [selectedPolygonFeature, setSelectedPolygonFeature] = useState(null);
 
-  var colorsArrayIndex = 0;
+  const [selectedPointsFileNames, setSelectedPointsFilenames] = useState(new Set());
+  const [selectedPoints, setSelectedPoints] = useState([]);
 
   const router = useRouter();
 
@@ -91,7 +89,6 @@ function Editmap() {
   };
 
   const handleBaseMapToggle = (baseMapName) => {
-    console.log(baseMapName);
     setSelectedBaseMap(baseMapName);
     setShouldReloadMap(true);
     setBasemapAnchorEl(null);
@@ -216,38 +213,6 @@ function Editmap() {
   };
 
 
-  const initializeCombinationToColorMap = (selected) => {
-
-    
-    let combinationToColorMap = {};
-    let combinationToPoints = {};
-    if (selected === undefined || selected.length === 0) {
-      return { combinationToColorMap, combinationToPoints };
-    }
-
-    const allCoverages = new Set();
-    selected.forEach(marker => {
-      marker.coveredBy.forEach(file => allCoverages.add(file));
-    });
-
-    const fullCoverageKey = Array.from(allCoverages).sort().join(", ");
-    combinationToColorMap[fullCoverageKey] = colorRed; // Red for full coverage
-
-    selected.forEach(marker => {
-      const markerCoverageKey = Array.from(marker.coveredBy).sort().join(", ");
-      if (!combinationToColorMap.hasOwnProperty(markerCoverageKey)) {
-        combinationToColorMap[markerCoverageKey] = colors[colorsArrayIndex % colors.length];
-        colorsArrayIndex++;
-      }
-      if (!combinationToPoints[markerCoverageKey]) {
-        combinationToPoints[markerCoverageKey] = [];
-      }
-      combinationToPoints[markerCoverageKey].push(marker);
-    });
-
-    return { combinationToColorMap, combinationToPoints };
-  };
-
 
   const addVectorTiles = () => {
     removeVectorTiles();
@@ -266,7 +231,6 @@ function Editmap() {
 
     map.current.on("draw.create", (event) => {
       const polygon = event.features[0];
-      console.log(polygon);
       // Convert drawn polygon to turf polygon
       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
@@ -274,35 +238,66 @@ function Editmap() {
       let selected = allMarkersRef.current.filter((marker) => {
         const point = turf.point([marker.longitude, marker.latitude]);
         const isInsidePolygon = turf.booleanPointInPolygon(point, turfPolygon);
+        // const coveredByWithoutEdited = new Set([...marker.coveredBy].filter(x => !(marker.editedFile && marker.editedFile.has(x))));
+        // return isInsidePolygon && (coveredByWithoutEdited.size > 0);
         return isInsidePolygon && marker.served;
       });
 
+      if (selected.length === 0) {
+        return;
+      }
 
-      // Assign colors to markers based on their coverage combination
+      // // Collect unique filenames from the selected markers
+      // const filenames = new Set();
+      // selected.forEach((marker) => {
+      //   const coveredByWithoutEdited = new Set([...marker.coveredBy].filter(x => !(marker.editedFile && marker.editedFile.has(x))));
+      //   coveredByWithoutEdited.forEach((filename) => {
+      //     filenames.add(filename);
+      //   });
+      // });
 
+       // Collect unique filenames from the selected markers
+       const filenames = new Set();
+       selected.forEach((marker) => {
+         marker.coveredBy.forEach((filename) => {
+           filenames.add(filename);
+         });
+       });
 
-      const { combinationToColorMap, combinationToPoints } = initializeCombinationToColorMap(selected);
       setSelectedPolygonFeature(polygon);
-      setCombinationToColorMap(combinationToColorMap);
-      setCombinationToPoints(combinationToPoints);
 
-      selected.forEach(marker => {
-        const markerCoverageKey = Array.from(marker.coveredBy).sort().join(", ");
-        const markercolor = combinationToColorMap[markerCoverageKey];
+      if (filenames.size === 1) {
+        selected.forEach(marker => {
+          marker.served = false;
+          marker.color = colorRed;
+          marker.editedFile = new Set(filenames);
+          // Update feature state with the new color
+          if (map.current.getSource("custom")) {
+            map.current.setFeatureState({
+              source: "custom",
+              sourceLayer: "data",
+              id: marker.id,
+            }, {
+              color: colorRed,
+            });
+          }
+        });
 
-        marker.served = false;
-        marker.color = markercolor;
-        // Update feature state with the new color
-        if (map.current.getSource("custom")) {
-          map.current.setFeatureState({
-            source: "custom",
-            sourceLayer: "data",
-            id: marker.id,
-          }, {
-            color: markercolor,
-          });
-        }
-      });
+        const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
+
+        // Prepend the ID to the selected array
+        selected.unshift({ id: polygonId });
+
+        selectedPolygonsRef.current.push(selected);
+        setSelectedPolygons(selectedPolygonsRef.current);
+        setSelectedPolygonsArea((prevAreas) => [
+          ...prevAreas, polygon
+        ]);
+      }
+      else {
+        setSelectedPointsFilenames(filenames);
+        setSelectedPoints(selected);
+      }
 
     });
 
@@ -350,6 +345,7 @@ function Editmap() {
         refPolygon.forEach(marker => {
           marker.served = true;
           marker.editedFile = new Set();
+          marker.color = colorGreen;
           map.current.setFeatureState(
             {
               source: "custom",
@@ -372,6 +368,7 @@ function Editmap() {
           refPolygon.forEach(marker => {
             marker.served = true;
             marker.editedFile = new Set();
+            marker.color = colorGreen;
             map.current.setFeatureState(
               {
                 source: "custom",
@@ -420,60 +417,53 @@ function Editmap() {
   };
 
   const fetchMarkers = () => {
-    if (
-      allMarkersRef.current === undefined ||
-      allMarkersRef.current === null ||
-      allMarkersRef.current.length === 0
-    ) {
-      setIsLoadingForUntimedEffect(true);
-      const url = `${backend_url}/api/served-data/${folderID}`
+
+    setIsLoadingForUntimedEffect(true);
+    const url = `${backend_url}/api/served-data/${folderID}`
 
 
-      return fetch(url, {
-        method: "GET",
-        credentials: "include",
+    return fetch(url, {
+      method: "GET",
+      credentials: "include",
+    })
+      .then((response) => {
+        if (response.status === 401) {
+          Swal.fire({
+            icon: "error",
+            title: "Oops...",
+            text: "Session expired, please log in again!",
+          });
+          // Redirect to login page
+          router.push("/login");
+          setIsLoading(false);
+          return;
+        }
+        else if (response.status === 200) {
+          return response.json();
+        }
       })
-        .then((response) => {
-          if (response.status === 401) {
-            Swal.fire({
-              icon: "error",
-              title: "Oops...",
-              text: "Session expired, please log in again!",
-            });
-            // Redirect to login page
-            router.push("/login");
-            setIsLoading(false);
-            return;
-          }
-          else if (response.status === 200) {
-            return response.json();
-          }
-        })
-        .then((data) => {
-          const newMarkers = data.map((item) => ({
-            address: item.address,
-            id: item.location_id,
-            latitude: item.latitude,
-            longitude: item.longitude,
-            served: item.served,
-            coveredBy: item.coveredLocations ? item.coveredLocations.split(", ").map(filename => filename.trim()) : Set, // Convert string to array and trim whitespace
-            color: item.served ? colorGreen : colorRed,
-            editedFile: new Set()
-          }));
+      .then((data) => {
+        const newMarkers = data.map((item) => ({
+          address: item.address,
+          id: item.location_id,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          served: item.served,
+          coveredBy: item.coveredLocations ? item.coveredLocations.split(", ").map(filename => filename.trim()) : [], // Convert string to array and trim whitespace
+          color: item.served ? colorGreen : colorRed,
+          editedFile: new Set()
+        }));
 
-          setFeatureStateForMarkers(newMarkers);
+        setFeatureStateForMarkers(newMarkers);
 
-          allMarkersRef.current = newMarkers; // Here's the state update
-          setIsLoadingForUntimedEffect(false);
-        })
-        .catch((error) => {
-          console.log(error);
-          setIsLoadingForUntimedEffect(false);
-        });
-    } else {
-      setFeatureStateForMarkers(allMarkersRef.current);
-      return Promise.resolve(); // Returns a resolved Promise
-    }
+        allMarkersRef.current = newMarkers; // Here's the state update
+        setIsLoadingForUntimedEffect(false);
+      })
+      .catch((error) => {
+        console.log(error);
+        setIsLoadingForUntimedEffect(false);
+      });
+
   };
 
   useEffect(() => {
@@ -544,7 +534,7 @@ function Editmap() {
       setShouldReloadMap(false);
     };
     map.current.on("load", handleBaseMapChange);
-    
+
   }, [selectedBaseMap, folderID, shouldReloadMap]);
 
   const { location } = useContext(SelectedLocationContext);
@@ -579,32 +569,25 @@ function Editmap() {
   }, [location]);
 
 
-  const onConfirm = (combinationToPoints, checkedState, polygonFeature) => {
+  const onConfirm = (selectedPoints, checkedState, polygonFeature) => {
 
-    let allPoints = [];
-    Object.values(combinationToPoints).forEach(points => {
-      allPoints.push(...points);
+    const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
+
+    // Update each point's coveredBy attribute based on the current state of checkboxes
+    selectedPoints.forEach(point => {
+      const editedFile = Array.from(point.coveredBy).filter(file => checkedState[file]);
+      point.editedFile = new Set(editedFile);
+
+      if (editedFile.length === point.coveredBy.length) {
+        point.served = false;
+      }
     });
 
-    if (allPoints.length > 0) {
-      const polygonId = `Polygon ${Date.now()}`; // Using current timestamp as an ID
+    const filteredPoints = selectedPoints.filter(point => point.editedFile.size > 0);
 
-      // Update each point's coveredBy attribute based on the current state of checkboxes
-      allPoints.forEach(point => {
-        const editedFile = Array.from(point.coveredBy).filter(file => checkedState[Array.from(point.coveredBy).sort().join(", ")]?.[file]);
-        point.editedFile = new Set(editedFile);
-        // Update feature state on the map for each point
-        map.current.setFeatureState({
-          source: "custom",
-          sourceLayer: "data",
-          id: point.id,
-        }, {
-          color: point.color
-        });
-      });
-
+    if (filteredPoints.length > 0) {
       // Push updated points to your state management system
-      const updatedPoints = [...allPoints];
+      const updatedPoints = [...filteredPoints];
       updatedPoints.unshift({ id: polygonId }); // Include polygon ID in the state update
 
       selectedPolygonsRef.current.push(updatedPoints);
@@ -614,108 +597,139 @@ function Editmap() {
       ]);
     }
 
-
     // Additional logic to update UI or state as needed
-    setCombinationToColorMap({});
+    setSelectedPointsFilenames(new Set());
+    setSelectedPoints([]);
   };
 
-  const onUndo = (combinationToPoints, colorsArrayIndex) => {
+  const onUndo = (selectedPoints) => {
 
-    // Iterate through all points in each combination and reset their states
-    Object.values(combinationToPoints).forEach(points => {
-
-
-      points.forEach(point => {
-        point.served = true;
-        point.color = colorGreen;
-        // Reset the 'served' status and color for each point
-        map.current.setFeatureState({
-          source: "custom",
-          sourceLayer: "data",
-          id: point.id,
-        }, {
-          color: colorGreen
-        });
+    selectedPoints.forEach(point => {
+      point.served = true;
+      point.color = colorGreen;
+      // Reset the 'served' status and color for each point
+      map.current.setFeatureState({
+        source: "custom",
+        sourceLayer: "data",
+        id: point.id,
+      }, {
+        color: colorGreen
       });
     });
 
-    // Reset UI related state
-    setCombinationToColorMap({});
+
+    setSelectedPointsFilenames(new Set());
+    setSelectedPoints([]);
 
   };
 
-  const CoverageLegend = ({ combinationToColorMap, combinationToPoints, selectedPolygonFeature, onConfirm, onUndo }) => {
-    if (combinationToColorMap === undefined || Object.keys(combinationToColorMap).length === 0) {
+  const CoverageLegend = ({ selectedPointsFileNames, selectedPoints, selectedPolygonFeature, onConfirm, onUndo }) => {
+    if (!selectedPointsFileNames || selectedPointsFileNames.size < 2) {
       return null;
     }
 
+    const colorRed = "#FF0000";
+    const colorGreen = "#46DF39";
+    const colorPartiallyServed = "#f5cb42";
 
+    // Initialize checked state for each filename in selectedPointsFileNames
     const [checkedState, setCheckedState] = useState(() => {
       const initialState = {};
-      Object.entries(combinationToPoints).forEach(([combination, points]) => {
-        if (!initialState[combination]) {
-          initialState[combination] = {};
-        }
-        combination.split(", ").forEach(file => {
-          initialState[combination][file] = true; // Initially all checkboxes are checked
-        });
+      selectedPointsFileNames.forEach(file => {
+        initialState[file] = false; // Initially all checkboxes are unchecked
       });
       return initialState;
     });
 
+    // Update checked state if selectedPointsFileNames changes
     useEffect(() => {
       const newCheckedState = {};
-      Object.entries(combinationToPoints).forEach(([combination, points]) => {
-        if (!newCheckedState[combination]) {
-          newCheckedState[combination] = {};
-        }
-        combination.split(", ").forEach(file => {
-          // Ensure each file starts as checked, or keep existing state if already initialized
-          newCheckedState[combination][file] = newCheckedState[combination][file] ?? true;
-        });
+      selectedPointsFileNames.forEach(file => {
+        newCheckedState[file] = checkedState[file] ?? true;
       });
       setCheckedState(newCheckedState);
-    }, [combinationToPoints]);
+    }, [selectedPointsFileNames]);
 
-    const handleCheckboxChange = (combination, file) => {
-      setCheckedState(prevState => ({
-        ...prevState,
-        [combination]: {
-          ...prevState[combination],
-          [file]: !prevState[combination][file]
-        }
-      }));
+    const handleCheckboxChange = (file) => {
+      setCheckedState(prevState => {
+        const newState = {
+          ...prevState,
+          [file]: !prevState[file]
+        };
+
+        // Update colors of the points based on the new checked state
+        selectedPoints.forEach(point => {
+          const coveredBySet = new Set(point.coveredBy);
+          const checkedFiles = new Set(Object.keys(newState).filter(f => newState[f]));
+          const intersectionLength = [...checkedFiles].filter(x => coveredBySet.has(x)).length;
+
+          let color;
+          if (intersectionLength === coveredBySet.size) {
+            color = colorRed;
+          } else if (intersectionLength === 0) {
+            color = colorGreen;
+          } else {
+            color = colorPartiallyServed;
+          }
+
+          point.color = color;
+          // Update feature state with the new color
+          if (map.current.getSource("custom")) {
+            map.current.setFeatureState({
+              source: "custom",
+              sourceLayer: "data",
+              id: point.id,
+            }, {
+              color: color,
+            });
+          }
+        });
+
+        return newState;
+      });
     };
 
     const handleConfirmClick = () => {
-      onConfirm(combinationToPoints, checkedState, selectedPolygonFeature);
+      onConfirm(selectedPoints, checkedState, selectedPolygonFeature);
     };
 
     const handleUndoClick = () => {
-      onUndo(combinationToPoints);
+      onUndo(selectedPoints);
     };
 
     return (
       <Box sx={{ position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 10000 }}>
         <Paper sx={{ padding: 2, backgroundColor: 'white', borderRadius: 2, boxShadow: 3, minWidth: 300 }}>
           <Typography variant="h6" gutterBottom>
-            You are editing points covered by the following coverage files. Please verify and uncheck the coverage files that actually serve the points. Redraw the polygon if the desired edit cannot be made.
+            You are editing points covered by the multiple coverage files. Please check the coverage files that you want to edit. Redraw the polygon if the desired edit cannot be made.
           </Typography>
-          {Object.entries(combinationToPoints).map(([combination, points]) => (
-            <Box key={combination} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Box sx={{ height: 30, width: 30, borderRadius: '50%', bgcolor: combinationToColorMap[combination], mr: 2 }}></Box>
-              {combination.split(", ").map(file => (
-                <label key={file} style={{ marginRight: '10px', display: 'flex', alignItems: 'center' }}>
-                  <Checkbox
-                    checked={checkedState[combination]?.[file] ?? false} // Safely access checked state, default to false if undefined
-                    onChange={() => handleCheckboxChange(combination, file)}
-                    color="primary"
-                  />
-                  {file}
-                </label>
-              ))}
+          {Array.from(selectedPointsFileNames).map(file => (
+            <Box key={file} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <label style={{ marginRight: '10px', display: 'flex', alignItems: 'center' }}>
+                <Checkbox
+                  checked={checkedState[file] ?? false} // Safely access checked state, default to false if undefined
+                  onChange={() => handleCheckboxChange(file)}
+                  color="primary"
+                />
+                {file}
+              </label>
             </Box>
           ))}
+          {/* Legend Section */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-around', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box sx={{ height: 20, width: 20, borderRadius: '50%', bgcolor: colorRed, mr: 1 }}></Box>
+              <Typography>Unserved</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box sx={{ height: 20, width: 20, borderRadius: '50%', bgcolor: colorPartiallyServed, mr: 1 }}></Box>
+              <Typography>Partially Served</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box sx={{ height: 20, width: 20, borderRadius: '50%', bgcolor: colorGreen, mr: 1 }}></Box>
+              <Typography>Fully Served</Typography>
+            </Box>
+          </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
             <Button variant="contained" color="primary" onClick={handleConfirmClick}>Confirm</Button>
             <Button variant="outlined" color="secondary" onClick={handleUndoClick}>Undo</Button>
@@ -733,7 +747,7 @@ function Editmap() {
         <StyledBaseMapIconButton onClick={handleBasemapMenuOpen}>
           <LayersIcon color="inherit" />
         </StyledBaseMapIconButton>
-        <CoverageLegend combinationToColorMap={combinationToColorMap} combinationToPoints={combinationToPoints} selectedPolygonFeature={selectedPolygonFeature} onConfirm={onConfirm} onUndo={onUndo} />
+        <CoverageLegend selectedPointsFileNames={selectedPointsFileNames} selectedPoints={selectedPoints} selectedPolygonFeature={selectedPolygonFeature} onConfirm={onConfirm} onUndo={onUndo} />
         <Menu
           id="basemap-menu"
           anchorEl={basemapAnchorEl}
@@ -759,7 +773,7 @@ function Editmap() {
       <div>
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} message={"Getting the editing tool ready..."} />}
       </div>
-
+      
       <div ref={mapContainer} style={{ height: "95vh", width: "100%" }} />
     </div>
   );

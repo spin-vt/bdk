@@ -30,6 +30,7 @@ import { useFolder } from "../contexts/FolderContext.js";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import FetchTaskInfoContext from "../contexts/FetchTaskInfoContext.js";
+import { polygon } from "@turf/turf";
 
 
 const StyledContainer = styled(Container)({
@@ -103,6 +104,8 @@ const MyEdit = () => {
                     editedFile: Array.isArray(point.editedFile) ? point.editedFile : Array.from(point.editedFile) // Ensure editedFile is serialized correctly
                 }))
             );
+
+            console.log(selectedPolygonsArea);
 
 
 
@@ -200,7 +203,7 @@ const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap }
                     </TableHead>
                     <TableBody>
                         {polygons.map((polygonGroup, groupIndex) => (
-                            <>
+                            <React.Fragment key={`polygon-group-${groupIndex}`}>
                                 <TableRow key={`polygon-${groupIndex}`}>
                                     <TableCell>
                                         {polygonGroup[0].id}
@@ -211,34 +214,36 @@ const PolygonEditTable = ({ polygons, handleUndoPolygonEdit, handleLocateOnMap }
                                         </IconButton>
                                     </TableCell>
                                     <TableCell align="right">
-                                        <StyledIconButton onClick={() => handleUndoPolygonEdit(groupIndex)}>
+                                        <IconButton onClick={() => handleUndoPolygonEdit(groupIndex)}>
                                             <UndoIcon />
-                                        </StyledIconButton>
+                                        </IconButton>
                                     </TableCell>
                                 </TableRow>
                                 {expandedPolygon === polygonGroup[0].id && (
-                                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                                        <TableCell>Location ID</TableCell>
-                                        <TableCell>Address</TableCell>
-                                        <TableCell></TableCell>
-                                    </TableRow>
+                                    <React.Fragment key={`expanded-${groupIndex}`}>
+                                        <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                            <TableCell>Location ID</TableCell>
+                                            <TableCell>Address</TableCell>
+                                            <TableCell></TableCell>
+                                        </TableRow>
+                                        {polygonGroup.slice(1).map((point, pointIndex) => (
+                                            <TableRow key={`point-${groupIndex}-${pointIndex}`} sx={{ backgroundColor: '#f5f5f5' }}>
+                                                <TableCell>
+                                                    {point.id}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {point.address}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <IconButton onClick={() => handleLocateOnMap(point)}>
+                                                        <LocationOnIcon />
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </React.Fragment>
                                 )}
-                                {expandedPolygon === polygonGroup[0].id && polygonGroup.slice(1).map((point, pointIndex) => (
-                                    <TableRow key={`point-${groupIndex}-${pointIndex}`} sx={{ backgroundColor: '#f5f5f5' }}>
-                                        <TableCell>
-                                            {point.id}
-                                        </TableCell>
-                                        <TableCell>
-                                            {point.address}
-                                        </TableCell>
-                                        <TableCell>
-                                            <IconButton onClick={() => handleLocateOnMap(point)}>
-                                                <LocationOnIcon />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </>
+                            </React.Fragment>
                         ))}
                     </TableBody>
                 </Table>
