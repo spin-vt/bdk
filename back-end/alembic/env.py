@@ -19,7 +19,8 @@ db_user = os.getenv('POSTGRES_USER')
 db_password = os.getenv('POSTGRES_PASSWORD')
 db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
-sqlalchemy_database_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
+db_name = os.getenv('POSTGRES_DB')
+sqlalchemy_database_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
 
 # For local testing
 # db_host = os.getenv('postgres', 'localhost')

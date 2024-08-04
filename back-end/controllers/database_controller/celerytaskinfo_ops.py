@@ -61,7 +61,7 @@ def get_estimated_runtime_for_task(task_id, session):
 
         # Calculate the average runtime
         avg_runtime = sum([t.runtime for t in recent_tasks]) / len(recent_tasks)
-        return avg_runtime
+        return avg_runtime * 1.5
 
     except Exception as e:
         logger.error(e)

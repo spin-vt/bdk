@@ -10,8 +10,8 @@ class Config:
     JWT_COOKIE_CSRF_PROTECT = False
     JWT_ACCESS_TOKEN_EXPIRES = COOKIE_EXP_TIME
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
-    CELERY_BROKER_URL = 'redis://redis:6379/0'
-    CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+    CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
+    CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND')
 
     # Email configurations
     MAIL_SERVER = os.getenv('MAIL_SERVER')

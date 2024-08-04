@@ -463,9 +463,6 @@ const MyFile = () => {
             ))}
           </Select>
         </FormControl>
-        <Button variant="contained" color="error" onClick={handleDeleteCheckedFiles} sx={{ marginLeft: '30px' }}>
-          Delete Checked Files
-        </Button>
         {/* Fabric Files Table */}
         <StyledTypography component="h2" variant="h6">
           Fabric Files
@@ -495,7 +492,10 @@ const MyFile = () => {
           handleLocateOnMap={handleLocateOnMap}
           setFiles={setManualEditFiles}
         />
-        <Button variant="contained" color="error" onClick={handleDeleteFiling} sx={{ marginTop: '20px' }}>
+        <Button variant="contained" color="error" onClick={handleDeleteCheckedFiles} sx={{ marginTop: '20px' }}>
+          Delete Checked Files
+        </Button>
+        <Button variant="contained" color="warning" onClick={handleDeleteFiling} sx={{ marginTop: '20px', marginLeft: '10px' }}>
           Delete this Filing
         </Button>
         <Button variant="contained" color="secondary" onClick={handleRegenerateMap} sx={{ marginTop: '20px', marginLeft: '10px' }}>

@@ -34,6 +34,7 @@ services:
     environment: 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
       - SECRET_KEY=${SECRET_KEY}
@@ -46,6 +47,8 @@ services:
       - MAIL_USE_SSL=${MAIL_USE_SSL}
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
     volumes:
       - ./back-end:/app
     depends_on:
@@ -62,6 +65,7 @@ services:
     environment: 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
       - SECRET_KEY=${SECRET_KEY}
@@ -76,6 +80,8 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
       - DEVELOP_BACKEND_PORT=${DEVELOP_BACKEND_PORT}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
       - IN_PRODUCTION=0
     volumes:
       - ./back-end:/app
