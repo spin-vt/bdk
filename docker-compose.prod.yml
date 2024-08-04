@@ -64,6 +64,7 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
       - DEVELOP_BACKEND_PORT=${DEVELOP_BACKEND_PORT}
+      - IN_PRODUCTION=1
     volumes:
       - ./back-end:/app
     depends_on:

@@ -11,7 +11,7 @@ backend_port = os.getenv('DEVELOP_BACKEND_PORT')
 DATABASE_URL = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres'
 BATCH_SIZE = 50000
 COOKIE_EXP_TIME = timedelta(days=7)  # Cookie will expire in 7 days
-
+IN_PRODUCTION = os.getenv('IN_PRODUCTION')
 
 # For local testing
 # db_host = os.getenv('postgres', 'localhost')

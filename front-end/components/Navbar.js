@@ -294,7 +294,6 @@ export default function Navbar({
 
   const fetchUserInfo = async () => {
     const usernameFromStorage = localStorage.getItem("username");
-    console.log(usernameFromStorage);
     try {
       const response = await fetch(`${backend_url}/api/user`, {
         method: "GET",
@@ -305,7 +304,6 @@ export default function Navbar({
       });
       if (response.ok) {
         const data = await response.json();
-        console.log(data);
         if (data.userinfo.email === undefined || data.userinfo.email === "") {
           setUsername(null);
           localStorage.removeItem("username");
@@ -439,11 +437,6 @@ export default function Navbar({
               <Typography sx={{ color: "white" }}>Your Edits</Typography>
             </IconButton>
 
-          )}
-          {showOnHome && isEditingMap && (
-           <Alert severity="warning">
-            Please avoid drawing overlapping polygons
-           </Alert>
           )}
           {/* Potentially show this on edit map view */}
           {showOnHome && !isEditingMap && (

@@ -195,6 +195,33 @@ const MyFile = () => {
     }
   };
 
+  const handleRegenerateMap = async () => {
+    try {
+      const response = await fetch(`${backend_url}/api/regenerate_map`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ folderID }), // Adjust the payload as needed
+        credentials: "include",
+      });
+
+
+      // Assuming the API returns the updated list of files
+      const data = await response.json();
+      if (data.status === "success") {
+        toast.success("Map regeneration request submitted");
+        setShouldReloadMap(true);
+      }
+      else {
+        toast.error(data.message);
+      }
+
+    } catch (error) {
+      toast.error("Error on our end. Please try again later");
+    }
+  };
+
   const handleLocateOnMap = (option) => {
     if (option !== undefined && option !== null) {
       setLocation({
@@ -274,7 +301,6 @@ const MyFile = () => {
       console.log("Error: Empty response received from server");
     } else {
       data.forEach((file) => {
-        console.log(file);
         const formattedFile = {
           id: file.id,
           name: file.name,
@@ -330,7 +356,6 @@ const MyFile = () => {
       console.log("Error: Empty response received from server");
     } else {
       data.forEach((file) => {
-        console.log(file);
         const formattedFile = {
           id: file.id,
           name: file.name,
@@ -472,6 +497,9 @@ const MyFile = () => {
         />
         <Button variant="contained" color="error" onClick={handleDeleteFiling} sx={{ marginTop: '20px' }}>
           Delete this Filing
+        </Button>
+        <Button variant="contained" color="secondary" onClick={handleRegenerateMap} sx={{ marginTop: '20px', marginLeft: '10px' }}>
+          Regenerate map
         </Button>
       </StyledContainer>
 

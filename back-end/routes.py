@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 import shortuuid
 from celery.result import AsyncResult
 from celery import chain
-from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port
+from utils.settings import DATABASE_URL, COOKIE_EXP_TIME, backend_port, IN_PRODUCTION
 from database.sessions import Session
 from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops, celerytaskinfo_ops
 from utils.flask_app import app, mail
@@ -400,7 +400,10 @@ def verify_token():
 
             access_token = create_access_token(identity={'id': user_id})
             response = make_response(jsonify({'status': 'success', 'token': access_token}))
-            response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+            if IN_PRODUCTION:
+                response.set_cookie('token', access_token, httponly=True, samesite='Lax', secure=True)
+            else:
+                response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
             return response, 200
         else:
             return jsonify({'status': 'error', 'message': 'Invalid token.'}), 400
@@ -580,7 +583,10 @@ def register():
     access_token = create_access_token(identity={'id': userVal.id})
 
     response = make_response(jsonify({'status': 'success', 'token': access_token}))
-    response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+    if IN_PRODUCTION:
+        response.set_cookie('token', access_token, httponly=True, samesite='Lax', secure=True)
+    else:
+        response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
 
     session.close()
     return response, 200
@@ -599,7 +605,10 @@ def login():
         user_id = user.id
         access_token = create_access_token(identity={'id': user_id})
         response = make_response(jsonify({'status': 'success', 'token': access_token}))
-        response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+        if IN_PRODUCTION:
+            response.set_cookie('token', access_token, httponly=True, samesite='Lax', secure=True)
+        else:
+            response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
         return response
     else:
         return jsonify({'status': 'error', 'message': 'Invalid credentials'})
@@ -615,12 +624,19 @@ def logout():
 @app.route('/api/user', methods=['GET'])
 @jwt_required()
 def get_user_info():
+    session = Session()
     try:
         identity = get_jwt_identity()
-        userinfo = user_ops.get_userinfo_with_id(identity['id'])
+
+        userVal = user_ops.get_user_with_id(identity['id'], session=session)
+        if not userVal:
+            return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
+        userinfo = user_ops.get_userinfo_with_id(identity['id'], session=session)
         return jsonify({'status': 'success', 'userinfo': userinfo}), 200
     except NoAuthorizationError:
         return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
+    finally:
+        session.close()
 
 
 @app.route('/api/exportFiling/<folderid>', methods=['GET'])
@@ -973,6 +989,30 @@ def update_network_file(file_id):
         return jsonify({'status': 'error', 'message': str(e)}), 400
     finally:
         session.close()
+
+@app.route('/api/regenerate_map', methods=['POST'])
+@jwt_required()
+def regenerate_map():
+    session = Session()
+    try:
+        identity = get_jwt_identity()
+        request_data = request.json
+        folderid = request_data['folderID']
+        if not folder_ops.folder_belongs_to_organization(folder_id=folderid, user_id=identity['id'], session=session):
+            return jsonify({'status': 'error', 'message': 'You are accessing a filing not belong to your organization'}), 400
+
+        userVal = user_ops.get_user_with_id(userid=identity['id'], session=session)
+        folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
+        deadline = folderVal.deadline
+        result = process_data.apply_async(args=[folderid, 4])
+        celerytaskinfo_ops.create_celery_taskinfo(task_id=result.task_id, status='PENDING', operation_type="Update", operation_detail="Regenerate Map", user_email=userVal.email, organization_id=userVal.organization_id, folder_deadline=deadline, session=session)
+        return jsonify({'status': "success"}), 200 
+    except NoAuthorizationError:
+        return jsonify({'status': 'error', 'message': 'Please login to your account'}), 401
+    finally:
+        session.close()
+
+
     
 @app.route('/api/delfiles', methods=['DELETE'])
 @jwt_required()

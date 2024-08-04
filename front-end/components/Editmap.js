@@ -20,6 +20,7 @@ import SelectedPolygonAreaContext from "../contexts/SelectedPolygonAreaContext.j
 import { useFolder } from "../contexts/FolderContext.js";
 import { Typography, Checkbox, Box, Paper, Button } from '@mui/material';
 import ReloadMapContext from "../contexts/ReloadMapContext.js";
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 
 
 const StyledBaseMapIconButton = styled(IconButton)({
@@ -65,6 +66,14 @@ function Editmap() {
 
   const [selectedPointsFileNames, setSelectedPointsFilenames] = useState(new Set());
   const [selectedPoints, setSelectedPoints] = useState([]);
+
+  const [isOverlapDialogOpen, setIsOverlapDialogOpen] = useState(false);
+
+  const selectedPolygonsAreaRef = useRef([]);
+
+  const handleCloseOverlapDialog = () => {
+    setIsOverlapDialogOpen(false);
+  };
 
   const router = useRouter();
 
@@ -234,12 +243,23 @@ function Editmap() {
       // Convert drawn polygon to turf polygon
       const turfPolygon = turf.polygon(polygon.geometry.coordinates);
 
+      // Check if the drawn polygon overlaps with any polygon in selectedPolygonsArea
+      const isOverlapping = selectedPolygonsAreaRef.current.some(existingPolygon => {
+        const turfExistingPolygon = turf.polygon(existingPolygon.geometry.coordinates);
+        return turf.booleanOverlap(turfPolygon, turfExistingPolygon);
+      });
+
+      // Return if the drawn polygon overlaps with any existing polygon
+      if (isOverlapping) {
+        setIsOverlapDialogOpen(true);
+        return;
+      }
+
       // Iterate over markers and select if they are inside the polygon and served is true
       let selected = allMarkersRef.current.filter((marker) => {
         const point = turf.point([marker.longitude, marker.latitude]);
         const isInsidePolygon = turf.booleanPointInPolygon(point, turfPolygon);
-        // const coveredByWithoutEdited = new Set([...marker.coveredBy].filter(x => !(marker.editedFile && marker.editedFile.has(x))));
-        // return isInsidePolygon && (coveredByWithoutEdited.size > 0);
+
         return isInsidePolygon && marker.served;
       });
 
@@ -247,22 +267,13 @@ function Editmap() {
         return;
       }
 
-      // // Collect unique filenames from the selected markers
-      // const filenames = new Set();
-      // selected.forEach((marker) => {
-      //   const coveredByWithoutEdited = new Set([...marker.coveredBy].filter(x => !(marker.editedFile && marker.editedFile.has(x))));
-      //   coveredByWithoutEdited.forEach((filename) => {
-      //     filenames.add(filename);
-      //   });
-      // });
-
-       // Collect unique filenames from the selected markers
-       const filenames = new Set();
-       selected.forEach((marker) => {
-         marker.coveredBy.forEach((filename) => {
-           filenames.add(filename);
-         });
-       });
+      // Collect unique filenames from the selected markers
+      const filenames = new Set();
+      selected.forEach((marker) => {
+        marker.coveredBy.forEach((filename) => {
+          filenames.add(filename);
+        });
+      });
 
       setSelectedPolygonFeature(polygon);
 
@@ -290,9 +301,9 @@ function Editmap() {
 
         selectedPolygonsRef.current.push(selected);
         setSelectedPolygons(selectedPolygonsRef.current);
-        setSelectedPolygonsArea((prevAreas) => [
-          ...prevAreas, polygon
-        ]);
+        selectedPolygonsAreaRef.current.push(polygon);
+        setSelectedPolygonsArea(selectedPolygonsAreaRef.current);
+
       }
       else {
         setSelectedPointsFilenames(filenames);
@@ -394,8 +405,9 @@ function Editmap() {
 
   }, [selectedPolygons]); // Dependency on selectedPolygons
 
-
-
+  useEffect(() => {
+    selectedPolygonsAreaRef.current = [...selectedPolygonsArea];
+  }, [selectedPolygonsArea]);
 
 
   const setFeatureStateForMarkers = (markers) => {
@@ -456,6 +468,8 @@ function Editmap() {
 
         setFeatureStateForMarkers(newMarkers);
 
+        selectedPolygonsRef.current = [];
+        selectedPolygonsAreaRef.current = [];
         allMarkersRef.current = newMarkers; // Here's the state update
         setIsLoadingForUntimedEffect(false);
       })
@@ -592,9 +606,9 @@ function Editmap() {
 
       selectedPolygonsRef.current.push(updatedPoints);
       setSelectedPolygons(selectedPolygonsRef.current);
-      setSelectedPolygonsArea((prevAreas) => [
-        ...prevAreas, polygonFeature
-      ]);
+
+      selectedPolygonsAreaRef.current.push(polygonFeature);
+      setSelectedPolygonsArea(selectedPolygonsAreaRef.current);
     }
 
     // Additional logic to update UI or state as needed
@@ -633,22 +647,13 @@ function Editmap() {
     const colorPartiallyServed = "#f5cb42";
 
     // Initialize checked state for each filename in selectedPointsFileNames
-    const [checkedState, setCheckedState] = useState(() => {
-      const initialState = {};
-      selectedPointsFileNames.forEach(file => {
-        initialState[file] = false; // Initially all checkboxes are unchecked
-      });
-      return initialState;
+    const initialCheckedState = {};
+    selectedPointsFileNames.forEach(file => {
+      initialCheckedState[file] = false; // Initially all checkboxes are unchecked
     });
 
-    // Update checked state if selectedPointsFileNames changes
-    useEffect(() => {
-      const newCheckedState = {};
-      selectedPointsFileNames.forEach(file => {
-        newCheckedState[file] = checkedState[file] ?? true;
-      });
-      setCheckedState(newCheckedState);
-    }, [selectedPointsFileNames]);
+    const [checkedState, setCheckedState] = useState(initialCheckedState);
+
 
     const handleCheckboxChange = (file) => {
       setCheckedState(prevState => {
@@ -707,7 +712,7 @@ function Editmap() {
             <Box key={file} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <label style={{ marginRight: '10px', display: 'flex', alignItems: 'center' }}>
                 <Checkbox
-                  checked={checkedState[file] ?? false} // Safely access checked state, default to false if undefined
+                  checked={!!checkedState[file]} // Safely access checked state, default to false if undefined
                   onChange={() => handleCheckboxChange(file)}
                   color="primary"
                 />
@@ -773,8 +778,27 @@ function Editmap() {
       <div>
         {(isLoadingForUntimedEffect) && <SmallLoadingEffect isLoading={isLoadingForUntimedEffect} message={"Getting the editing tool ready..."} />}
       </div>
-      
+
       <div ref={mapContainer} style={{ height: "95vh", width: "100%" }} />
+
+      <Dialog
+        open={isOverlapDialogOpen}
+        onClose={handleCloseOverlapDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Polygon Overlap Detected"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            The polygon you have drawn overlaps with an existing polygon. Please draw a non-overlapping polygon.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseOverlapDialog} color="primary" autoFocus>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
