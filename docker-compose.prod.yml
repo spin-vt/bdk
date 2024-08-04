@@ -1,16 +1,4 @@
 services:
-  db:
-    image: postgres:latest 
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST_AUTH_METHOD=${POSTGRES_HOST_AUTH_METHOD}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:latest
@@ -74,7 +62,6 @@ services:
     volumes:
       - ./back-end:/app
     depends_on:
-      - db
       - redis
     expose:
       - ${DEVELOP_BACKEND_PORT}

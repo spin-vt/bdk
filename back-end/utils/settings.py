@@ -1,11 +1,12 @@
 import os
 from datetime import datetime, timedelta
+from urllib.parse import quote_plus
 
 IN_PRODUCTION = os.getenv('IN_PRODUCTION')
 
 # For production
 db_user = os.getenv('POSTGRES_USER')
-db_password = os.getenv('POSTGRES_PASSWORD')
+db_password = quote_plus(os.getenv('POSTGRES_PASSWORD'))
 db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
 db_name = os.getenv('POSTGRES_DB')

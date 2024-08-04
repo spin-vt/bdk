@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-
+from urllib.parse import quote_plus
 from database.base import Base
 from database import models  # assuming your models are defined in database/models.py
 # this is the Alembic Config object, which provides
@@ -16,7 +16,7 @@ config = context.config
 # For production
 # Get the database URL from the environment variables
 db_user = os.getenv('POSTGRES_USER')
-db_password = os.getenv('POSTGRES_PASSWORD')
+db_password = quote_plus(os.getenv('POSTGRES_PASSWORD')).replace("%", "%%")
 db_host = os.getenv('DB_HOST')
 db_port = os.getenv('DB_PORT')
 db_name = os.getenv('POSTGRES_DB')
