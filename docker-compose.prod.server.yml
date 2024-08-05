@@ -1,43 +1,13 @@
 services:
 
-  redis:
-    image: redis:latest
 
-  work:
-    image: ${DOCKER_IMAGE_WORKER}
-    build: 
-      context: ./back-end
-      dockerfile: Dockerfile.worker
-    command: celery -A controllers.celery_controller.celery_config.celery worker --loglevel=DEBUG
-    environment: 
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - SECRET_KEY=${SECRET_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
-      - JWT_ACCESS_COOKIE_NAME=${JWT_ACCESS_COOKIE_NAME}
-      - MAIL_SERVER=${MAIL_SERVER}
-      - MAIL_PORT=${MAIL_PORT}
-      - MAIL_USE_TLS=${MAIL_USE_TLS}
-      - MAIL_USE_SSL=${MAIL_USE_SSL}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-    volumes:
-      - ./back-end:/app
-    depends_on:
-      - redis
-  
   backend:
     image: ${DOCKER_IMAGE_BACKEND}
+    network_mode: host
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
-    command: python3 routes.py
+    command: gunicorn routes:app -b 0.0.0.0:8000 -w 4 --log-level debug --reload
     environment: 
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -61,13 +31,12 @@ services:
       - IN_PRODUCTION=1
     volumes:
       - ./back-end:/app
-    depends_on:
-      - redis
     expose:
       - ${DEVELOP_BACKEND_PORT}
 
   frontend:
     image: ${DOCKER_IMAGE_FRONTEND}
+    network_mode: host
     build: ./front-end
     volumes:
       - ./front-end:/app
@@ -79,15 +48,16 @@ services:
 
   nginx:
     image: ${DOCKER_IMAGE_NGINX}
+    network_mode: host
     build:
       context: ./
       dockerfile: Dockerfile.nginx
     container_name: nginx-proxy
     environment:
       - SSL_PASSWORD_FILE=/ssl/${SSL_PASSPHRASE_FILE}
-    ports:
-      - "${NGINX_HTTP_PORT}:80"
-      - "${NGINX_HTTPS_PORT}:443"
+    # ports:
+    #   - "${NGINX_HTTP_PORT}:80"
+    #   - "${NGINX_HTTPS_PORT}:443"
     volumes:
       - ${NGINX_CONF_PROD}:/etc/nginx/conf.d/default.conf
       - ${SSL_PATH}/${SSL_CERT}:/etc/nginx/ssl/${SSL_CERT}

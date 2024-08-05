@@ -429,8 +429,9 @@ const MyFile = () => {
 
       if (data.status === "success") {
         toast.success("Your deletion request has been successfully submitted");
-        fetchFiles(folderID);
-        fetchEditFiles(folderID);
+        setFabricFiles(prevFiles => prevFiles.filter(file => !fileIdsToDelete.includes(file.id)));
+        setNetworkDataFiles(prevFiles => prevFiles.filter(file => !fileIdsToDelete.includes(file.id)));
+        setManualEditFiles(prevFiles => prevFiles.filter(file => !editFileIdsToDelete.includes(file.id)));
         setShouldFetchTaskInfo(true);
       } else {
         toast.error(data.message);

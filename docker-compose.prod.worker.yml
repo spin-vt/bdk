@@ -1,0 +1,28 @@
+services:
+  work:
+      image: ${DOCKER_IMAGE_WORKER}
+      network_mode: host
+      build: 
+        context: ./back-end
+        dockerfile: Dockerfile.worker
+      command: celery -A controllers.celery_controller.celery_config.celery worker --loglevel=DEBUG
+      environment: 
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+        - POSTGRES_DB=${POSTGRES_DB}
+        - DB_HOST=${DB_HOST}
+        - DB_PORT=${DB_PORT}
+        - SECRET_KEY=${SECRET_KEY}
+        - JWT_SECRET=${JWT_SECRET}
+        - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
+        - JWT_ACCESS_COOKIE_NAME=${JWT_ACCESS_COOKIE_NAME}
+        - MAIL_SERVER=${MAIL_SERVER}
+        - MAIL_PORT=${MAIL_PORT}
+        - MAIL_USE_TLS=${MAIL_USE_TLS}
+        - MAIL_USE_SSL=${MAIL_USE_SSL}
+        - MAIL_USERNAME=${MAIL_USERNAME}
+        - MAIL_PASSWORD=${MAIL_PASSWORD}
+        - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+        - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      volumes:
+        - ./back-end:/app
