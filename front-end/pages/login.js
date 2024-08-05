@@ -147,6 +147,15 @@ const Login = () => {
                   Register
                 </RegisterButton>
               </LoginButtonContainer>
+              <Button
+                fullWidth
+                variant="text"
+                color="primary"
+                onClick={() => router.push('/resetPassword')}
+                style={{ marginTop: '1rem' }}
+              >
+                Forgot Password?
+              </Button>
             </LoginForm>
           </LoginContainer>
         </AuthContainer>
