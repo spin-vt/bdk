@@ -1,6 +1,7 @@
 import os
 import base64
-from utils.settings import COOKIE_EXP_TIME, DATABASE_URL
+from utils.settings import COOKIE_EXP_TIME, DATABASE_URL, IN_PRODUCTION
+
 # Centralized configuration settings
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY')

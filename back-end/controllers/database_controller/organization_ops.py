@@ -4,6 +4,26 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from utils.logger_config import logger
 
 
+def get_organization_with_orgid(org_id, session=None):
+    owns_session = False
+    if session is None:
+        session = Session()
+        owns_session = True
+
+    try:
+        orgVal = session.query(organization).filter(organization.id == org_id).one()
+        return orgVal
+    except NoResultFound:
+        return None
+    except MultipleResultsFound:
+        return "Multiple results found for the given orgname"
+    except Exception as e:
+        logger.debug(e)
+        return str(e)
+    finally:
+        if owns_session:
+            session.close()
+
 def get_organization_with_orgname(org_name, session=None):
     owns_session = False
     if session is None:

@@ -1,6 +1,6 @@
 import logging, subprocess, os, json, uuid, cProfile, base64
 from controllers.celery_controller.celery_config import celery
-from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops, editfile_ops, file_editfile_link_ops
+from controllers.database_controller import user_ops, fabric_ops, kml_ops, mbtiles_ops, file_ops, folder_ops, vt_ops, editfile_ops, file_editfile_link_ops, organization_ops
 from database.models import file, kml_data, editfile
 from database.sessions import Session, ScopedSession
 from controllers.database_controller.tower_ops import get_tower_with_towername
@@ -440,5 +440,22 @@ def raster2vector(self, data, userid, outfile_name):
         return {'Status': "Ok"}
     except Exception as e:
         return {'error': str(e)}
+    finally:
+        session.close()
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def async_org_delete(self, orgid):
+    try:
+        session = Session()
+        organization = organization_ops.get_organization_with_orgid(org_id=orgid, session=session)
+        users = organization_ops.get_all_users_for_organization(org_id=orgid, session=session)
+        for user in users:
+            user.organization_id = None
+        
+        session.delete(organization)
+        session.commit()
+    except Exception as e:
+        session.rollback()  # Rollback any changes if there's an exception
+        raise e
     finally:
         session.close()

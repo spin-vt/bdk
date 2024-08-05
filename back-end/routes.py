@@ -22,7 +22,7 @@ from database.sessions import Session
 from controllers.database_controller import organization_ops, fabric_ops, kml_ops, user_ops, vt_ops, file_ops, folder_ops, mbtiles_ops, challenge_ops, editfile_ops, celerytaskinfo_ops
 from utils.flask_app import app, mail
 from controllers.celery_controller.celery_config import celery 
-from controllers.celery_controller.celery_tasks import process_data, async_delete_files, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder, async_folder_delete
+from controllers.celery_controller.celery_tasks import process_data, async_delete_files, toggle_tiles, run_signalserver, raster2vector, preview_fabric_locaiton_coverage, async_folder_copy_for_import, add_files_to_folder, async_folder_delete, async_org_delete
 from utils.namingschemes import DATETIME_FORMAT, DATE_FORMAT, EXPORT_CSV_NAME_TEMPLATE, SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
 from controllers.database_controller.tower_ops import create_tower, get_tower_with_towername
@@ -403,12 +403,9 @@ def verify_token():
                 user_ops.add_user_to_organization(user_id, org_id, session)
                     
 
-            access_token = create_access_token(identity={'id': user_id})
-            response = make_response(jsonify({'status': 'success', 'token': access_token}))
-            if IN_PRODUCTION:
-                response.set_cookie('token', access_token, httponly=True, samesite='Lax', secure=True)
-            else:
-                response.set_cookie('token', access_token, httponly=False, samesite='Lax', secure=False)
+            
+            response = make_response(jsonify({'status': 'success'}))
+            
             return response, 200
         else:
             return jsonify({'status': 'error', 'message': 'Invalid token.'}), 400
@@ -528,13 +525,8 @@ def delete_organization():
         if not organization.name == orgName:
             return jsonify({'status': 'error', 'message': 'Organization not found'}), 400
         
-        users = organization_ops.get_all_users_for_organization(org_id=organization.id, session=session)
-        for user in users:
-            user.organization_id = None
-        
-        session.delete(organization)
-        session.commit()
-        
+        result = async_org_delete.apply_async(args=[userVal.organization_id])
+
 
         return jsonify({'status': 'success', 'message': 'Organization deleted successfully'}), 200
     except NoAuthorizationError:
@@ -587,7 +579,7 @@ def register():
     userVal = response["success"]
     access_token = create_access_token(identity={'id': userVal.id})
 
-    response = make_response(jsonify({'status': 'success', 'token': access_token}))
+    response = make_response(jsonify({'status': 'success'}))
     if IN_PRODUCTION:
         response.set_cookie('token', access_token, httponly=True, samesite='Lax', secure=True)
     else:
@@ -609,7 +601,7 @@ def login():
     if user is not None and check_password_hash(user.password, pword):
         user_id = user.id
         access_token = create_access_token(identity={'id': user_id})
-        response = make_response(jsonify({'status': 'success', 'token': access_token}))
+        response = make_response(jsonify({'status': 'success'}))
         if IN_PRODUCTION:
             response.set_cookie('token', access_token, httponly=True, samesite='Lax', secure=True)
         else:
