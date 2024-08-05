@@ -135,12 +135,11 @@ const Profile = () => {
             ...user,
             email: email,
             verified: emailUpdated ? false : user.verified,
-            organization: {
-              ...user.organization,
+            organization: orgName || providerId || brandName ? {
               organization_name: orgName,
               provider_id: providerId,
               brand_name: brandName
-            }
+            } : null
           });
         } else {
           toast.error(data.message);
