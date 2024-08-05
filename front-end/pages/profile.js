@@ -236,7 +236,7 @@ const Profile = () => {
     }).then(response => response.json())
       .then(data => {
         if (data.status === 'success') {
-          toast.success("Join request sent to organization admin.");
+          toast.success("Join request sent to organization admin. Please ask them for the verification token to finish your join request");
           setShowOrgTokenField(true);
         } else {
           toast.error(data.message);

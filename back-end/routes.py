@@ -325,11 +325,16 @@ def create_email_token(userid, email, operation, org_id=-1):
 
 def send_verification_email_with_token(email, token, title, content, join_org=False, joining_email=""):
     msg = Message(title, recipients=[email])
+    msg.content_subtype = "html"  # This sets the message content type to HTML
+
     if join_org:
-        message_start = f'Please forward the token to {joining_email} and ask them to copy the token to the BDK website to '
+        message_start = f'Dear BDK User,<br><br>A user has requested to join your organization. Please forward the following token to {joining_email} and request them to enter it on the BDK website to '
     else:
-        message_start = 'Please copy the token to the BDK website to '
-    msg.body = f'{message_start} {content}: \n \n{token}'
+        message_start = 'Dear BDK User,<br><br>Please enter the following token on the BDK website to '
+
+    message_body = f'{message_start}{content}.<br><br><strong>Verification Token:</strong><br><pre style="color: #00AAFF; background-color: #f0f0f0; padding: 10px; border-radius: 5px;">{token}</pre><br><br>Thank you,<br>BDK Team'
+    
+    msg.html = message_body.strip()  # Use msg.html for HTML content
     mail.send(msg)
 
 @app.route('/api/request_password_reset', methods=['POST'])
