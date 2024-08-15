@@ -369,6 +369,7 @@ function Editmap() {
           );
         });
       }
+      selectedPolygonsRef.current = [];
     }
     else {
       for (let i = 0; i < selectedPolygonsRef.current.length; i++) {
@@ -398,10 +399,10 @@ function Editmap() {
 
 
       }
+      // Sync ref with the current state
+      selectedPolygonsRef.current = [...selectedPolygons];
     }
 
-    // Sync ref with the current state
-    selectedPolygonsRef.current = [...selectedPolygons];
 
   }, [selectedPolygons]); // Dependency on selectedPolygons
 
@@ -518,7 +519,14 @@ function Editmap() {
       canvasContainer.classList.add("mapboxgl-interactive");
     }
 
+    const modes = MapboxDraw.modes;
+    modes.simple_select.onDrag = function (state, e) {
+      // Prevent moving the polygon
+      return false;
+    };
+
     const draw = new MapboxDraw({
+      modes: modes,
       displayControlsDefault: false,
       controls: {
         polygon: true,

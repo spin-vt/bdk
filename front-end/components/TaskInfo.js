@@ -181,7 +181,7 @@ const TaskInfo = () => {
                         onClick={() => handleDrawerOpen()}
                         style={{ cursor: 'pointer' }}
                     >
-                        {`Your organization has ${inProgressTasks.length} ongoing tasks. The current map might not be accurate.`}
+                        {`Your organization has ${inProgressTasks.length} ongoing operations. The current map might not be accurate.`}
                     </Alert>
                 ) : (
                     <Alert
@@ -189,7 +189,7 @@ const TaskInfo = () => {
                         onClick={() => handleDrawerOpen()}
                         style={{ cursor: 'pointer' }}
                     >
-                        {`Your organization has 0 ongoing tasks.`}
+                        {`Your organization has 0 ongoing operation.`}
                     </Alert>
                 )}
             </Box>
@@ -199,14 +199,14 @@ const TaskInfo = () => {
                 onClose={() => setDrawerOpen(false)}
                 PaperProps={{ sx: { width: 600, p: 3 } }}
             >
-                <Typography variant="h6" gutterBottom>In Progress Tasks</Typography>
+                <Typography variant="h6" gutterBottom>In Progress Operations</Typography>
                 <List>
                     {inProgressTasks.map(task => (
                         <TaskListItem task={task} key={task.task_id} />
                     ))}
                 </List>
                 <Typography variant="h6" gutterBottom>
-                    Finished Tasks
+                    Finished Operations
                     <Button onClick={() => setOpen(!open)} sx={{ ml: 2 }}>
                         {open ? 'Hide' : 'Show'}
                     </Button>

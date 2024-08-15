@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState, useRef } from "react";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Toolbar from "@mui/material/Toolbar";
@@ -36,6 +36,8 @@ import { useFolder } from "../contexts/FolderContext.js";
 import { useGridLogger } from "@mui/x-data-grid";
 import TaskInfo from "./TaskInfo.js";
 import ReloadMapContext from "../contexts/ReloadMapContext.js";
+import SelectedPolygonContext from "../contexts/SelectedPolygonContext";
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 
 
 
@@ -106,9 +108,41 @@ export default function Navbar({
 
   const { setShouldReloadMap } = useContext(ReloadMapContext);
 
+  const { selectedPolygons, setSelectedPolygons } = useContext(SelectedPolygonContext);
+  const [isDialogOpen, setDialogOpen] = useState(false);
+
+  const hasUnsavedChanges = useRef(false);
+
+  useEffect(() => {
+    if (isEditingMap) {
+      hasUnsavedChanges.current = !(selectedPolygons === null || selectedPolygons.length === 0);
+    }
+  }, [selectedPolygons, isEditingMap]);
+
   const handleEditToolClick = () => {
-    setEditingMap(!isEditingMap); // <-- toggle isEditing state
+    if (isEditingMap && hasUnsavedChanges.current) {
+      setDialogOpen(true);
+      return;
+    }
+
+    toggleEditMode();
+  };
+
+  const toggleEditMode = () => {
+    setEditingMap(!isEditingMap);
     setShouldReloadMap(true);
+
+    // Optional: Clear selectedPolygons if exiting the edit mode
+    if (isEditingMap) {
+      setSelectedPolygons(null);
+    }
+  };
+
+  const handleDialogClose = (shouldExit) => {
+    setDialogOpen(false);
+    if (shouldExit) {
+      toggleEditMode();
+    }
   };
 
   function useLocalStorage(key, initialValue) {
@@ -418,16 +452,41 @@ export default function Navbar({
 
           <TaskInfo />
 
-          {showOnHome && (
-            <IconButton onClick={handleEditToolClick}>
-              <EditIcon
-                sx={{ fontWeight: "700", color: "white", marginRight: "5px" }}
-              />
-              <Typography sx={{ color: "white" }}>
-                {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
-              </Typography>
-            </IconButton>
-          )}
+          <>
+            {showOnHome && (
+              <IconButton onClick={handleEditToolClick}>
+                <EditIcon
+                  sx={{ fontWeight: "700", color: "white", marginRight: "5px" }}
+                />
+                <Typography sx={{ color: "white" }}>
+                  {isEditingMap ? "Exit Editing Tool" : "Editing Tool"}
+                </Typography>
+              </IconButton>
+            )}
+            <Dialog
+              open={isDialogOpen}
+              onClose={() => handleDialogClose(false)}
+            >
+              <DialogTitle>Unsaved Changes</DialogTitle>
+              <DialogContent>
+                <DialogContentText sx={{ marginBottom: '16px' }}>
+                  You have unsaved edits. Are you sure you want to exit the editing tool without saving?
+                </DialogContentText>
+                <DialogContentText sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#00796b' }}>
+                  To submit your edits, click <strong>Your Edits</strong> and click the <strong>submit button</strong>.
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => handleDialogClose(false)} color="primary">
+                  Cancel
+                </Button>
+                <Button onClick={() => handleDialogClose(true)} color="error">
+                  Exit Without Saving
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+          </>
 
           {showOnHome && isEditingMap && (
             <IconButton onClick={handleMyFilingOpen}>
@@ -536,5 +595,6 @@ export default function Navbar({
         </List>
       </StyledDrawer>
     </Box>
+
   );
 }

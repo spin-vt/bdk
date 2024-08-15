@@ -128,7 +128,7 @@ const DeleteConfirmationDialog = ({ open, onClose, onConfirm }) => (
     <DialogTitle id="delete-confirmation-dialog-title">{"Confirm Delete"}</DialogTitle>
     <DialogContent>
       <DialogContentText id="delete-confirmation-dialog-description">
-        Are you sure you want to delete the filing? This action cannot be undone.
+        Are you sure you want to delete the entire filing? This action cannot be undone.
       </DialogContentText>
     </DialogContent>
     <DialogActions>
@@ -497,7 +497,7 @@ const MyFile = () => {
           Delete Checked Files
         </Button>
         <Button variant="contained" color="warning" onClick={handleDeleteFiling} sx={{ marginTop: '20px', marginLeft: '10px' }}>
-          Delete this Filing
+          Delete Entire Filing
         </Button>
         <Button variant="contained" color="secondary" onClick={handleRegenerateMap} sx={{ marginTop: '20px', marginLeft: '10px' }}>
           Regenerate map
