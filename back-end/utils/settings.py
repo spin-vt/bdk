@@ -19,7 +19,4 @@ BATCH_SIZE = 50000
 COOKIE_EXP_TIME = timedelta(days=7)  # Cookie will expire in 7 days
 
 
-# For local testing
-# db_host = os.getenv('postgres', 'localhost')
-# DATABASE_URL = f'postgresql://postgres:db123@{db_host}:5432/postgres'
-# BATCH_SIZE = 50000
+

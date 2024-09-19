@@ -1123,11 +1123,7 @@ def submit_challenge():
     challenge_ops.writeToDB(data)
     return jsonify({"message": "Data processed!"}), 200
 
-@app.route('/api/compute-challenge', methods=['GET', 'POST'])
-def compute_challenge():
-    #this will be a POST request in the future, but for now we just use files in our file system for testing
-    challenge_ops.import_to_postgis("./Idaho.geojson", "./filled_full_poly.kml", "./activeBSL.csv", "./activeNOBSL.csv", db_name, db_user, db_password, db_host)
-    return jsonify({"message": "Data Computed!"}), 200
+
 
 @app.route('/api/delexport/<int:fileid>', methods=['DELETE'])
 @jwt_required()
