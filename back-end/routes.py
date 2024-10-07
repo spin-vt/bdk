@@ -165,6 +165,7 @@ def submit_data(folderid):
         result = task_chain.apply_async()
 
         if folderid != -1:
+            folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
             deadline = folderVal.deadline
         else:
             deadline_str = request.form.get('deadline')

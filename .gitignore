@@ -13,6 +13,7 @@ locale-data.json
 lte/
 nonlte/
 *.csv
+*.xlsx
 *.zip
 back-end/clusterCoordinate.json
 front-end/Map_marker.svg:Zone.Identifier
