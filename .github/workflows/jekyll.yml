@@ -1,21 +1,3 @@
-name: Deploy Jekyll site to Pages
-
-on:
-  push:
-    branches: ["gh-pages"]  # Trigger only on pushes to the gh-pages branch
-    paths:
-      - 'docs/**'  # Only trigger if files in the docs directory are changed
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,7 +5,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: gh-pages  # Make sure to pull the gh-pages branch
+          ref: gh-pages
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@4a9ddd6f338a97768b8006bf671dfbad383215f4
@@ -34,6 +16,7 @@ jobs:
 
       - name: Install missing gems
         run: |
+          cd docs
           gem install bundler
           bundle install
 
@@ -43,23 +26,13 @@ jobs:
 
       - name: Build with Jekyll
         run: |
-          # Check Jekyll version to ensure compatibility
+          cd docs
           jekyll -v
-          # Specify that the source is in the 'docs' directory and the destination is '_site'
-          bundle exec jekyll build --source docs --destination ./_site --baseurl "${{ steps.pages.outputs.base_path }}"
+          bundle exec jekyll build --destination ../_site --baseurl "${{ steps.pages.outputs.base_path }}"
         env:
           JEKYLL_ENV: production
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        with:
+          path: ./_site
