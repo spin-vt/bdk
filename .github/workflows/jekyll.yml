@@ -3,8 +3,6 @@ name: Deploy Jekyll site to Pages
 on:
   push:
     branches: ["gh-pages"]  # Trigger only on pushes to the gh-pages branch
-    paths:
-      - 'docs/**'  # Only trigger if files in the docs directory are changed
   workflow_dispatch:
 
 permissions:
