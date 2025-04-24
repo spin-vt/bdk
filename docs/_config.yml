@@ -1,0 +1,9 @@
+title: BDK
+description: A tool that helps you complete your biannual FCC-required BDC filing.
+theme: just-the-docs
+# color_scheme: dark
+back_to_top: true
+back_to_top_text: "Back to top"
+
+just_the_docs:
+  search_enabled: true

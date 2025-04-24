@@ -1,0 +1,149 @@
+{"0": {
+    "doc": "Challenge Tool",
+    "title": "Challenge Tool",
+    "content": "Not in use. ",
+    "url": "/pages/service_documentation/challenge_tool.html",
+    
+    "relUrl": "/pages/service_documentation/challenge_tool.html"
+  },"1": {
+    "doc": "Concepts",
+    "title": "Concepts",
+    "content": " ",
+    "url": "/pages/concepts.html",
+    
+    "relUrl": "/pages/concepts.html"
+  },"2": {
+    "doc": "Concepts",
+    "title": "Table of Contents",
+    "content": ". | FCC BDC Filing | FCC BSL Fabric | KML Network Data | . FCC BDC Filing . A biannual submission required by the Federal Communications Commission (FCC) from Internet Service Providers (ISPs) that details where broadband service is available. This data helps the FCC assess and improve internet coverage nationwide, ensuring transparency and aiding in the allocation of federal broadband funding. FCC BSL Fabric . The Broadband Serviceable Location (BSL) Fabric is a dataset maintained by the FCC that identifies all locations in the U.S. where fixed broadband internet could be installed. KML Network Data . Keyhole Markup Language (KML) Network Data is a geospatial file format used to display and share network infrastructure data—like fiber routes or coverage areas. ",
+    "url": "/pages/concepts.html#table-of-contents",
+    
+    "relUrl": "/pages/concepts.html#table-of-contents"
+  },"3": {
+    "doc": "Contributors",
+    "title": "Contributors",
+    "content": "Thanks to all the contributors who helped build BDK! . | Zhuowei Wen Duration: Summer 2023 - Present GitHub: @ZhuoweiWen | Vineet Marri Duration: Summer 2023 - Present GitHub: @vineetm3 | . | Kevin Alegre Duration: Fall 2024 - Present GitHub: @alegrekev | Jessica May Duration: Fall 2024 - Present GitHub: @jessicamayvt | . | Brooke Ritter Duration: Fall 2023 - Spring 2024 GitHub: @britter22 | Gabe Palomino Duration: Spring 2024 GitHub: @gabepalomin | . | Rayhan Biju Duration: Fall 2023 GitHub: @rayb26 | Professor Shaddi Hasan Duration: Summer 2023 - Present GitHub: @shaddi | . ",
+    "url": "/pages/contributors.html",
+    
+    "relUrl": "/pages/contributors.html"
+  },"4": {
+    "doc": "Edit Network Files Information",
+    "title": "Edit Network Files Information",
+    "content": "Edit information associated with your Network Data files, including: . | Name | Type | Max Download Speed | Max Upload Speed | Technology Type | Latency | Category | . Click the Save Changes button to save changes associated with a specific Network Data file. ",
+    "url": "/pages/service_documentation/edit_network_files_info_tool.html",
+    
+    "relUrl": "/pages/service_documentation/edit_network_files_info_tool.html"
+  },"5": {
+    "doc": "Export History",
+    "title": "Export History",
+    "content": "View information related to previously exported filings, including the date and time they were created. You have the option to View previous filings on a map, Edit previous filings using the Editing Tool, Download previous filings, and Delete previous filings. ",
+    "url": "/pages/service_documentation/export_history_tool.html",
+    
+    "relUrl": "/pages/service_documentation/export_history_tool.html"
+  },"6": {
+    "doc": "FAQ",
+    "title": "FAQ",
+    "content": ". | Cannot bind to port number due to permission denied This is usually because the port number you are trying to run the backend or frontend on is already occupied. Change the port number (the last four digits in &gt; the URL) at NEXT_PUBLIC_DEVELOP_BACKEND_URL in the .env.local file and at DEVELOP_BACKEND_PORT in the .env file. Make sure they match. | . ",
+    "url": "/pages/developer_documentation/faq.html",
+    
+    "relUrl": "/pages/developer_documentation/faq.html"
+  },"7": {
+    "doc": "Filing Tool",
+    "title": "Filing Tool",
+    "content": " ",
+    "url": "/pages/service_documentation/filing_tool.html",
+    
+    "relUrl": "/pages/service_documentation/filing_tool.html"
+  },"8": {
+    "doc": "Filing Tool",
+    "title": "Table of Contents",
+    "content": ". | Profile | Upload | Search | Editing Tool | Your Filings | Export Filing | . The Filing Tool serves as the BDK home page. Profile . Update information associated with your User Account and Organization, including: . | The email address associated with your account | Information related to your organization . | Organization Name | Brand Name | Provider ID | . | . Brand Name &amp; Provider ID will be included in the filing, so make sure they are accurate. Upload . Upload FCC BSL Fabric (CSV format) and Network Data files (KML format). For each file you upload, specify the following as necessary: . | Max Download Speed (Mbps) | Max Upload Speed (Mbps) | Technology Type . | Copper Wire | Coaxial Cable / HFC | Optical Carrier / Fiber to the Premises | Geostationary Satellite | Non-Geostationary Satellite | Unlicensed Terrestrial Fixed Wireless | Licensed Terrestrial Fixed Wireless | Licensed-by-Rule Terrestrial Fixed Wireless | Other | . | Network Type . | Wired | Wireless | . | Latency . | &lt;= 100 ms | &gt; 100 ms | . | Category . | Business | Residential | Both | . | . Search . Search for fabric locations. Selecting one will guide you to its position. Search by State allows you to search by state name. Editing Tool . If we overestimate your coverage, you can make corrections by using the polygon drawing tool to mark locations as unserved. To finalize a polygon, click on any drawn point. Click the Your Edits button to view and submit your edits. Click the Exit Editing Tool button once you are done using the tool. Your Filings . Select the deadline you are filing for. You will see all associated Fabric files, Network Data files, and Manual Edits you made. You can toggle map visibility for locations associated with a Network Data file. There is also an option to locate Manual Edits on the map. You can select specific files using the checkboxes. There are options to delete all checked files, delete the entire filing, and regenerate the map. Export Filing . Allows you to download the filing for the current selected deadline. You can review all information associated with your Network Data files using the Edit Network Files Information tool. After you verify that everything is correct, select the option to download your filing. You should receive an FCC compliant BDC Report in CSV format. ",
+    "url": "/pages/service_documentation/filing_tool.html#table-of-contents",
+    
+    "relUrl": "/pages/service_documentation/filing_tool.html#table-of-contents"
+  },"9": {
+    "doc": "Service Documentation",
+    "title": "Service Documentation",
+    "content": "If you require documentation for a specific BDK feature, use the pages below. NOTE: Wireless Coverage Calculation &amp; Challenge Tool are not in use. ",
+    "url": "/pages/service_documentation/",
+    
+    "relUrl": "/pages/service_documentation/"
+  },"10": {
+    "doc": "Developer Documentation",
+    "title": "Developer Documentation",
+    "content": "If you prefer deploying the BDK software locally, use the pages below. ",
+    "url": "/pages/developer_documentation/",
+    
+    "relUrl": "/pages/developer_documentation/"
+  },"11": {
+    "doc": "Home",
+    "title": "Broadband Data Kit (BDK)",
+    "content": "A tool that helps you complete your biannual FCC-required BDC filing. ",
+    "url": "/#broadband-data-kit-bdk",
+    
+    "relUrl": "/#broadband-data-kit-bdk"
+  },"12": {
+    "doc": "Home",
+    "title": "Useful Links",
+    "content": ". | User Guide | Service Documentation | Developer Documentation | Concepts | . ",
+    "url": "/#useful-links",
+    
+    "relUrl": "/#useful-links"
+  },"13": {
+    "doc": "Home",
+    "title": "What is BDK?",
+    "content": "The Broadband Data Kit (BDK) is an intuitive and automated tool developed by the SPIN Lab at Virginia Tech to help you complete your biannual FCC-required BDC filing. Features include: . | Visualization: Get a clear overview of your network data. See which fabric locations are served by your network, ensuring you have a comprehensive understanding of your coverage. | Dynamic Map Editing: We understand that networks are ever-evolving. With our dynamic map editing feature, you can update and document the fabric locations your network serves as they change over time. | Automated Reporting: Once you input your data and specify the locations you cover, BDK will generate a customized report, formatted and compliant with FCC guidelines, ready for submission. | . ",
+    "url": "/#what-is-bdk",
+    
+    "relUrl": "/#what-is-bdk"
+  },"14": {
+    "doc": "Home",
+    "title": "Home",
+    "content": " ",
+    "url": "/",
+    
+    "relUrl": "/"
+  },"15": {
+    "doc": "Local Environment Setup",
+    "title": "Local Environment Setup",
+    "content": " ",
+    "url": "/pages/developer_documentation/local_environment_setup.html",
+    
+    "relUrl": "/pages/developer_documentation/local_environment_setup.html"
+  },"16": {
+    "doc": "Local Environment Setup",
+    "title": "Steps to Setup Your Development Environment",
+    "content": ". | Clone the repository at github.com/spin-vt/bdk with the following command (choose your preferred method): git clone git@github.com:spin-vt/bdk.git #(clone with SSH, recommended) . git clone &lt;https://github.com/spin-vt/bdk.git&gt; #(clone with HTTPS) . | Move into the cloned directory using the following command: cd bdk . | Create a .env file in the bdk directory with the following command (or do it in VS code): touch .env . | Paste the following configurations into the .env file (any lines that are commented (#) need to be changed with your information): # POSTGRES_USER=postgres # POSTGRES_PASSWORD=password POSTGRES_DB=postgres POSTGRES_HOST_AUTH_METHOD=trust DB_HOST=db DB_PORT=5432 SECRET_KEY=ADFAKJFDLJEOQRIOPQ498689780 JWT_SECRET=ADFAKJFDLJEOQRI DOCKER_IMAGE_BACKEND=ghcr.io/spin-vt/backend DOCKER_IMAGE_WORKER=ghcr.io/spin-vt/worker DOCKER_IMAGE_FRONTEND=ghcr.io/spin-vt/frontend DOCKER_IMAGE_NGINX=ghcr.io/spin-vt/my-nginx JWT_TOKEN_LOCATION=cookies JWT_ACCESS_COOKIE_NAME=token # POSTGRES_ADMIN_EMAIL=example@examplemail.com # POSTGRES_ADMIN_PASSWORD=somepassword NGINX_IMAGE=my-nginx DEVELOP_BACKEND_PORT=8000 DEVELOP_FRONTEND_PORT=3000 MAIL_SERVER=live.smtp.mailtrap.io MAIL_PORT=587 MAIL_USE_TLS=true MAIL_USE_SSL=false CELERY_BROKER_URL=redis://redis:6379/0 CELERY_RESULT_BACKEND=redis://redis:6379/0 . | Login to Github Docker registry with credentials to enable pulling images (substitute {your_github_personal_access_token} with your GitHub Personal Access Token and {your_username} with your Github username): echo {your_github_personal_access_token} | docker login ghcr.io -u {your_username} --password-stdin . | Pull the prebuilt images: docker-compose pull . | Move into the front-end directory with the command: cd front-end . | Run the following commands to go into the frontend docker container: docker run -it --rm -v $(pwd):/app ghcr.io/spin-vt/frontend /bin/sh . | In the docker container, run the following command to install npm packages: npm install . | Create a .env.local file in the front-end directory with the following command (or in VS code): touch .env.local . | Paste the following configurations into the .env.local file, and make sure the port number at NEXT_PUBLIC_DEVELOP_BACKEND_URL matches the DEVELOP_BACKEND_PORT in .env (substitute {maptiler_api_key} with your MapTiler API key): NEXT_PUBLIC_DEVELOP_BACKEND_URL=http://localhost:8000 NEXT_PUBLIC_DEVELOP_MAPTILE_STREET=https://api.maptiler.com/maps/streets/style.json?key={maptiler_api_key} NEXT_PUBLIC_DEVELOP_MAPTILE_SATELITE=https://api.maptiler.com/maps/satellite/style.json?key={maptiler_api_key} NEXT_PUBLIC_DEVELOP_MAPTILE_DARK=https://api.maptiler.com/maps/backdrop-darck/style.json?key={maptiler_api_key} . | Return to the bdk directory with the following command: cd .. | Run the BDK application (you might need to stop the container with ^C and rerun this command because on the first run, Postgres (the database), might not be ready when the migration script is run, causing a no-op and resulting in the database not being correctly setup): docker-compose up . | To verify that the database is setup, you can either: . | Verify if the below message exists in your terminal after running docker-compose up | Go to the register page and register an account. Check if you get redirected to the profile page | . | . ",
+    "url": "/pages/developer_documentation/local_environment_setup.html#steps-to-setup-your-development-environment",
+    
+    "relUrl": "/pages/developer_documentation/local_environment_setup.html#steps-to-setup-your-development-environment"
+  },"17": {
+    "doc": "Prerequisites",
+    "title": "Prerequisites",
+    "content": "If you prefer deploying the BDK software locally, follow the steps below (we recommend using Windows Subsystem for Linux 2 (WSL2) if you are on a Windows system): . Prerequisites: . | Docker Desktop . | Download: docker.com/products/docker-desktop/ | WSL2 (Windows User): learn.microsoft.com/en-us/windows/wsl/install | Guide for using WSL2 for Docker backend: docs.docker.com/desktop/wsl/ | Authenticating with a GitHub Personal Access Token: docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry | . | PostgreSQL . | Download: postgresql.org/download/ | Creating a user and setting a password: https://www.postgresql.org/docs/8.0/sql-createuser.html | . | SSH Key . | Create key: github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account | . | MapTiler . | Create account &amp; API key: docs.maptiler.com/cloud/api/authentication-key/ | . | . NOTE: If on Windows, you must have Docker Desktop installed, set up for WSL2, and running for the Local Environment Setup to work correctly. ",
+    "url": "/pages/developer_documentation/prerequisites.html",
+    
+    "relUrl": "/pages/developer_documentation/prerequisites.html"
+  },"18": {
+    "doc": "User Guide",
+    "title": "User Guide",
+    "content": "You can visit the BDK Web Portal at bdk.cs.vt.edu. If you ever need help understanding a specific feature, visit the Service Documentation page. | Account Registration: Register by entering your email and password. After your account is created, make sure to verify your email. Additionally, create or join an organization. If you already have an account, you can login. | . | Upload Network Data: Provide your network data in KML format. Use line-strings for wired connections and polygons for wireless coverage. Additionally, upload your FCC BSL Fabric dataset. Make sure you select the correct filing deadline. | BDK supports the latest Fabric version. | | . | Visualization: After processing, your data is displayed on a map. This interactive feature lets you zoom in to specific locations, enabling you to validate the tool’s accuracy. | Clicking on a map marker will give you network information related to that location. | The map is color-coded in the following manner: | | Color (Hex) | Meaning | . | Purple (#800080) | Your Network Coverage | . | Green (#008000) | Served Fabric Locations (BSL) | . | Red (#FF0000) | Unserved Fabric Locations (BSL) | . | Orange (#FFA500) | Non-BSL Locations | . | | . | Editing: If discrepancies arise or adjustments are required, use the integrated Editing Tool to make necessary changes. | . | Report Generation: Once you’re satisfied with the accuracy and coverage details, simply click the Export button on the navbar to download your comprehensive report. | . | Create a New Report: Reupload any updated Fabric or Network files. Additionally, select the new filing deadline. | . | . ",
+    "url": "/pages/user_guide.html",
+    
+    "relUrl": "/pages/user_guide.html"
+  },"19": {
+    "doc": "Video Demos",
+    "title": "Video Demos",
+    "content": "| Creating an Account | Uploading Network &amp; Fabric Data | . | | . | Making Manual Edits | Exporting a Filing | . | | . ",
+    "url": "/pages/service_documentation/video_demos.html",
+    
+    "relUrl": "/pages/service_documentation/video_demos.html"
+  },"20": {
+    "doc": "Wireless Coverage Calculation",
+    "title": "Wireless Coverage Calculation",
+    "content": "Not in use. ",
+    "url": "/pages/service_documentation/wireless_coverage_calculation.html",
+    
+    "relUrl": "/pages/service_documentation/wireless_coverage_calculation.html"
+  }
+}
