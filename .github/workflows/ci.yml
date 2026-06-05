@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: backend lint + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lint + format check (no DB needed). Runs in the same image the tests use.
+      - name: ruff
+        run: >
+          docker compose -f docker-compose.test.yml run --rm --no-deps test
+          sh -c "uv sync --frozen && uv run ruff check . && uv run ruff format --check ."
+
+      # Full committable suite in Docker against a throwaway Postgres.
+      # The `golden` tests need local prod data and are deselected automatically
+      # by the test service's command.
+      - name: pytest
+        run: docker compose -f docker-compose.test.yml run --rm test
