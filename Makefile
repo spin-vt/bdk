@@ -1,0 +1,46 @@
+# BDK developer commands. Run `make` or `make help` to list them.
+.DEFAULT_GOAL := help
+COMPOSE := docker compose
+TEST_COMPOSE := docker compose -f docker-compose.test.yml
+
+.PHONY: help up up-build down logs ps shell test lint fmt seed migrate migration
+
+help: ## List available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
+	  awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+up: ## Start the full dev stack (needs a .env — copy .env.example)
+	$(COMPOSE) up
+
+up-build: ## Rebuild images and start the dev stack
+	$(COMPOSE) up --build
+
+down: ## Stop the dev stack
+	$(COMPOSE) down
+
+logs: ## Tail logs from all services
+	$(COMPOSE) logs -f
+
+ps: ## Show running services
+	$(COMPOSE) ps
+
+shell: ## Open a shell in the backend container
+	$(COMPOSE) exec backend sh
+
+test: ## Run the committable test suite in Docker (golden tests deselected)
+	$(TEST_COMPOSE) run --rm test
+
+lint: ## Run ruff (lint) in Docker
+	$(TEST_COMPOSE) run --rm --no-deps test sh -c "uv sync --frozen && uv run ruff check . && uv run ruff format --check ."
+
+fmt: ## Apply ruff formatting in Docker
+	$(TEST_COMPOSE) run --rm --no-deps test sh -c "uv sync --frozen && uv run ruff format ."
+
+seed: ## Seed a dev org + verified user + sample filing (stack must be up)
+	$(COMPOSE) exec backend python scripts/seed.py
+
+migrate: ## Apply DB migrations (alembic upgrade head)
+	$(COMPOSE) exec backend alembic upgrade head
+
+migration: ## Create a migration:  make migration m="add foo table"
+	$(COMPOSE) exec backend alembic revision --autogenerate -m "$(m)"

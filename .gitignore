@@ -29,7 +29,12 @@ data/
 .env.local
 helpful.txt
 .env.*
+!.env.example
 README.md
+
+# Real ISP data for local dev/test — never commit (sensitive FCC fabric/location data)
+dev-data/
+
 # Data
 *.tif
 *.lcf
@@ -44,3 +49,8 @@ README.md
 color/
 back-end/DEM
 front-end/public/asgeojson
+.venv/
+
+# Python tool caches
+.ruff_cache/
+.pytest_cache/
