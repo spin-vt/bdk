@@ -87,9 +87,7 @@ def db_session(_schema):
     from database.sessions import Session
 
     session = Session()
-    table_names = ", ".join(
-        f'"{t.name}"' for t in reversed(Base.metadata.sorted_tables)
-    )
+    table_names = ", ".join(f'"{t.name}"' for t in reversed(Base.metadata.sorted_tables))
     session.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE;"))
     session.commit()
     try:
