@@ -1,14 +1,12 @@
-import psycopg2
-from database.sessions import ScopedSession, Session
-from database.models import editfile, user, file_editfile_link, file
-from threading import Lock
-from datetime import datetime
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm.exc import NoResultFound
-import re
-import os
 import logging
+from datetime import datetime
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+
+from database.models import editfile, file, file_editfile_link, user
+from database.sessions import Session
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -25,7 +23,6 @@ def get_editfiles_in_folder(folderid, session=None):
     finally:
         if owns_session:
             session.close()
-
 
 
 def get_editfile_with_id(fileid, session=None):
@@ -49,6 +46,7 @@ def get_editfile_with_id(fileid, session=None):
         if owns_session:
             session.close()
 
+
 def create_editfile(filename, content, folderid, session=None):
     owns_session = False
     if session is None:
@@ -56,14 +54,17 @@ def create_editfile(filename, content, folderid, session=None):
         owns_session = True
 
     try:
-        new_file = editfile(name=filename, data=content, folder_id=folderid, timestamp=datetime.now())
+        new_file = editfile(
+            name=filename, data=content, folder_id=folderid, timestamp=datetime.now()
+        )
         session.add(new_file)
         if owns_session:
             session.commit()
         return new_file
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         if owns_session:
             session.rollback()
+
 
 def get_editfilesinfo_in_folder(folderid, session=None):
     owns_session = False
@@ -78,24 +79,28 @@ def get_editfilesinfo_in_folder(folderid, session=None):
 
         files_info = []
         for editf in files_in_folder:
-            associated_files = session.query(file).join(file_editfile_link, file.id == file_editfile_link.file_id).filter(file_editfile_link.editfile_id == editf.id).all()
+            associated_files = (
+                session.query(file)
+                .join(file_editfile_link, file.id == file_editfile_link.file_id)
+                .filter(file_editfile_link.editfile_id == editf.id)
+                .all()
+            )
             associated_file_names = [associated_file.name for associated_file in associated_files]
 
             file_dict = {
-                'id': editf.id,
-                'name': editf.name,
-                'timestamp': editf.timestamp,
-                'folder_id': editf.folder_id,
-                'associated_files': associated_file_names
+                "id": editf.id,
+                "name": editf.name,
+                "timestamp": editf.timestamp,
+                "folder_id": editf.folder_id,
+                "associated_files": associated_file_names,
             }
-            
+
             files_info.append(file_dict)
 
         return files_info
     finally:
         if owns_session:
             session.close()
-
 
 
 def delete_editfile(editfileid, session=None):
@@ -108,7 +113,11 @@ def delete_editfile(editfileid, session=None):
         editfile_to_del = session.query(editfile).filter(editfile.id == editfileid).first()
         if editfile_to_del:
             # Delete all associated file links first
-            links = session.query(file_editfile_link).filter(file_editfile_link.editfile_id == editfileid).all()
+            links = (
+                session.query(file_editfile_link)
+                .filter(file_editfile_link.editfile_id == editfileid)
+                .all()
+            )
             for link in links:
                 session.delete(link)
 
@@ -125,7 +134,6 @@ def delete_editfile(editfileid, session=None):
     finally:
         if owns_session:
             session.close()
-
 
 
 def editfile_belongs_to_organization(file_id, user_id, session):
@@ -150,5 +158,3 @@ def editfile_belongs_to_organization(file_id, user_id, session):
         return False
 
     return folder.organization_id == user_organization.id
-
-

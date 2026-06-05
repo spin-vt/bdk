@@ -1,6 +1,8 @@
-from database.sessions import Session
-from database.models import towerinfo
 from sqlalchemy.exc import SQLAlchemyError
+
+from database.models import towerinfo
+from database.sessions import Session
+
 
 def create_towerinfo(tower_info_data, session=None):
     owns_session = False
@@ -21,4 +23,3 @@ def create_towerinfo(tower_info_data, session=None):
     finally:
         if owns_session:
             session.close()
-

@@ -1,36 +1,42 @@
-from database.sessions import ScopedSession, Session
-from database.models import celerytaskinfo, user
-from threading import Lock
-from datetime import datetime
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy import desc
-import os
 import logging
+from datetime import datetime
+
+from sqlalchemy import desc
+
+from database.models import celerytaskinfo, user
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
 def get_celerytasksinfo_for_org(orgid, session):
     try:
-        tasks = session.query(celerytaskinfo).filter(celerytaskinfo.organization_id == orgid).order_by(desc(celerytaskinfo.start_time)).all()
+        tasks = (
+            session.query(celerytaskinfo)
+            .filter(celerytaskinfo.organization_id == orgid)
+            .order_by(desc(celerytaskinfo.start_time))
+            .all()
+        )
         in_progress_tasks = []
         finished_tasks = []
 
         for task in tasks:
             task_info = {
-                'task_id': task.task_id,
-                'status': task.status,
-                'result': task.result,
-                'operation_type': task.operation_type,
-                'operation_detail': task.operation_detail,
-                'user_email': task.user_email,
-                'start_time': task.start_time,
-                'folder_deadline': task.folder_deadline.strftime('%Y-%m'),
-                'files_changed': task.files_changed
+                "task_id": task.task_id,
+                "status": task.status,
+                "result": task.result,
+                "operation_type": task.operation_type,
+                "operation_detail": task.operation_detail,
+                "user_email": task.user_email,
+                "start_time": task.start_time,
+                "folder_deadline": task.folder_deadline.strftime("%Y-%m"),
+                "files_changed": task.files_changed,
             }
-            if task.status in ['PENDING', 'STARTED', 'RETRY']:  # Adjust statuses as per your Celery setup
+            if task.status in [
+                "PENDING",
+                "STARTED",
+                "RETRY",
+            ]:  # Adjust statuses as per your Celery setup
                 in_progress_tasks.append(task_info)
             else:
                 finished_tasks.append(task_info)
@@ -41,20 +47,27 @@ def get_celerytasksinfo_for_org(orgid, session):
         logger.error(e)
         session.rollback()
 
+
 def get_estimated_runtime_for_task(task_id, session):
     try:
         # Fetch the task to get its operation type
         task = session.query(celerytaskinfo).filter(celerytaskinfo.task_id == task_id).first()
-        
-        if not task or task.status not in ['PENDING', 'STARTED', 'RETRY']:
+
+        if not task or task.status not in ["PENDING", "STARTED", "RETRY"]:
             return 0  # Only estimate runtime for in-progress tasks
 
         # Fetch the last 5 finished tasks of the same operation
-        recent_tasks = session.query(celerytaskinfo.runtime).filter(
-            celerytaskinfo.operation_type == task.operation_type,
-            celerytaskinfo.status == 'SUCCESS',
-            celerytaskinfo.runtime.isnot(None)
-        ).order_by(celerytaskinfo.start_time.desc()).limit(5).all()
+        recent_tasks = (
+            session.query(celerytaskinfo.runtime)
+            .filter(
+                celerytaskinfo.operation_type == task.operation_type,
+                celerytaskinfo.status == "SUCCESS",
+                celerytaskinfo.runtime.isnot(None),
+            )
+            .order_by(celerytaskinfo.start_time.desc())
+            .limit(5)
+            .all()
+        )
 
         if not recent_tasks:
             return 600  # Default a estimate 10 minutes runtime
@@ -67,20 +80,33 @@ def get_estimated_runtime_for_task(task_id, session):
         logger.error(e)
         session.rollback()
 
+
 def update_task_status(task_id, status, session):
     try:
         # Fetch the task to get its operation type
         task = session.query(celerytaskinfo).filter(celerytaskinfo.task_id == task_id).first()
-        
+
         if task:
-           task.status = status
-           session.commit()
+            task.status = status
+            session.commit()
 
     except Exception as e:
         logger.error(e)
         session.rollback()
 
-def create_celery_taskinfo(task_id, status, operation_type, operation_detail, user_email, organization_id, folder_deadline, session, files_changed=None, result=None):
+
+def create_celery_taskinfo(
+    task_id,
+    status,
+    operation_type,
+    operation_detail,
+    user_email,
+    organization_id,
+    folder_deadline,
+    session,
+    files_changed=None,
+    result=None,
+):
     """
     Helper function to create a new celery task info entry.
 
@@ -104,7 +130,7 @@ def create_celery_taskinfo(task_id, status, operation_type, operation_detail, us
             organization_id=organization_id,
             result=result,
             folder_deadline=folder_deadline,
-            files_changed=files_changed
+            files_changed=files_changed,
         )
 
         session.add(task_info)
@@ -130,6 +156,5 @@ def task_belongs_to_organization(task_id, user_id, session):
     taskVal = session.query(celerytaskinfo).filter(celerytaskinfo.task_id == task_id).first()
     if not taskVal:
         return False
-
 
     return taskVal.organization_id == user_organization.id

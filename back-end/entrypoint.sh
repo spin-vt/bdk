@@ -1,18 +1,11 @@
 #!/bin/sh
 
-# Check if migrations directory exists
-if [ ! -d "/app/alembic/versions" ]; then
-    mkdir -p /app/alembic/versions
-fi
-
-# Generate initial migration script if it does not exist
-if [ -z "$(ls -A /app/alembic/versions)" ]; then
-   alembic revision --autogenerate -m "Initial migration"
-   # Run migrations
-fi
-
-# Run migrations
+# Apply committed database migrations, then run the given command.
+#
+# Migrations live in alembic/versions and are created explicitly with
+# `alembic revision --autogenerate -m "..."`. We do NOT auto-generate a
+# migration at startup — that produced nondeterministic schemas depending on
+# whether the versions dir happened to be empty.
 alembic upgrade head
 
-# Execute command
 exec "$@"
