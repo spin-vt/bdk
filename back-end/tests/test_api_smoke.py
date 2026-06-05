@@ -69,9 +69,7 @@ def test_protected_endpoint_requires_auth(client):
 def test_login_then_protected_endpoint_ok(client):
     _register(client, "bob@example.com")
     # New client cookie jar already holds the register token, but test login too.
-    login = client.post(
-        "/api/login", json={"email": "bob@example.com", "password": "Password123!"}
-    )
+    login = client.post("/api/login", json={"email": "bob@example.com", "password": "Password123!"})
     assert login.status_code == 200
     assert login.get_json()["status"] == "success"
 
@@ -84,9 +82,7 @@ def test_login_then_protected_endpoint_ok(client):
 
 def test_login_bad_credentials(client):
     _register(client, "carol@example.com")
-    login = client.post(
-        "/api/login", json={"email": "carol@example.com", "password": "wrong"}
-    )
+    login = client.post("/api/login", json={"email": "carol@example.com", "password": "wrong"})
     # Route returns 200 with an error status payload for bad creds.
     assert login.get_json()["status"] == "error"
 
@@ -147,9 +143,7 @@ def _create_filing(client, deadline="2024-05-14"):
         "deadline": deadline,
         "file": (io.BytesIO(csv.encode("utf-8")), "fabric.csv"),
     }
-    return client.post(
-        "/api/submit-data/-1", data=data, content_type="multipart/form-data"
-    )
+    return client.post("/api/submit-data/-1", data=data, content_type="multipart/form-data")
 
 
 def test_create_and_list_filing(client, no_tiles):
@@ -184,9 +178,7 @@ def test_cannot_access_other_orgs_filing(client, no_tiles):
     s = Session()
     try:
         a_user = s.query(user).filter(user.email == "heidi@example.com").one()
-        a_folder = (
-            s.query(folder).filter(folder.organization_id == a_user.organization_id).one()
-        )
+        a_folder = s.query(folder).filter(folder.organization_id == a_user.organization_id).one()
         a_folder_id = a_folder.id
     finally:
         s.close()

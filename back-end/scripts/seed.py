@@ -31,16 +31,19 @@ def main():
         s.add(org)
         s.flush()  # assign org.id
 
-        s.add(user(
-            email=EMAIL,
-            password=generate_password_hash(PASSWORD, method="pbkdf2:sha256"),
-            verified=True,
-            is_admin=True,
-            organization_id=org.id,
-        ))
+        s.add(
+            user(
+                email=EMAIL,
+                password=generate_password_hash(PASSWORD, method="pbkdf2:sha256"),
+                verified=True,
+                is_admin=True,
+                organization_id=org.id,
+            )
+        )
 
-        f = folder(name="Sample Filing", type="upload", deadline=date(2025, 9, 1),
-                   organization_id=org.id)
+        f = folder(
+            name="Sample Filing", type="upload", deadline=date(2025, 9, 1), organization_id=org.id
+        )
         s.add(f)
         s.commit()
         print("Seeded:")

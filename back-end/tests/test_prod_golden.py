@@ -59,7 +59,9 @@ def _replay(session, fid):
     org.provider_id = m["organization"]["provider_id"]
     org.brand_name = m["organization"]["brand_name"]
     session.commit()
-    folder = folder_ops.create_folder(m["folder"]["name"][:50], org.id, date(2025, 1, 1), "upload", session)
+    folder = folder_ops.create_folder(
+        m["folder"]["name"][:50], org.id, date(2025, 1, 1), "upload", session
+    )
     session.commit()
 
     idmap = {}
@@ -67,9 +69,15 @@ def _replay(session, fid):
         with open(os.path.join(d, "inputs", f["written_as"]), "rb") as fh:
             data = fh.read()
         nf = file_ops.create_file(
-            filename=f["name"], content=data, folderid=folder.id, filetype=f["type"],
-            maxDownloadSpeed=f.get("maxDownloadSpeed"), maxUploadSpeed=f.get("maxUploadSpeed"),
-            techType=f.get("techType"), latency=f.get("latency"), category=f.get("category"),
+            filename=f["name"],
+            content=data,
+            folderid=folder.id,
+            filetype=f["type"],
+            maxDownloadSpeed=f.get("maxDownloadSpeed"),
+            maxUploadSpeed=f.get("maxUploadSpeed"),
+            techType=f.get("techType"),
+            latency=f.get("latency"),
+            category=f.get("category"),
             session=session,
         )
         session.commit()
@@ -78,7 +86,9 @@ def _replay(session, fid):
     for ef in m["editfiles"]:
         with open(os.path.join(d, "edits", ef["written_as"]), "rb") as fh:
             data = fh.read()
-        nef = editfile_ops.create_editfile(filename=ef["name"], content=data, folderid=folder.id, session=session)
+        nef = editfile_ops.create_editfile(
+            filename=ef["name"], content=data, folderid=folder.id, session=session
+        )
         session.commit()
         for pfid in ef.get("linked_file_ids") or []:
             if pfid in idmap:
@@ -90,8 +100,15 @@ def _replay(session, fid):
             continue
         nt = 0 if f["type"] == "wired" else 1
         kml_ops.add_network_data(
-            folder.id, idmap[f["id"]], f.get("maxDownloadSpeed"), f.get("maxUploadSpeed"),
-            f.get("techType"), nt, f.get("latency"), f.get("category"), session,
+            folder.id,
+            idmap[f["id"]],
+            f.get("maxDownloadSpeed"),
+            f.get("maxUploadSpeed"),
+            f.get("techType"),
+            nt,
+            f.get("latency"),
+            f.get("category"),
+            session,
         )
         session.commit()
 
@@ -108,12 +125,20 @@ def test_prod_filing_exact_match(db_session, fid):
     for f in m["files"]:
         if f["type"] == "fabric":
             continue
-        bdk = {r[0] for r in s.query(kml_data.location_id).filter(kml_data.file_id == idmap[f["id"]]).all()}
+        bdk = {
+            r[0]
+            for r in s.query(kml_data.location_id).filter(kml_data.file_id == idmap[f["id"]]).all()
+        }
         ref = set(prod[prod.file_id == f["id"]].location_id.astype(int))
         if bdk != ref:
             mismatches.append(
-                {"file": f["name"], "bdk": len(bdk), "prod": len(ref),
-                 "bdk_only": len(bdk - ref), "prod_only": len(ref - bdk)}
+                {
+                    "file": f["name"],
+                    "bdk": len(bdk),
+                    "prod": len(ref),
+                    "bdk_only": len(bdk - ref),
+                    "prod_only": len(ref - bdk),
+                }
             )
 
     assert not mismatches, f"folder {fid}: kml_data does not exactly match prod:\n" + "\n".join(
