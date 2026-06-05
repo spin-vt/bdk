@@ -1,0 +1,54 @@
+# Run the backend test suite reproducibly in Docker (matches the prod stack:
+# Python 3.12 + GDAL + tippecanoe), against a throwaway Postgres. No local
+# Python/uv/Postgres needed.
+#
+#   docker compose -f docker-compose.test.yml run --rm test
+#
+# The `golden` tests are deselected (they need the local prod-extract data and
+# are local-only). CI uses exactly this.
+services:
+  test-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: bdk_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d bdk_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data   # ephemeral; faster, no leftover state
+
+  test:
+    build:
+      context: ./back-end
+      dockerfile: Dockerfile.backend
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: bdk_test
+      DB_HOST: test-db
+      DB_PORT: "5432"
+      SECRET_KEY: test
+      JWT_SECRET: test
+      JWT_TOKEN_LOCATION: cookies
+      JWT_ACCESS_COOKIE_NAME: token
+      DEVELOP_BACKEND_PORT: "8000"
+      IN_PRODUCTION: ""
+      MAIL_USE_TLS: "false"
+      MAIL_USE_SSL: "false"
+      CELERY_BROKER_URL: "memory://"
+      CELERY_RESULT_BACKEND: "cache+memory://"
+    volumes:
+      - ./back-end:/app
+    working_dir: /app
+    # Bypass the migration entrypoint; the test fixtures create the schema. Sync
+    # the dev group (the runtime image is built --no-dev) and run the committable
+    # suite (golden deselected).
+    entrypoint: []
+    command: sh -c "uv sync --frozen && uv run pytest -m 'not golden' -q"
