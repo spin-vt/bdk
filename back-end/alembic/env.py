@@ -1,13 +1,12 @@
-from logging.config import fileConfig
 import os
+from logging.config import fileConfig
+from urllib.parse import quote_plus
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from urllib.parse import quote_plus
 from database.base import Base
-from database import models  # assuming your models are defined in database/models.py
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -15,19 +14,19 @@ config = context.config
 
 # For production
 # Get the database URL from the environment variables
-db_user = os.getenv('POSTGRES_USER')
-db_password = quote_plus(os.getenv('POSTGRES_PASSWORD')).replace("%", "%%")
-db_host = os.getenv('DB_HOST')
-db_port = os.getenv('DB_PORT')
-db_name = os.getenv('POSTGRES_DB')
-sqlalchemy_database_url = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
+db_user = os.getenv("POSTGRES_USER")
+db_password = quote_plus(os.getenv("POSTGRES_PASSWORD")).replace("%", "%%")
+db_host = os.getenv("DB_HOST")
+db_port = os.getenv("DB_PORT")
+db_name = os.getenv("POSTGRES_DB")
+sqlalchemy_database_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
 # For local testing
 # db_host = os.getenv('postgres', 'localhost')
 # sqlalchemy_database_url = f'postgresql://postgres:db123@{db_host}:5432/postgres'
 
 # Override the SQLAlchemy URL from the .ini file
-config.set_main_option('sqlalchemy.url', sqlalchemy_database_url)
+config.set_main_option("sqlalchemy.url", sqlalchemy_database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -85,9 +84,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

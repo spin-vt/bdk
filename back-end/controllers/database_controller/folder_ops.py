@@ -1,10 +1,9 @@
-import psycopg2
-from database.sessions import ScopedSession, Session
-from database.models import user, folder
-from threading import Lock
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import SQLAlchemyError
-from .user_ops import get_user_with_id
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+
+from database.models import folder, user
+from database.sessions import Session
+
 
 def get_export_folder(orgid, folderid=None, session=None):
     owns_session = False
@@ -14,10 +13,12 @@ def get_export_folder(orgid, folderid=None, session=None):
     try:
         # Query to retrieve the last folder of type 'upload' for the given org
         if not folderid:
-            folderVal = (session.query(folder)
-                        .filter(folder.organization_id == orgid, folder.type == "export")
-                        .order_by(folder.id.desc())
-                        .first())
+            folderVal = (
+                session.query(folder)
+                .filter(folder.organization_id == orgid, folder.type == "export")
+                .order_by(folder.id.desc())
+                .first()
+            )
         else:
             folderVal = session.query(folder).filter(folder.id == folderid).one()
         return folderVal
@@ -31,6 +32,7 @@ def get_export_folder(orgid, folderid=None, session=None):
     finally:
         if owns_session:
             session.close()
+
 
 def get_upload_folder(orgid, folderid=None, session=None):
     owns_session = False
@@ -40,10 +42,12 @@ def get_upload_folder(orgid, folderid=None, session=None):
     try:
         # Query to retrieve the last folder of type 'upload' for the given org
         if not folderid:
-            folderVal = (session.query(folder)
-                        .filter(folder.organization_id == orgid, folder.type == "upload")
-                        .order_by(folder.id.desc())
-                        .first())
+            folderVal = (
+                session.query(folder)
+                .filter(folder.organization_id == orgid, folder.type == "upload")
+                .order_by(folder.id.desc())
+                .first()
+            )
         else:
             folderVal = session.query(folder).filter(folder.id == folderid).one()
         return folderVal
@@ -57,6 +61,7 @@ def get_upload_folder(orgid, folderid=None, session=None):
     finally:
         if owns_session:
             session.close()
+
 
 def get_folder_with_id(folderid, session=None):
     owns_session = False
@@ -77,6 +82,7 @@ def get_folder_with_id(folderid, session=None):
         if owns_session:
             session.close()
 
+
 def get_folders_by_type_for_org(orgid, foldertype, session=None):
     owns_session = False
     if session is None:
@@ -84,7 +90,11 @@ def get_folders_by_type_for_org(orgid, foldertype, session=None):
         owns_session = True
 
     try:
-        folders = session.query(folder).filter(folder.organization_id == orgid, folder.type == foldertype).all()
+        folders = (
+            session.query(folder)
+            .filter(folder.organization_id == orgid, folder.type == foldertype)
+            .all()
+        )
         return folders
 
     except NoResultFound:
@@ -103,7 +113,9 @@ def create_folder(foldername, orgid, filingDeadline, foldertype, session=None):
         owns_session = True
 
     try:
-        new_folder = folder(name=foldername, organization_id=orgid, deadline=filingDeadline, type=foldertype)
+        new_folder = folder(
+            name=foldername, organization_id=orgid, deadline=filingDeadline, type=foldertype
+        )
         session.add(new_folder)
         if owns_session:
             session.commit()
@@ -116,6 +128,7 @@ def create_folder(foldername, orgid, filingDeadline, foldertype, session=None):
         if owns_session:
             session.close()
 
+
 def get_number_of_folders_for_org(orgid, session=None):
     owns_session = False
     if session is None:
@@ -124,12 +137,11 @@ def get_number_of_folders_for_org(orgid, session=None):
     try:
         count = session.query(folder).filter(folder.organization_id == orgid).count()
         return count
-    except Exception as e:
+    except Exception:
         return -1
     finally:
         if owns_session:
             session.close()
-
 
 
 def delete_folder(folderid, session=None):

@@ -1,7 +1,8 @@
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+from werkzeug.security import generate_password_hash
+
 from database.models import user
 from database.sessions import Session
-from werkzeug.security import generate_password_hash
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from utils.logger_config import logger
 
 
@@ -24,6 +25,7 @@ def get_user_with_id(userid, session=None):
         if owns_session:
             session.close()
 
+
 def get_userinfo_with_id(userid, session=None):
     owns_session = False
     if session is None:
@@ -34,19 +36,19 @@ def get_userinfo_with_id(userid, session=None):
         userVal = session.query(user).filter(user.id == userid).one()
         if userVal.organization:
             organization_info = {
-                'organization_name': userVal.organization.name,
-                'provider_id': userVal.organization.provider_id,
-                'brand_name': userVal.organization.brand_name
+                "organization_name": userVal.organization.name,
+                "provider_id": userVal.organization.provider_id,
+                "brand_name": userVal.organization.brand_name,
             }
         else:
             organization_info = None
 
         return {
-            'id': userVal.id,
-            'email': userVal.email,
-            'verified': userVal.verified,
-            'is_admin': userVal.is_admin,
-            'organization': organization_info
+            "id": userVal.id,
+            "email": userVal.email,
+            "verified": userVal.verified,
+            "is_admin": userVal.is_admin,
+            "organization": organization_info,
         }
     except NoResultFound:
         return None
@@ -57,6 +59,7 @@ def get_userinfo_with_id(userid, session=None):
     finally:
         if owns_session:
             session.close()
+
 
 def get_user_with_email(email, session=None):
     owns_session = False
@@ -78,22 +81,25 @@ def get_user_with_email(email, session=None):
         if owns_session:
             session.close()
 
+
 def create_user_in_db(email, password, session):
     try:
         existing_user = get_user_with_email(email, session)
         if existing_user:
             return {"error": "Email already exists"}
 
-        hashed_password = generate_password_hash(password, method='sha256')
+        # NOTE: werkzeug 3.x removed the bare "sha256" method name (raises
+        # ValueError). Use the modern default scheme so register/login work on
+        # the upgraded stack. [flagged: minimal modern-stack fix]
+        hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
         new_user = user(email=email, password=hashed_password)
         session.add(new_user)
-    
+
         session.commit()
 
         return {"success": new_user}
 
     except Exception as e:
-       
         session.rollback()
         return {"error": str(e)}
 
@@ -113,20 +119,23 @@ def verify_user_email(user_id, email, session, setVerified=False):
         logger.debug(e)
         return False
 
+
 def reset_user_password(user_id, password):
     session = Session()
     try:
         userVal = session.query(user).filter(user.id == user_id).one()
         if userVal:
-            hashed_password = generate_password_hash(password, method='sha256')
+            # werkzeug 3.x dropped the bare "sha256" method. [flagged fix]
+            hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
             userVal.password = hashed_password
             session.commit()
-            
+
     except Exception as e:
         session.rollback()
         logger.debug(e)
     finally:
         session.close()
+
 
 def add_user_to_organization(user_id, org_id, session):
     userVal = get_user_with_id(userid=user_id, session=session)
@@ -135,4 +144,3 @@ def add_user_to_organization(user_id, org_id, session):
         session.commit()
         return True
     return False
-

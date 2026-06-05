@@ -1,10 +1,9 @@
-from database.sessions import ScopedSession, Session
-from database.models import mbtiles
-from threading import Lock
-from datetime import datetime
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.exc import NoResultFound
+
+from database.models import mbtiles
+from database.sessions import Session
+
 
 def get_mbtiles_with_id(mbtid, session=None):
     owns_session = False
@@ -24,6 +23,7 @@ def get_mbtiles_with_id(mbtid, session=None):
         if owns_session:
             session.close()
 
+
 def get_latest_mbtiles(folderid, session=None):
     owns_session = False
     if session is None:
@@ -31,10 +31,12 @@ def get_latest_mbtiles(folderid, session=None):
         owns_session = True
 
     try:
-        latest_mbtiles_with_postfix = (session.query(mbtiles)
-                                    .filter(mbtiles.folder_id == folderid)
-                                    .order_by(mbtiles.timestamp.desc())
-                                    .first())
+        latest_mbtiles_with_postfix = (
+            session.query(mbtiles)
+            .filter(mbtiles.folder_id == folderid)
+            .order_by(mbtiles.timestamp.desc())
+            .first()
+        )
         return latest_mbtiles_with_postfix
     except NoResultFound:
         return None
@@ -45,13 +47,14 @@ def get_latest_mbtiles(folderid, session=None):
         if owns_session:
             session.close()
 
+
 def delete_mbtiles(folderid, session=None):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
     try:
-        mbtiles_files = (session.query(mbtiles).filter(mbtiles.folder_id == folderid).all())
+        mbtiles_files = session.query(mbtiles).filter(mbtiles.folder_id == folderid).all()
         for mbtiles_f in mbtiles_files:
             session.delete(mbtiles_f)
         if owns_session:

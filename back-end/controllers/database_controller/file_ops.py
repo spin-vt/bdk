@@ -1,18 +1,18 @@
-import psycopg2
-from database.sessions import ScopedSession, Session
-from database.models import user, file, kml_data, file_editfile_link
-from threading import Lock
-from datetime import datetime
-from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm.exc import NoResultFound
-import re
-import os
 import logging
+from datetime import datetime
+from threading import Lock
+
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+
+from database.models import file, file_editfile_link, user
+from database.sessions import Session
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 db_lock = Lock()
+
 
 def get_files_in_folder(folderid, session=None):
     owns_session = False
@@ -27,7 +27,9 @@ def get_files_in_folder(folderid, session=None):
         if owns_session:
             session.close()
 
+
 # Similar changes for the other functions
+
 
 def get_files_with_postfix(folderid, postfix, session=None):
     owns_session = False
@@ -36,7 +38,11 @@ def get_files_with_postfix(folderid, postfix, session=None):
         owns_session = True
 
     try:
-        files_with_ending = session.query(file).filter(file.folder_id == folderid, file.name.endswith(postfix)).all()
+        files_with_ending = (
+            session.query(file)
+            .filter(file.folder_id == folderid, file.name.endswith(postfix))
+            .all()
+        )
         return files_with_ending
     finally:
         if owns_session:
@@ -50,12 +56,13 @@ def get_all_network_files_for_fileinfoedit_table(folderid, session=None):
         owns_session = True
 
     try:
-        kml_files = get_files_with_postfix(folderid, '.kml', session)
-        geojson_files = get_files_with_postfix(folderid, '.geojson', session)
+        kml_files = get_files_with_postfix(folderid, ".kml", session)
+        geojson_files = get_files_with_postfix(folderid, ".geojson", session)
         return kml_files + geojson_files
     finally:
         if owns_session:
             session.close()
+
 
 def get_files_by_type(folderid, filetype, session=None):
     owns_session = False
@@ -64,7 +71,9 @@ def get_files_by_type(folderid, filetype, session=None):
         owns_session = True
 
     try:
-        files_with_type = session.query(file).filter(file.folder_id == folderid, file.type == filetype).all()
+        files_with_type = (
+            session.query(file).filter(file.folder_id == folderid, file.type == filetype).all()
+        )
         return files_with_type
     except NoResultFound:
         return None
@@ -83,7 +92,11 @@ def get_files_with_prefix(folderid, prefix, session=None):
         owns_session = True
 
     try:
-        files_with_ending = session.query(file).filter(file.folder_id == folderid, file.name.startswith(prefix)).all()
+        files_with_ending = (
+            session.query(file)
+            .filter(file.folder_id == folderid, file.name.startswith(prefix))
+            .all()
+        )
         return files_with_ending
     except NoResultFound:
         return None
@@ -93,6 +106,7 @@ def get_files_with_prefix(folderid, prefix, session=None):
     finally:
         if owns_session:
             session.close()
+
 
 def get_file_with_id(fileid, session=None):
     owns_session = False
@@ -115,6 +129,7 @@ def get_file_with_id(fileid, session=None):
         if owns_session:
             session.close()
 
+
 def get_file_with_name(filename, folderid, session=None):
     owns_session = False
     if session is None:
@@ -122,7 +137,9 @@ def get_file_with_name(filename, folderid, session=None):
         owns_session = True
 
     try:
-        existing_file = session.query(file).filter(file.name == filename, file.folder_id == folderid).first()
+        existing_file = (
+            session.query(file).filter(file.name == filename, file.folder_id == folderid).first()
+        )
         return existing_file
     except NoResultFound:
         return None
@@ -137,21 +154,44 @@ def get_file_with_name(filename, folderid, session=None):
             session.close()
 
 
-def create_file(filename, content, folderid, filetype=None, maxDownloadSpeed=None, maxUploadSpeed=None, techType=None, latency=None, category=None, session=None):
+def create_file(
+    filename,
+    content,
+    folderid,
+    filetype=None,
+    maxDownloadSpeed=None,
+    maxUploadSpeed=None,
+    techType=None,
+    latency=None,
+    category=None,
+    session=None,
+):
     owns_session = False
     if session is None:
         session = Session()
         owns_session = True
 
     try:
-        new_file = file(name=filename, data=content, folder_id=folderid, timestamp=datetime.now(), type=filetype, maxDownloadSpeed=maxDownloadSpeed, maxUploadSpeed=maxUploadSpeed, techType=techType, latency=latency, category=category)
+        new_file = file(
+            name=filename,
+            data=content,
+            folder_id=folderid,
+            timestamp=datetime.now(),
+            type=filetype,
+            maxDownloadSpeed=maxDownloadSpeed,
+            maxUploadSpeed=maxUploadSpeed,
+            techType=techType,
+            latency=latency,
+            category=category,
+        )
         session.add(new_file)
         if owns_session:
             session.commit()
         return new_file
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         if owns_session:
             session.rollback()
+
 
 def update_file_type(file_id, filetype, session=None):
     owns_session = False
@@ -177,7 +217,8 @@ def update_file_type(file_id, filetype, session=None):
             session.rollback()
         return {"error": str(e)}
 
-#pass in a folderid
+
+# pass in a folderid
 def get_filesinfo_in_folder(folderid, session=None):
     owns_session = False
     if session is None:
@@ -191,22 +232,22 @@ def get_filesinfo_in_folder(folderid, session=None):
 
         files_info = []
         for file in files_in_folder:
-
             file_dict = {
-                'id': file.id,
-                'name': file.name,
-                'timestamp': file.timestamp,
-                'folder_id': file.folder_id,
-                'type': file.type,
-                'kml_data': None
+                "id": file.id,
+                "name": file.name,
+                "timestamp": file.timestamp,
+                "folder_id": file.folder_id,
+                "type": file.type,
+                "kml_data": None,
             }
-            
+
             files_info.append(file_dict)
 
         return files_info
     finally:
         if owns_session:
             session.close()
+
 
 def delete_file(fileid, session=None):
     owns_session = False
@@ -219,7 +260,9 @@ def delete_file(fileid, session=None):
         file_to_del = get_file_with_id(fileid, session)
         if file_to_del:
             # Delete all associated editfile links first
-            links = session.query(file_editfile_link).filter(file_editfile_link.file_id == fileid).all()
+            links = (
+                session.query(file_editfile_link).filter(file_editfile_link.file_id == fileid).all()
+            )
             for link in links:
                 session.delete(link)
 
@@ -227,7 +270,6 @@ def delete_file(fileid, session=None):
             session.delete(file_to_del)
             if owns_session:
                 session.commit()
-
 
     except SQLAlchemyError as e:
         if owns_session:

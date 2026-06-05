@@ -1,74 +1,29 @@
-FROM ubuntu:20.04
+FROM python:3.12-slim-bookworm
 
-# Install dependencies
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  software-properties-common && \
-  add-apt-repository ppa:ubuntugis/ppa && \
-  apt-get update && apt-get install -y \
-  gcc \
-  python3-dev \
-  python3-pip \
-  libpq-dev \
-  build-essential \
-  libsqlite3-dev \
-  zlib1g-dev \
-  git \
-  gdal-bin\
-  g++ \
-  cmake \
-  libbz2-dev \
-  imagemagick \
-  zip && \
-  rm -rf /var/lib/apt/lists/*
+# Same toolchain as the backend: the Celery worker runs tile generation
+# (tippecanoe) and the signal-server raster path (GDAL CLI).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git build-essential g++ make cmake \
+    libsqlite3-dev zlib1g-dev libbz2-dev \
+    gdal-bin imagemagick zip libpq5 ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
+RUN pip install --no-cache-dir uv
 
+RUN git clone --depth 1 https://github.com/mapbox/tippecanoe.git /tmp/tippecanoe \
+  && make -C /tmp/tippecanoe -j"$(nproc)" \
+  && make -C /tmp/tippecanoe install \
+  && rm -rf /tmp/tippecanoe \
+  && which tippecanoe
 
-# Clone and install Tippecanoe
-WORKDIR /tippecanoe
-RUN git clone https://github.com/mapbox/tippecanoe.git && \
-    cd tippecanoe && \
-    make -j 4 && \
-    make install
-
-# Check if Tippecanoe is in PATH
-RUN which tippecanoe || { echo 'Tippecanoe not found in PATH'; exit 1; }
-
-# # Set the working directory to /Signal-Server
-# WORKDIR /Signal-Server
-
-# # Clone Signal-Server repository
-# RUN git clone https://github.com/Cloud-RF/Signal-Server.git .
-
-# # Change to the source directory and build the binaries
-# WORKDIR /Signal-Server/src
-
-# # Before running cmake, we should ensure that the RUNTIME DESTINATION is specified in CMakeLists.txt.
-# RUN sed -i 's/install(TARGETS signalserver)/install(TARGETS signalserver RUNTIME DESTINATION bin)/' CMakeLists.txt
-# RUN sed -i 's/install(TARGETS signalserverHD)/install(TARGETS signalserverHD RUNTIME DESTINATION bin)/' CMakeLists.txt
-# RUN sed -i 's/install(TARGETS signalserverLIDAR)/install(TARGETS signalserverLIDAR RUNTIME DESTINATION bin)/' CMakeLists.txt
-
-# # Run cmake and make, specifying a runtime destination
-# RUN cmake -DCMAKE_INSTALL_PREFIX=/usr/local . && \
-#     make
-
-# # Add /usr/local/bin to the PATH, just in case it's not
-# ENV PATH="/Signal-Server/src:${PATH}"
-
-# # Check if signalserver is in PATH
-# RUN which signalserver || { echo 'Signal-Server not found in PATH'; exit 1; }
-
-# WORKDIR /Signal-Server/output/GoogleEarth
-# # Modify runsig.sh to use signalserverHD instead of signalserver
-# RUN sed -i 's/time signalserver -sdf/time signalserverHD -sdf/' runsig.sh
-
-# ENV PATH="/Signal-Server/output/GoogleEarth:${PATH}"
-
-# Run which runsig.sh || { echo 'runsig not found in PATH'; exit 1; }
-
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
-COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
-
+# Worker has no entrypoint (no migrations); bakes the code in for prod. In dev,
+# docker-compose bind-mounts ./back-end over /app. The command comes from compose.
 COPY . .
-

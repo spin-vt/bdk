@@ -1,107 +1,76 @@
-import os
-import psycopg2
-import sqlite3
-from controllers.database_controller.kml_ops import get_kml_data, generate_csv_data
 import json
+import os
+import sqlite3
 import subprocess
-import geopandas
-from shapely.geometry import shape
-from io import StringIO
-from psycopg2.extensions import adapt, register_adapter, AsIs
+import uuid
+from datetime import datetime
+from multiprocessing import Lock
+
+import psycopg2
 from psycopg2 import Binary
 from psycopg2.extras import execute_values
-from fastkml import kml
-from utils.settings import DATABASE_URL
-from multiprocessing import Lock
-from celery import chain 
-from datetime import datetime
-from database.sessions import ScopedSession, Session
-from database.models import vector_tiles, file, folder, kml_data, fabric_data, mbtiles
-from controllers.celery_controller.celery_config import celery
-from sqlalchemy.exc import SQLAlchemyError
+from shapely.geometry import mapping
 from sqlalchemy import desc
-from .file_ops import get_files_by_type, get_file_with_id, get_files_with_postfix, create_file, update_file_type, get_files_with_prefix, get_file_with_name
-from .folder_ops import get_upload_folder, get_export_folder, get_folder_with_id
-from .mbtiles_ops import get_latest_mbtiles, delete_mbtiles, get_mbtiles_with_id
-from .user_ops import get_user_with_id
-from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
-from utils.logger_config import logger
-import uuid
 
+from controllers.database_controller.kml_ops import get_kml_data
+from database.models import mbtiles, vector_tiles
+from database.sessions import Session
+from utils.settings import DATABASE_URL
+
+from .file_ops import (
+    get_file_with_id,
+)
+from .geo_io import read_geo_bytes
 
 db_lock = Lock()
 
-def extract_geometry(placemark):
-    geometries = []
-    geometries.append(placemark.geometry.__geo_interface__)
-    return geometries
 
-def recursive_placemarks(folder):
-    for feature in folder.features():
-        if isinstance(feature, kml.Placemark):
-            yield feature
-        elif isinstance(feature, kml.Folder):
-            yield from recursive_placemarks(feature)
+def _features_from_gdf(gdf, name, skip_points=False, keep_types=None):
+    """Build GeoJSON Feature dicts from a GeoDataFrame, mirroring the legacy
+    read_kml/read_geojson output (a ``feature_type`` and ``network_coverages``
+    property per feature)."""
+    features = []
+    for geom in gdf.geometry:
+        if geom is None or geom.is_empty:
+            continue
+        geom_type = geom.geom_type
+        if skip_points and geom_type == "Point":
+            continue
+        if keep_types is not None and geom_type not in keep_types:
+            continue
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": mapping(geom),
+                "properties": {
+                    "feature_type": geom_type,
+                    "network_coverages": name,
+                },
+            }
+        )
+    return features
+
 
 def read_kml(fileid, session):
     file_record = get_file_with_id(fileid, session)
-
     if not file_record:
         raise ValueError(f"No file found with ID {fileid}")
-    
-    kml_obj = kml.KML()
-    doc = file_record.data
-    kml_obj.from_string(doc)
 
-
-    root_feature = list(kml_obj.features())[0]
-    geojson_features = []
-    for placemark in recursive_placemarks(root_feature):
-        geometries = extract_geometry(placemark)
-        for geometry in geometries:
-            geom_type = geometry['type']
-            if geom_type == 'Point':
-                continue
-            geojson_feature = {
-                "type": "Feature",
-                "geometry": geometry,
-                "properties": {
-                    "feature_type": geom_type,
-                    "network_coverages": file_record.name
-                }  # No properties extracted
-            }
-            geojson_features.append(geojson_feature)
-            
-    return geojson_features
+    # Reads every layer (KML folders are layers); skips Point markers as before.
+    gdf = read_geo_bytes(file_record.data, ".kml")
+    return _features_from_gdf(gdf, file_record.name, skip_points=True)
 
 
 def read_geojson(fileid, session):
     file_record = get_file_with_id(fileid, session)
-
     if not file_record:
-        raise ValueError(f"No file found with name {file_record.name}")
+        raise ValueError(f"No file found with ID {fileid}")
 
-    # Read the GeoJSON data using GeoPandas
-    geojson_data = geopandas.read_file(StringIO(file_record.data.decode()))
-
-    # Filter only polygons and linestrings
-    desired_geometries = geojson_data[geojson_data.geometry.geom_type.isin(['Polygon', 'LineString', 'MultiPolygon'])]
-
-    # Convert the GeoDataFrame with desired geometries to a similar format as in read_kml
-    geojson_features = []
-    for _, row in desired_geometries.iterrows():
-        geojson_feature = {
-            "type": "Feature",
-            "geometry": shape(row['geometry']).__geo_interface__,
-            "properties": {
-                "feature_type": row['geometry'].geom_type,
-                'network_coverages': file_record.name,
-            }
-        }
-        geojson_features.append(geojson_feature)
-
-    return geojson_features
-
+    gdf = read_geo_bytes(file_record.data, ".geojson")
+    # Preserve the original filter: polygons and linestrings only.
+    return _features_from_gdf(
+        gdf, file_record.name, keep_types={"Polygon", "LineString", "MultiPolygon"}
+    )
 
 
 def add_values_to_VT(geojson_file_path, mbtiles_file_path, folderid):
@@ -117,30 +86,37 @@ def add_values_to_VT(geojson_file_path, mbtiles_file_path, folderid):
         # Create a new connection to Postgres
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
-        
+
         try:
-            with open(mbtiles_file_path, 'rb') as file:
+            with open(mbtiles_file_path, "rb") as file:
                 mbtiles_data = Binary(file.read())
-            
+
             cur.execute("SELECT COUNT(*) FROM mbtiles WHERE folder_id = %s", (folderid,))
             count = cur.fetchone()[0]
             cur.execute('SELECT "name" FROM "folder" WHERE id = %s', (folderid,))
             foldername = cur.fetchone()[0]
-            new_filename = f'{foldername}-{count+1}.mbtiles'
+            new_filename = f"{foldername}-{count + 1}.mbtiles"
 
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO mbtiles (tile_data, filename, timestamp, folder_id)
                 VALUES (%s, %s, %s, %s) RETURNING id
-                """, (mbtiles_data, new_filename, datetime.now(), folderid))
+                """,
+                (mbtiles_data, new_filename, datetime.now(), folderid),
+            )
 
             mbt_id = cur.fetchone()[0]
 
             data = [(row[0], row[1], row[2], Binary(row[3]), mbt_id) for row in mb_c]
 
-            execute_values(cur, """
+            execute_values(
+                cur,
+                """
                 INSERT INTO vector_tiles (zoom_level, tile_column, tile_row, tile_data, mbtiles_id) 
                 VALUES %s
-                """, data)
+                """,
+                data,
+            )
 
             # Commit the transaction
             conn.commit()
@@ -159,8 +135,9 @@ def add_values_to_VT(geojson_file_path, mbtiles_file_path, folderid):
             os.remove(geojson_file_path)
     return 1
 
+
 # def run_tippecanoe_tiles_join(command1, command2, folderid, mbtilepaths):
-    
+
 #     # run first command
 #     result1 = subprocess.run(command1, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 #     if result1.returncode != 0:
@@ -185,7 +162,7 @@ def add_values_to_VT(geojson_file_path, mbtiles_file_path, folderid):
 #     add_values_to_VT(mbtilepaths[0], folderid)
 #     for i in range(1, len(mbtilepaths)):
 #         os.remove(mbtilepaths[i])
-        
+
 #     return result2.returncode
 
 # def tiles_join(geojson_data, folderid, session):
@@ -204,10 +181,11 @@ def add_values_to_VT(geojson_file_path, mbtiles_file_path, folderid):
 #         command2 = f"tile-join -o merged.mbtiles {mbtile_file.filename} new.mbtiles"
 
 #         run_tippecanoe_tiles_join(command1, command2, 1, ["./merged.mbtiles", mbtile_file.filename, "./new.mbtiles"])
-        
+
 #     except SQLAlchemyError as e:
 #         print(f"Error occurred during query: {str(e)}")
 #         return None
+
 
 def run_tippecanoe(command, folderid, geojsonpath, mbtilepath):
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
@@ -216,7 +194,7 @@ def run_tippecanoe(command, folderid, geojsonpath, mbtilepath):
         print("Tippecanoe stderr:", result.stderr.decode())
 
     add_values_to_VT(geojsonpath, mbtilepath, folderid)
-    return result.returncode 
+    return result.returncode
 
 
 def create_tiles(geojson_array, folderid, session):
@@ -228,51 +206,55 @@ def create_tiles(geojson_array, folderid, session):
                 {
                     "type": "Feature",
                     "properties": {
-                        "location_id": point['location_id'],
-                        "served": point['served'],
-                        "address": point['address'],
-                        "wireless": point['wireless'],
-                        'lte': point['lte'],
-                        'network_coverages': point['coveredLocations'],
-                        'maxDownloadNetwork': point['maxDownloadNetwork'],
-                        'maxDownloadSpeed': point['maxDownloadSpeed'],
-                        'bsl': point['bsl'],
-                        "feature_type": "Point"
+                        "location_id": point["location_id"],
+                        "served": point["served"],
+                        "address": point["address"],
+                        "wireless": point["wireless"],
+                        "lte": point["lte"],
+                        "network_coverages": point["coveredLocations"],
+                        "maxDownloadNetwork": point["maxDownloadNetwork"],
+                        "maxDownloadSpeed": point["maxDownloadSpeed"],
+                        "bsl": point["bsl"],
+                        "feature_type": "Point",
                     },
                     "geometry": {
                         "type": "Point",
-                        "coordinates": [point['longitude'], point['latitude']]
-                    }
+                        "coordinates": [point["longitude"], point["latitude"]],
+                    },
                 }
                 for point in network_data
-            ]
+            ],
         }
-        
+
         # print(geojson_array)
         point_geojson["features"].extend(geojson for geojson in geojson_array)
         uuid_str = str(uuid.uuid4())
         unique_geojson_filename = f"data{uuid_str}.geojson"
 
-        with open(unique_geojson_filename, 'w') as f:
+        with open(unique_geojson_filename, "w") as f:
             json.dump(point_geojson, f)
-        
+
         outputFile = f"output{uuid_str}.mbtiles"
         command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
         run_tippecanoe(command, folderid, unique_geojson_filename, outputFile)
 
+
 def retrieve_tiles(zoom, x, y, folderid):
     session = Session()
     try:
-       
-        tile = session.query(vector_tiles.tile_data).join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id).filter(
-            vector_tiles.zoom_level == int(zoom),
-            vector_tiles.tile_column == int(x),
-            vector_tiles.tile_row == int(y),
-            mbtiles.folder_id == folderid
-        ).order_by(desc(mbtiles.timestamp)).first()
-       
+        tile = (
+            session.query(vector_tiles.tile_data)
+            .join(mbtiles, vector_tiles.mbtiles_id == mbtiles.id)
+            .filter(
+                vector_tiles.zoom_level == int(zoom),
+                vector_tiles.tile_column == int(x),
+                vector_tiles.tile_row == int(y),
+                mbtiles.folder_id == folderid,
+            )
+            .order_by(desc(mbtiles.timestamp))
+            .first()
+        )
 
         return tile
     finally:
         session.close()
- 
