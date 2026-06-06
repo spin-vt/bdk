@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
@@ -46,6 +47,7 @@ class user(Base):
 
 class celerytaskinfo(Base):
     __tablename__ = "celerytaskinfo"
+    __table_args__ = (Index("ix_celerytaskinfo_organization_id", "organization_id"),)
 
     id = Column(Integer, primary_key=True)
     task_id = Column(String(36), nullable=False)
@@ -291,6 +293,10 @@ class editfile(Base):
 
 class fabric_data(Base):
     __tablename__ = "fabric_data"
+    __table_args__ = (
+        Index("ix_fabric_data_file_id", "file_id"),
+        Index("ix_fabric_data_location_id", "location_id"),
+    )
     location_id = Column(Integer)
     address_primary = Column(String)
     city = Column(String)
@@ -336,6 +342,10 @@ class fabric_data_temp(Base):
 
 class kml_data(Base):
     __tablename__ = "kml_data"
+    __table_args__ = (
+        Index("ix_kml_data_file_id", "file_id"),
+        Index("ix_kml_data_location_id", "location_id"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     location_id = Column(Integer)
@@ -391,6 +401,15 @@ class mbtiles(Base):
 
 class vector_tiles(Base):
     __tablename__ = "vector_tiles"
+    __table_args__ = (
+        Index(
+            "ix_vector_tiles_lookup",
+            "mbtiles_id",
+            "zoom_level",
+            "tile_column",
+            "tile_row",
+        ),
+    )
     id = Column(Integer, primary_key=True, autoincrement=True)
     zoom_level = Column(Integer)
     tile_column = Column(Integer)
