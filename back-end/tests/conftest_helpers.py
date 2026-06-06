@@ -16,6 +16,7 @@ from controllers.database_controller import (
     folder_ops,
     kml_ops,
     organization_ops,
+    user_ops,
 )
 from database.models import kml_data
 
@@ -39,6 +40,19 @@ def make_folder(session, orgid, name="Filing", deadline=None, ftype="upload"):
     folder = folder_ops.create_folder(name, orgid, deadline, ftype, session)
     session.commit()
     return folder
+
+
+def make_user(
+    session, org_id=None, email="dev@example.com", password="Password123!", verified=True
+):
+    """Create a user, optionally attached to an org and marked verified."""
+    res = user_ops.create_user_in_db(email, password, session)
+    u = res["success"]
+    u.verified = verified
+    if org_id is not None:
+        u.organization_id = org_id
+    session.commit()
+    return u
 
 
 def seed_fabric(session, folderid, csv_bytes, filename="test_fabric.csv"):

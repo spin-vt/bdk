@@ -13,14 +13,11 @@ from controllers.database_controller import (
     celerytaskinfo_ops,
     file_ops,
     folder_ops,
-    kml_ops,
     user_ops,
 )
 from database.sessions import get_session
-from utils.namingschemes import (
-    DATE_FORMAT,
-    EXPORT_CSV_NAME_TEMPLATE,
-)
+from services import export_service
+from services.exceptions import ServiceError
 
 bp = Blueprint("export", __name__)
 
@@ -33,47 +30,24 @@ def exportFiling(folderid):
         folderid = int(folderid)
         session = get_session()
         try:
-            if folderid == -1:
-                return jsonify({"status": "error", "message": "Invalid filing requested"}), 400
-
-            if not folder_ops.folder_belongs_to_organization(folderid, identity["id"], session):
-                return jsonify(
-                    {
-                        "status": "error",
-                        "message": "You are accessing a filing not belong to your organization",
-                    }
-                ), 400
-
-            folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
-            providerid = folderVal.organization.provider_id
-            brandname = folderVal.organization.brand_name
-            deadline = folderVal.deadline.strftime(DATE_FORMAT)
-
-            if not providerid or not brandname:
-                return jsonify(
-                    {"status": "error", "message": "Please provide your provider ID and brand name"}
-                ), 400
-
-            csv_output = kml_ops.export(folderid, providerid, brandname, deadline, session)
-
-            if csv_output:
-                download_name = EXPORT_CSV_NAME_TEMPLATE.format(
-                    brand_name=brandname, deadline=deadline
-                )
-
-                csv_output.seek(0)
-                response = make_response(
-                    send_file(
-                        csv_output,
-                        as_attachment=True,
-                        download_name=download_name,
-                        mimetype="text/csv",
-                    )
-                )
-                response.headers["Access-Control-Expose-Headers"] = "Content-Disposition"
-                return response
-            else:
+            csv_output, download_name = export_service.export_filing(
+                user_id=identity["id"], folderid=folderid, session=session
+            )
+            if csv_output is None:
                 return jsonify({"status": "error", "message": "internal server error"})
+
+            response = make_response(
+                send_file(
+                    csv_output,
+                    as_attachment=True,
+                    download_name=download_name,
+                    mimetype="text/csv",
+                )
+            )
+            response.headers["Access-Control-Expose-Headers"] = "Content-Disposition"
+            return response
+        except ServiceError as e:
+            return jsonify({"status": "error", "message": e.message}), e.status
         except Exception as e:
             session.rollback()
             return {"status": "error", "message": str(e)}
