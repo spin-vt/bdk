@@ -17,7 +17,7 @@ from controllers.database_controller.tower_ops import create_tower, get_tower_wi
 from controllers.database_controller.towerinfo_ops import create_towerinfo
 from controllers.signalserver_controller.read_towerinfo import read_tower_csv
 from controllers.signalserver_controller.signalserver_command_builder import runsig_command_builder
-from database.sessions import Session
+from database.sessions import get_session
 from utils.logger_config import logger
 from utils.namingschemes import (
     SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE,
@@ -61,7 +61,7 @@ def compute_wireless_coverage():
 @bp.route("/api/get-raster-image/<string:towername>", methods=["GET"])
 @jwt_required()
 def get_raster_image(towername):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         towerVal = get_tower_with_towername(
@@ -85,14 +85,12 @@ def get_raster_image(towername):
             return jsonify({"status": "error", "message": "Raster data not found"}), 404
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/get-transparent-raster-image/<string:towername>", methods=["GET"])
 @jwt_required()
 def get_transparent_raster_image(towername):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         towerVal = get_tower_with_towername(
@@ -116,14 +114,12 @@ def get_transparent_raster_image(towername):
             return jsonify({"status": "error", "message": "Raster data not found"}), 404
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/get-raster-bounds/<string:towername>", methods=["GET"])
 @jwt_required()
 def get_raster_bounds(towername):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         towerVal = get_tower_with_towername(
@@ -149,14 +145,12 @@ def get_raster_bounds(towername):
             return jsonify({"status": "error", "message": "Raster data not found"}), 404
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/get-loss-color-mapping/<string:towername>", methods=["GET"])
 @jwt_required()
 def get_loss_color_mapping(towername):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         towerVal = get_tower_with_towername(
@@ -175,8 +169,6 @@ def get_loss_color_mapping(towername):
 
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/upload-tower-csv", methods=["POST"])

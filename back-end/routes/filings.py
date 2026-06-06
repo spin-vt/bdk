@@ -23,7 +23,7 @@ from controllers.database_controller import (
     kml_ops,
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 from utils.logger_config import logger
 
 bp = Blueprint("filings", __name__)
@@ -33,7 +33,7 @@ bp = Blueprint("filings", __name__)
 @jwt_required()
 def get_number_records(folderid):
     folderid = int(folderid)
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         if folderid < 0:
@@ -47,14 +47,12 @@ def get_number_records(folderid):
             return jsonify(kml_ops.get_kml_data(folderid=folderid, session=session)), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/submit-data/<folderid>", methods=["POST", "GET"])
 @jwt_required()
 def submit_data(folderid):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         folderid = int(folderid)
@@ -235,10 +233,7 @@ def submit_data(folderid):
         # General catch-all for other exceptions
         logger.debug(e)
         session.rollback()  # Rollback the session in case of error
-        session.close()
         return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        session.close()  # Always close the session at the end
 
 
 @bp.route("/api")
@@ -255,7 +250,7 @@ def search_location(folderid):
     folderid = int(folderid)
     try:
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
         try:
             userVal = user_ops.get_user_with_id(identity["id"], session)
             if not folder_ops.folder_belongs_to_organization(folderid, identity["id"], session):
@@ -268,8 +263,6 @@ def search_location(folderid):
         except Exception as e:
             session.rollback()
             return {"error": str(e)}
-        finally:
-            session.close()
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
 
@@ -280,7 +273,7 @@ def get_folders_with_deadlines():
     try:
         identity = get_jwt_identity()
         user_id = identity["id"]
-        session = Session()
+        session = get_session()
         userVal = user_ops.get_user_with_id(userid=user_id, session=session)
         folders = folder_ops.get_folders_by_type_for_org(userVal.organization_id, "upload", session)
 
@@ -298,8 +291,6 @@ def get_folders_with_deadlines():
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
-    finally:
-        session.close()
 
 
 @bp.route("/api/get-last-upload-folder", methods=["GET"])
@@ -307,7 +298,7 @@ def get_folders_with_deadlines():
 def get_last_folder():
     try:
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
         user_id = identity["id"]
         userVal = user_ops.get_user_with_id(userid=user_id, session=session)
         # Hackey way to use this method to get the lastest filing of user
@@ -326,7 +317,7 @@ def get_last_folder():
 @bp.route("/api/delfiling", methods=["DELETE"])
 @jwt_required()
 def delete_filing():
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         request_data = request.json
@@ -358,5 +349,3 @@ def delete_filing():
         return jsonify({"status": "success"}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()

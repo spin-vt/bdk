@@ -18,6 +18,16 @@ def create_app():
 
     mail.init_app(app)
 
+    # Request-scoped DB session lifecycle: web handlers use
+    # database.sessions.get_session() (the scoped session); this teardown rolls
+    # back anything uncommitted and returns the connection at the end of every
+    # request, so handlers never close sessions themselves.
+    from database.sessions import ScopedSession
+
+    @app.teardown_appcontext
+    def remove_session(exception=None):
+        ScopedSession.remove()
+
     # Bootstrap the schema for fresh local databases (Alembic owns it in
     # containers). Done here rather than at import time so importing modules
     # never requires a live database.

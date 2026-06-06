@@ -20,7 +20,7 @@ from controllers.database_controller import (
     kml_ops,
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 from utils.logger_config import logger
 
 bp = Blueprint("files", __name__)
@@ -32,7 +32,7 @@ def get_files():
     try:
         identity = get_jwt_identity()
         # Verify user own this folder
-        session = Session()
+        session = get_session()
         try:
             folder_ID = int(request.args.get("folder_ID"))
         except ValueError:
@@ -53,8 +53,6 @@ def get_files():
             return jsonify({"status": "error", "message": "Invalid request"}), 404
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/editfiles", methods=["GET"])
@@ -64,7 +62,7 @@ def get_editfiles():
         identity = get_jwt_identity()
         # Verify user own this folder
         folder_ID = int(request.args.get("folder_ID"))
-        session = Session()
+        session = get_session()
 
         if not folder_ops.folder_belongs_to_organization(folder_ID, identity["id"], session):
             return jsonify(
@@ -82,8 +80,6 @@ def get_editfiles():
             return jsonify({"status": "error", "message": "Invalid request"}), 404
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/networkfiles/<int:folder_id>", methods=["GET"])
@@ -91,7 +87,7 @@ def get_editfiles():
 def get_network_files(folder_id):
     try:
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
 
         folder_id = int(folder_id)
 
@@ -124,8 +120,6 @@ def get_network_files(folder_id):
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
-    finally:
-        session.close()
 
 
 @bp.route("/api/updateNetworkFile/<int:file_id>", methods=["POST"])
@@ -134,7 +128,7 @@ def update_network_file(file_id):
     try:
         data = request.json
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
         file_id = int(file_id)
 
         if not file_ops.file_belongs_to_organization(
@@ -225,8 +219,6 @@ def update_network_file(file_id):
     except Exception as e:
         session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 400
-    finally:
-        session.close()
 
 
 @bp.route("/api/delfiles", methods=["DELETE"])
@@ -244,7 +236,7 @@ def delete_files():
         if not file_ids and not editfile_ids:
             return jsonify({"status": "error", "message": "Please check the files to delete"}), 400
 
-        session = Session()
+        session = get_session()
 
         userVal = user_ops.get_user_with_id(userid=identity["id"], session=session)
 
@@ -268,7 +260,6 @@ def delete_files():
             if not file_ops.file_belongs_to_organization(
                 file_id=fileid, user_id=identity["id"], session=session
             ):
-                session.close()
                 return jsonify(
                     {
                         "status": "error",
@@ -281,7 +272,6 @@ def delete_files():
             if not editfile_ops.editfile_belongs_to_organization(
                 file_id=editfileid, user_id=identity["id"], session=session
             ):
-                session.close()
                 return jsonify(
                     {
                         "status": "error",
@@ -332,14 +322,12 @@ def delete_files():
         ), 200  # return task id to the client
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/download-kmlfile/<string:kml_filename>", methods=["GET"])
 @jwt_required()
 def download_kmlfile(kml_filename):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         folderVal = folder_ops.get_upload_folder(
@@ -363,5 +351,3 @@ def download_kmlfile(kml_filename):
 
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()

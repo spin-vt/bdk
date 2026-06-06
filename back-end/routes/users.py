@@ -7,7 +7,7 @@ from flask_jwt_extended.exceptions import NoAuthorizationError
 from controllers.database_controller import (
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 
 bp = Blueprint("users", __name__)
 
@@ -15,7 +15,7 @@ bp = Blueprint("users", __name__)
 @bp.route("/api/user", methods=["GET"])
 @jwt_required()
 def get_user_info():
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
 
@@ -26,8 +26,6 @@ def get_user_info():
         return jsonify({"status": "success", "userinfo": userinfo}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/update_profile", methods=["POST"])
@@ -41,7 +39,7 @@ def update_profile():
         email = str(data.get("email"))
         org_name = str(data.get("organizationName"))
 
-        session = Session()
+        session = get_session()
         userVal = user_ops.get_user_with_id(userid=identity["id"], session=session)
 
         if email and email != userVal.email:
@@ -63,5 +61,3 @@ def update_profile():
     except Exception as e:
         session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        session.close()

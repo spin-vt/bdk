@@ -11,7 +11,7 @@ from controllers.database_controller import (
     organization_ops,
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 from routes._email import create_email_token, send_verification_email_with_token
 from utils.logger_config import logger
 
@@ -23,7 +23,7 @@ bp = Blueprint("organizations", __name__)
 def create_organization():
     try:
         current_user = get_jwt_identity()
-        session = Session()
+        session = get_session()
         data = request.get_json()
         org_name = data.get("orgName")
         user = user_ops.get_user_with_id(current_user["id"], session)
@@ -62,8 +62,6 @@ def create_organization():
         return jsonify(
             {"status": "error", "message": "An error occurred while creating the organization."}
         ), 500
-    finally:
-        session.close()
 
 
 @bp.route("/api/join_organization", methods=["POST"])
@@ -72,7 +70,7 @@ def join_organization():
     try:
         current_user = get_jwt_identity()
 
-        session = Session()
+        session = get_session()
         data = request.get_json()
         org_name = data.get("name")
         user = user_ops.get_user_with_id(current_user["id"], session)
@@ -124,8 +122,6 @@ def join_organization():
                 "message": "An error occurred while trying to join the organization.",
             }
         ), 500
-    finally:
-        session.close()
 
 
 @bp.route("/api/delete_organization", methods=["DELETE"])
@@ -133,7 +129,7 @@ def join_organization():
 def delete_organization():
     try:
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
         data = request.get_json()
         orgName = data.get("organizationName")
 
@@ -158,7 +154,7 @@ def delete_organization():
 def exit_organization():
     try:
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
 
         user = user_ops.get_user_with_id(userid=identity["id"], session=session)
         data = request.get_json()
@@ -182,5 +178,3 @@ def exit_organization():
 
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
