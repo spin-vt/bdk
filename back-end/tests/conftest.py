@@ -40,6 +40,7 @@ import pytest  # noqa: E402
 # Repo paths -----------------------------------------------------------------
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = os.path.dirname(BACKEND_DIR)
+SYNTHETIC_DIR = os.path.join(REPO_ROOT, "dev-data", "synthetic")
 REAL_DIR = os.path.join(REPO_ROOT, "dev-data", "real-do-not-commit")
 
 

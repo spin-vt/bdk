@@ -46,6 +46,12 @@ services:
       CELERY_RESULT_BACKEND: "cache+memory://"
     volumes:
       - ./back-end:/app
+      # The committed synthetic fixture lives at the repo root, which conftest
+      # resolves to /dev-data/synthetic inside the container (REPO_ROOT = parent
+      # of /app). Mount it read-only so the full-pipeline e2e test runs in CI
+      # instead of skipping. (real-do-not-commit isn't in CI's checkout; the
+      # golden test stays skip-if-absent and is deselected anyway.)
+      - ./dev-data:/dev-data:ro
     working_dir: /app
     # Bypass the migration entrypoint; the test fixtures create the schema. Sync
     # the dev group (the runtime image is built --no-dev) and run the committable
