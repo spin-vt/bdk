@@ -34,7 +34,7 @@ def exportFiling(folderid):
                 user_id=identity["id"], folderid=folderid, session=session
             )
             if csv_output is None:
-                return jsonify({"status": "error", "message": "internal server error"})
+                return jsonify({"status": "error", "message": "internal server error"}), 500
 
             response = make_response(
                 send_file(
@@ -50,7 +50,7 @@ def exportFiling(folderid):
             return jsonify({"status": "error", "message": e.message}), e.status
         except Exception as e:
             session.rollback()
-            return {"status": "error", "message": str(e)}
+            return jsonify({"status": "error", "message": str(e)}), 500
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
 

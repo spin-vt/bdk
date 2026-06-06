@@ -51,7 +51,7 @@ function FileEditTable({ folderId }) {
                     setFiles(data.files_data);
                 }
                 else {
-                    toast.error(data.error);
+                    toast.error(data.message);
                 }
 
             })

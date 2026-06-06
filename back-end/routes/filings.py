@@ -26,11 +26,14 @@ def get_number_records(folderid):
     try:
         identity = get_jwt_identity()
         if folderid < 0:
-            return jsonify({"error": "Filling ID is invalid"}), 400
+            return jsonify({"status": "error", "message": "Filling ID is invalid"}), 400
         else:
             if not folder_ops.folder_belongs_to_organization(folderid, identity["id"], session):
                 return jsonify(
-                    {"error": "You are accessing a filing not belong to your organization"}
+                    {
+                        "status": "error",
+                        "message": "You are accessing a filing not belong to your organization",
+                    }
                 ), 400
 
             return jsonify(kml_ops.get_kml_data(folderid=folderid, session=session)), 200
@@ -100,14 +103,17 @@ def search_location(folderid):
             userVal = user_ops.get_user_with_id(identity["id"], session)
             if not folder_ops.folder_belongs_to_organization(folderid, identity["id"], session):
                 return jsonify(
-                    {"error": "You are accessing a filing not belong to your organization"}
+                    {
+                        "status": "error",
+                        "message": "You are accessing a filing not belong to your organization",
+                    }
                 ), 400
 
             results_dict = fabric_ops.address_query(folderid, query, session)
             return jsonify(results_dict)
         except Exception as e:
             session.rollback()
-            return {"error": str(e)}
+            return jsonify({"status": "error", "message": str(e)}), 500
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
 
