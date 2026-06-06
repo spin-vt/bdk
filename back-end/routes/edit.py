@@ -7,17 +7,12 @@ from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from shapely.geometry import shape
 
-from controllers.celery_controller.celery_tasks import (
-    toggle_tiles,
-)
 from controllers.database_controller import (
-    celerytaskinfo_ops,
     editfile_ops,
-    folder_ops,
-    user_ops,
 )
 from database.sessions import get_session
-from utils.logger_config import logger
+from services import edit_service
+from services.exceptions import ServiceError
 
 bp = Blueprint("edit", __name__)
 
@@ -32,68 +27,16 @@ def toggle_markers():
         markers = request_data["marker"]
         folderid = request_data["folderid"]
         polygonfeatures = request_data["polygonfeatures"]
-        if folderid == -1:
-            return jsonify({"status": "error", "message": "Invalid folder id"}), 400
-
-        userVal = user_ops.get_user_with_id(identity["id"], session=session)
-
-        if not userVal.verified:
-            return jsonify(
-                {
-                    "status": "error",
-                    "message": "Please Verify your email to start working on a filing",
-                }
-            ), 400
-        if not userVal.organization_id:
-            return jsonify(
-                {
-                    "status": "error",
-                    "message": "Create or join an organization to start working on a filing",
-                }
-            ), 400
-        if not folder_ops.folder_belongs_to_organization(folderid, identity["id"], session):
-            return jsonify(
-                {
-                    "status": "error",
-                    "message": "You are accessing a filing not belong to your organization",
-                }
-            ), 400
-
-        folderVal = folder_ops.get_folder_with_id(folderid=folderid, session=session)
-
-        # Filter out points where editedFile is empty
-        filtered_markers = []
-        for polygon in markers:
-            filtered_polygon = [
-                point for point in polygon if point["editedFile"] and len(point["editedFile"]) > 0
-            ]
-            if filtered_polygon:
-                filtered_markers.append(filtered_polygon)
-
-        if len(filtered_markers) == 0:
-            return jsonify({"status": "error", "message": "No valid edits submitted"}), 400
-
-        # Generate concatenated_filenames
-        all_filenames = set()
-        for polygon in filtered_markers:
-            for point in polygon:
-                all_filenames.update(point["editedFile"])
-        concatenated_filenames = ", ".join(sorted(all_filenames))
-        logger.debug(polygonfeatures)
-        result = toggle_tiles.apply_async(args=[filtered_markers, folderid, polygonfeatures])
-
-        celerytaskinfo_ops.create_celery_taskinfo(
-            task_id=result.task_id,
-            status="PENDING",
-            operation_type="Edit",
-            operation_detail="Edit a filing",
-            user_email=userVal.email,
-            organization_id=userVal.organization_id,
-            folder_deadline=folderVal.deadline,
+        edit_service.apply_edit(
+            user_id=identity["id"],
+            folderid=folderid,
+            markers=markers,
+            polygonfeatures=polygonfeatures,
             session=session,
-            files_changed=concatenated_filenames,
         )
         return jsonify({"status": "success"}), 200
+    except ServiceError as e:
+        return jsonify({"status": "error", "message": e.message}), e.status
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
 
