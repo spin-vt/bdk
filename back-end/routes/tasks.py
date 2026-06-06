@@ -7,7 +7,7 @@ from controllers.database_controller import (
     celerytaskinfo_ops,
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 
 bp = Blueprint("tasks", __name__)
 
@@ -15,7 +15,7 @@ bp = Blueprint("tasks", __name__)
 @bp.route("/api/user-tasks", methods=["GET"])
 @jwt_required()
 def get_user_tasks():
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
 
@@ -40,14 +40,12 @@ def get_user_tasks():
         ), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        session.close()
 
 
 @bp.route("/api/estimated-task-runtime/<taskid>", methods=["GET"])
 @jwt_required()
 def get_estimated_task_runtime(taskid):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         taskid = str(taskid)
@@ -75,14 +73,12 @@ def get_estimated_task_runtime(taskid):
         return jsonify({"status": "success", "estimated_runtime": estimated_runtime_seconds}), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-    finally:
-        session.close()
 
 
 @bp.route("/api/update-task-status/<taskid>", methods=["POST"])
 @jwt_required()
 def update_task_status(taskid):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         userVal = user_ops.get_user_with_id(userid=identity["id"], session=session)
@@ -120,6 +116,3 @@ def update_task_status(taskid):
     except Exception as e:
         session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
-
-    finally:
-        session.close()

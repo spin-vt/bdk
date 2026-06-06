@@ -9,7 +9,7 @@ from werkzeug.security import check_password_hash
 from controllers.database_controller import (
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 from routes._email import create_email_token, send_verification_email_with_token
 from utils.flask_app import app
 from utils.logger_config import logger
@@ -20,13 +20,12 @@ bp = Blueprint("auth", __name__)
 
 @bp.route("/api/request_password_reset", methods=["POST"])
 def request_password_reset():
-    session = Session()
+    session = get_session()
     data = request.get_json()
     email = data.get("email")
     user = user_ops.get_user_with_email(email, session)
 
     if not user:
-        session.close()
         return jsonify({"status": "error", "message": "Email address not found."}), 400
 
     email_token = create_email_token(userid=user.id, email=user.email, operation="reset_password")
@@ -36,7 +35,6 @@ def request_password_reset():
         title="Reset Your Password for BDK",
         content="reset your password",
     )
-    session.close()
     return jsonify({"status": "success", "message": "Verification email resent."}), 200
 
 
@@ -47,7 +45,7 @@ def reset_password():
     new_password = data.get("newPassword")
 
     try:
-        session = Session()
+        session = get_session()
         decoded_token = jwt.decode(token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"])
         user_id = decoded_token["sub"]["id"]
         email = decoded_token["sub"]["email"]
@@ -60,14 +58,12 @@ def reset_password():
         return jsonify({"status": "error", "message": "The token has expired."}), 400
     except Exception:
         return jsonify({"status": "error", "message": "Invalid token."}), 400
-    finally:
-        session.close()
 
 
 @bp.route("/api/verify_token", methods=["POST"])
 def verify_token():
     try:
-        session = Session()
+        session = get_session()
         data = request.get_json()
         token = data.get("token")
 
@@ -99,19 +95,16 @@ def verify_token():
     except Exception as e:
         logger.error(f"Error verifying token: {e}")
         return jsonify({"status": "error", "message": "Invalid token."}), 400
-    finally:
-        session.close()
 
 
 @bp.route("/api/send_email_verification", methods=["POST"])
 def send_email_verification():
-    session = Session()
+    session = get_session()
     data = request.get_json()
     email = data.get("email")
     user = user_ops.get_user_with_email(email, session)
 
     if not user:
-        session.close()
         return jsonify({"status": "error", "message": "Email address not found."}), 400
 
     email_token = create_email_token(
@@ -123,13 +116,12 @@ def send_email_verification():
         title="Verify Your Email Address for BDK",
         content="verify your email address",
     )
-    session.close()
     return jsonify({"status": "success", "message": "Verification email sent."}), 200
 
 
 @bp.route("/api/register", methods=["POST"])
 def register():
-    session = Session()
+    session = get_session()
     data = request.get_json()
     email = data.get("email")
     password = data.get("password")
@@ -148,7 +140,6 @@ def register():
     else:
         response.set_cookie("token", access_token, httponly=False, samesite="Lax", secure=False)
 
-    session.close()
     return response, 200
 
 

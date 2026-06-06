@@ -11,6 +11,20 @@ ScopedSession = scoped_session(session_factory)
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def get_session():
+    """Request-scoped session for web handlers.
+
+    Returns the same session throughout a single request; its lifecycle
+    (rollback of anything uncommitted + close) is handled automatically by the
+    ``teardown_appcontext`` registered in ``utils.flask_app``. Handlers must NOT
+    call ``.close()`` on it — just ``.commit()`` when they mean to persist.
+
+    NOT for Celery tasks: those run without a Flask app context and manage their
+    own ``Session()`` instances (see ``celery_tasks``).
+    """
+    return ScopedSession()
+
+
 def init_db():
     """Create tables if the schema isn't present yet.
 

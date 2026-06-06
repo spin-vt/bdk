@@ -16,7 +16,7 @@ from controllers.database_controller import (
     folder_ops,
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 from utils.logger_config import logger
 
 bp = Blueprint("edit", __name__)
@@ -27,7 +27,7 @@ bp = Blueprint("edit", __name__)
 def toggle_markers():
     try:
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
         request_data = request.json
         markers = request_data["marker"]
         folderid = request_data["folderid"]
@@ -52,7 +52,6 @@ def toggle_markers():
                 }
             ), 400
         if not folder_ops.folder_belongs_to_organization(folderid, identity["id"], session):
-            session.close()
             return jsonify(
                 {
                     "status": "error",
@@ -97,14 +96,12 @@ def toggle_markers():
         return jsonify({"status": "success"}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/get-edit-geojson/<int:fileid>", methods=["GET"])
 @jwt_required()
 def get_edit_geojson(fileid):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         fileid = int(fileid)
@@ -130,14 +127,12 @@ def get_edit_geojson(fileid):
         return jsonify({"status": "error", "message": "File not found"}), 404
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/get-edit-geojson-centroid/<int:fileid>", methods=["GET"])
 @jwt_required()
 def get_edit_geojson_centroid(fileid):
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         if not editfile_ops.editfile_belongs_to_organization(
@@ -170,5 +165,3 @@ def get_edit_geojson_centroid(fileid):
         return jsonify(
             {"status": "error", "message": "Failed to fetch file", "details": str(e)}
         ), 500
-    finally:
-        session.close()

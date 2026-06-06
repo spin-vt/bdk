@@ -16,7 +16,7 @@ from controllers.database_controller import (
     kml_ops,
     user_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 from utils.namingschemes import (
     DATE_FORMAT,
     EXPORT_CSV_NAME_TEMPLATE,
@@ -31,7 +31,7 @@ def exportFiling(folderid):
     try:
         identity = get_jwt_identity()
         folderid = int(folderid)
-        session = Session()
+        session = get_session()
         try:
             if folderid == -1:
                 return jsonify({"status": "error", "message": "Invalid filing requested"}), 400
@@ -77,8 +77,6 @@ def exportFiling(folderid):
         except Exception as e:
             session.rollback()
             return {"status": "error", "message": str(e)}
-        finally:
-            session.close()
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
 
@@ -88,7 +86,7 @@ def exportFiling(folderid):
 def get_exported_folders():
     try:
         identity = get_jwt_identity()
-        session = Session()
+        session = get_session()
         userVal = user_ops.get_user_with_id(userid=identity["id"], session=session)
         folders = folder_ops.get_folders_by_type_for_org(
             orgid=userVal.organization_id, foldertype="export", session=session
@@ -117,15 +115,13 @@ def get_exported_folders():
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
-    finally:
-        session.close()
 
 
 @bp.route("/api/delexport/<int:fileid>", methods=["DELETE"])
 @jwt_required()
 def delete_export(fileid):
     fileid = int(fileid)
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         if not file_ops.file_belongs_to_organization(
@@ -157,15 +153,13 @@ def delete_export(fileid):
         return jsonify({"status": "success"}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
 
 
 @bp.route("/api/downloadexport/<int:fileid>", methods=["GET"])
 @jwt_required()
 def download_export(fileid):
     fileid = int(fileid)
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         if not file_ops.file_belongs_to_organization(
@@ -188,5 +182,3 @@ def download_export(fileid):
         )
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()

@@ -5,7 +5,7 @@ import psycopg2
 from sqlalchemy import and_, create_engine
 
 from database.models import fabric_data, file
-from database.sessions import ScopedSession, Session
+from database.sessions import Session
 from utils.facts import states
 from utils.settings import DATABASE_URL
 
@@ -36,7 +36,12 @@ def check_num_records_greater_zero(folderid):
 
 
 def write_to_db(fileid):
-    session = ScopedSession()
+    # Own a plain Session here (not the request-scoped ScopedSession): this runs
+    # in a Celery task, and under eager execution it shares the web handler's
+    # thread — grabbing+closing the scoped session there would detach the
+    # handler's ORM objects mid-request. A fresh Session is also consistent with
+    # the sibling ops in this module.
+    session = Session()
     with db_lock:
         file_record = session.query(file).filter(file.id == fileid).first()
         session.close()

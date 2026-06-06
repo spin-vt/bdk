@@ -13,7 +13,7 @@ from controllers.database_controller import (
     user_ops,
     vt_ops,
 )
-from database.sessions import Session
+from database.sessions import get_session
 
 bp = Blueprint("tiles", __name__)
 
@@ -32,16 +32,14 @@ def serve_tile_with_folderid(folder_id, zoom, x, y):
 
     identity = get_jwt_identity()
 
-    session = Session()
+    session = get_session()
     if not folder_ops.folder_belongs_to_organization(folder_id, identity["id"], session):
-        session.close()
         return jsonify(
             {
                 "status": "error",
                 "message": "You are accessing a filing not belong to your organization",
             }
         ), 400
-    session.close()
 
     zoom = int(zoom)
     x = int(x)
@@ -62,7 +60,7 @@ def serve_tile_with_folderid(folder_id, zoom, x, y):
 @bp.route("/api/regenerate_map", methods=["POST"])
 @jwt_required()
 def regenerate_map():
-    session = Session()
+    session = get_session()
     try:
         identity = get_jwt_identity()
         request_data = request.json
@@ -94,5 +92,3 @@ def regenerate_map():
         return jsonify({"status": "success"}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    finally:
-        session.close()
