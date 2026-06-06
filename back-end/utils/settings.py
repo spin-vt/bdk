@@ -2,7 +2,11 @@ import os
 from datetime import timedelta
 from urllib.parse import quote_plus
 
-IN_PRODUCTION = os.getenv("IN_PRODUCTION")
+# Parse as a real boolean: the raw env value is a string, and a non-empty string
+# like "0" is truthy in Python — so `os.getenv("IN_PRODUCTION")` made the dev
+# value IN_PRODUCTION=0 read as True (and set Secure cookies in dev). Treat only
+# explicit truthy strings as production. (prod sets "1", test "", dev "0".)
+IN_PRODUCTION = os.getenv("IN_PRODUCTION", "").strip().lower() in ("1", "true", "yes", "on")
 
 # For production
 db_user = os.getenv("POSTGRES_USER")
