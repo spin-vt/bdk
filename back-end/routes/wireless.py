@@ -35,7 +35,7 @@ def compute_wireless_coverage():
         towerVal = create_tower(towername=data["towername"], userid=identity["id"])
         if isinstance(towerVal, str):  # In case create_tower returned an error message
             logger.debug(towerVal)
-            return jsonify({"error": towerVal}), 400
+            return jsonify({"status": "error", "message": towerVal}), 400
         outfile_name = SIGNALSERVER_RASTER_DATA_NAME_TEMPLATE.format(
             username=identity["username"], towername=data["towername"]
         )
@@ -46,7 +46,7 @@ def compute_wireless_coverage():
         tower_info_val = create_towerinfo(tower_info_data=data)
         if isinstance(tower_info_val, str):  # In case create_towerinfo returned an error message
             logger.debug(tower_info_val)
-            return jsonify({"error": tower_info_val}), 400
+            return jsonify({"status": "error", "message": tower_info_val}), 400
 
         task = run_signalserver.apply_async(
             args=[command, outfile_name, towerVal.id, data]
@@ -73,7 +73,7 @@ def get_raster_image(towername):
 
         if not towerVal:
             logger.debug("tower not found under towername")
-            return jsonify({"error": "File not found"}), 404
+            return jsonify({"status": "error", "message": "File not found"}), 404
 
         rasterData = towerVal.raster_data
         if rasterData:
@@ -98,7 +98,7 @@ def get_transparent_raster_image(towername):
         )
         if isinstance(towerVal, str):  # In case create_tower returned an error
             logger.debug(towerVal)
-            return jsonify({"error": towerVal}), 400
+            return jsonify({"status": "error", "message": towerVal}), 400
 
         if not towerVal:
             logger.debug("tower not found under towername")

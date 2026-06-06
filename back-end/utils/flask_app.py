@@ -1,9 +1,11 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_mail import Mail
+from werkzeug.exceptions import HTTPException
 
 from utils.config import Config
+from utils.logger_config import logger
 
 
 def create_app():
@@ -27,6 +29,17 @@ def create_app():
     @app.teardown_appcontext
     def remove_session(exception=None):
         ScopedSession.remove()
+
+    # Global fallback so an unexpected error returns a clean JSON 500 in the
+    # unified {status: error, message} shape (P1.3) instead of leaking an HTML
+    # stack trace. Real HTTP errors (404, 405, the JWT 401s, ...) pass through
+    # to Flask's normal handling.
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error):
+        if isinstance(error, HTTPException):
+            return error
+        logger.exception(error)
+        return jsonify({"status": "error", "message": "Internal server error"}), 500
 
     # Bootstrap the schema for fresh local databases (Alembic owns it in
     # containers). Done here rather than at import time so importing modules

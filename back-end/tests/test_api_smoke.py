@@ -192,6 +192,36 @@ def test_cannot_access_other_orgs_filing(client, no_tiles):
         c2.post("/api/create_organization", json={"orgName": "Ivan ISP"})
 
         resp = c2.get(f"/api/served-data/{a_folder_id}")
-        # Route returns 400 with an "not belong to your organization" message.
+        # Route returns 400 with an "not belong to your organization" message,
+        # in the unified {status:error, message} shape (P1.3).
         assert resp.status_code in (400, 403), resp.get_json()
-        assert "organization" in resp.get_json()["error"].lower()
+        body = resp.get_json()
+        assert body["status"] == "error"
+        assert "organization" in body["message"].lower()
+
+
+def test_unhandled_exception_returns_json_500(client, monkeypatch):
+    """An unexpected error returns a clean JSON 500 in the unified shape, not an
+    HTML stack trace (P1.3 global error handler)."""
+    from utils.flask_app import app
+
+    # TESTING=True makes Flask re-raise instead of invoking error handlers; turn
+    # that off so we exercise the real handler the way production does.
+    monkeypatch.setitem(app.config, "PROPAGATE_EXCEPTIONS", False)
+
+    _register(client, "judy@example.com")
+    _verify_user("judy@example.com")
+
+    import controllers.database_controller.folder_ops as fo
+
+    def boom(*a, **k):
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(fo, "folder_belongs_to_organization", boom)
+
+    resp = client.get("/api/served-data/5")
+    assert resp.status_code == 500
+    body = resp.get_json()  # None if the body wasn't JSON (e.g. an HTML page)
+    assert body is not None, "500 body was not JSON"
+    assert body["status"] == "error"
+    assert "message" in body
