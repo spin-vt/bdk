@@ -1,0 +1,81 @@
+# Boot smoke test: prove the actual backend IMAGE starts and serves HTTP, the
+# way production does (gunicorn + the entrypoint's `alembic upgrade head` against
+# a real Postgres + a real Redis-backed rate limiter). This catches failures the
+# in-process pytest suite can't — a dependency that's installed in the test venv
+# but missing from the built image, a Redis-storage boot failure, a broken
+# migration, etc. ("the app won't even start").
+#
+#   docker compose -f docker-compose.smoke.yml up --build --wait --wait-timeout 180
+#   docker compose -f docker-compose.smoke.yml down -v
+#
+# `--wait` exits non-zero if the backend never becomes healthy. CI uses `make smoke`.
+services:
+  smoke-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: smoke
+      POSTGRES_PASSWORD: smoke
+      POSTGRES_DB: bdk_smoke
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smoke -d bdk_smoke"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  smoke-redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  smoke-backend:
+    build:
+      context: ./back-end
+      dockerfile: Dockerfile.backend
+    depends_on:
+      smoke-db:
+        condition: service_healthy
+      smoke-redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: smoke
+      POSTGRES_PASSWORD: smoke
+      POSTGRES_DB: bdk_smoke
+      DB_HOST: smoke-db
+      DB_PORT: "5432"
+      SECRET_KEY: smoke
+      JWT_SECRET: smoke
+      JWT_TOKEN_LOCATION: cookies
+      JWT_ACCESS_COOKIE_NAME: token
+      DEVELOP_BACKEND_PORT: "8000"
+      IN_PRODUCTION: ""
+      MAIL_USE_TLS: "false"
+      MAIL_USE_SSL: "false"
+      # Real Redis-backed limiter (the in-process tests only ever use memory://).
+      CELERY_BROKER_URL: "redis://smoke-redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://smoke-redis:6379/1"
+    # The image bakes only the venv (/opt/venv); app code comes from the bind
+    # mount, exactly as dev and prod run it. A fresh `--build` installs the
+    # locked deps into the venv, so this catches code that imports a package
+    # missing from pyproject/uv.lock, a Redis-storage boot failure, a broken
+    # migration, or a WSGI wiring error.
+    volumes:
+      - ./back-end:/app
+    working_dir: /app
+    # Boot the prod WSGI server (entrypoint runs `alembic upgrade head` first).
+    command: gunicorn routes:app -b 0.0.0.0:8000 -w 2
+    healthcheck:
+      # No curl in the image; use python. /api is the lightweight health route.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api',timeout=3).status==200 else 1)"
+      interval: 4s
+      timeout: 5s
+      retries: 25
+      start_period: 10s

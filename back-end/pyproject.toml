@@ -37,6 +37,7 @@ dependencies = [
     # Misc
     "Pillow>=10.3",
     "shortuuid>=1.0.11",
+    "flask-limiter>=3.8",
 ]
 
 [dependency-groups]
@@ -73,7 +74,7 @@ ignore = [
     "B008",  # function calls in argument defaults (common in Flask/SQLAlchemy)
     "E722",  # bare except — present throughout; clean up in the refactor phase
     # The rules below flag REAL smells/bugs in the legacy code, not mechanical
-    # nits. Deferred to the Phase 1 refactor so they get fixed carefully (with
+    # nits. Deferred to a later refactor so they get fixed carefully (with
     # tests) rather than auto-mangled. See docs/STATUS.md "Watch-outs".
     "F841",  # unused local variable (×11)
     "B905",  # zip() without strict= (×6)

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token or '' }}">
+  <title>BDK Admin · {% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin/admin.css') }}">
+  <script src="{{ url_for('static', filename='admin/htmx.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='admin/admin.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/admin/">BDK <span>Admin</span></a>
+    <div class="spacer"></div>
+    {% if admin_user %}
+      <span class="who">{{ admin_user.email }}</span>
+      <form method="post" action="/admin/logout" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-ghost" type="submit">Log out</button>
+      </form>
+    {% endif %}
+  </header>
+
+  <div class="layout">
+    {% if admin_user %}
+    <nav class="sidebar">
+      <a href="/admin/" class="{{ 'active' if active == 'dashboard' }}">Dashboard</a>
+      <a href="/admin/organizations" class="{{ 'active' if active == 'organizations' }}">Organizations</a>
+      <a href="/admin/users" class="{{ 'active' if active == 'users' }}">Users</a>
+      <a href="/admin/tasks" class="{{ 'active' if active == 'tasks' }}">Tasks</a>
+      <a href="/admin/audit" class="{{ 'active' if active == 'audit' }}">Audit log</a>
+    </nav>
+    {% endif %}
+
+    <main class="content">
+      <div id="flash"></div>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

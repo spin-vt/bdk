@@ -1,0 +1,54 @@
+{% extends "admin/base.html" %}
+{% set active = 'users' %}
+{% block title %}{{ target.email }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/admin/users">← Users</a></p>
+<h1>{{ target.email }}</h1>
+
+<dl class="kv">
+  <dt>Organization</dt>
+  <dd>{% if target.organization_name %}<a href="/admin/organizations/{{ target.organization_id }}">{{ target.organization_name }}</a>{% else %}<span class="muted">none</span>{% endif %}</dd>
+  <dt>Verified</dt><dd>{{ '✓ yes' if target.verified else 'no' }}</dd>
+  <dt>Status</dt><dd>{% if target.disabled %}<span class="pill failure">disabled</span>{% else %}active{% endif %}</dd>
+  <dt>Org admin</dt><dd>{{ 'yes' if target.is_admin else 'no' }}</dd>
+  <dt>Platform admin</dt><dd>{% if target.is_platform_admin %}<span class="pill success">yes</span>{% else %}no{% endif %}</dd>
+</dl>
+
+<div class="actions">
+  <button class="btn btn-primary" hx-post="/admin/api/users/{{ target.id }}/impersonate"
+          hx-confirm="Log in as {{ target.email }}? You'll switch to their view; the admin session stays active.">
+    Log in as this user
+  </button>
+
+  <button class="btn" hx-post="/admin/api/users/{{ target.id }}/reset-password"
+          hx-vals='{"mode": "email"}'>Send reset email</button>
+
+  <button class="btn" hx-post="/admin/api/users/{{ target.id }}/reset-password"
+          hx-vals='{"mode": "temp"}'
+          hx-confirm="Set a temporary password? It will be shown once.">Set temp password</button>
+
+  <button class="btn" hx-post="/admin/api/users/{{ target.id }}/verified"
+          hx-vals='{"value": "{{ 'false' if target.verified else 'true' }}"}'>
+    {{ 'Mark unverified' if target.verified else 'Mark verified' }}
+  </button>
+
+  <button class="btn {{ 'btn-danger' if not target.disabled }}" hx-post="/admin/api/users/{{ target.id }}/disabled"
+          hx-vals='{"value": "{{ 'false' if target.disabled else 'true' }}"}'>
+    {{ 'Enable' if target.disabled else 'Disable' }}
+  </button>
+
+  <button class="btn" hx-post="/admin/api/users/{{ target.id }}/platform-admin"
+          hx-vals='{"value": "{{ 'false' if target.is_platform_admin else 'true' }}"}'
+          hx-confirm="Change platform-admin status for {{ target.email }}?">
+    {{ 'Revoke platform-admin' if target.is_platform_admin else 'Grant platform-admin' }}
+  </button>
+</div>
+
+<h2 class="danger-h">Danger zone</h2>
+<form class="danger" hx-post="/admin/api/users/{{ target.id }}/delete"
+      hx-confirm="Delete user {{ target.email }}? This cannot be undone.">
+  <p class="muted">Type <strong>{{ target.email }}</strong> to confirm deletion.</p>
+  <input type="text" name="confirm_name" placeholder="{{ target.email }}" autocomplete="off">
+  <button class="btn btn-danger" type="submit">Delete user</button>
+</form>
+{% endblock %}

@@ -2,7 +2,7 @@
 
 import jwt
 from flask import Blueprint, jsonify, make_response, request
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, get_jwt_identity, verify_jwt_in_request
 from jwt import ExpiredSignatureError
 from werkzeug.security import check_password_hash
 
@@ -11,7 +11,8 @@ from controllers.database_controller import (
 )
 from database.sessions import get_session
 from routes._email import create_email_token, send_verification_email_with_token
-from utils.flask_app import app
+from services.audit import log_action
+from utils.flask_app import app, limiter
 from utils.logger_config import logger
 from utils.settings import IN_PRODUCTION
 
@@ -19,6 +20,7 @@ bp = Blueprint("auth", __name__)
 
 
 @bp.route("/api/request_password_reset", methods=["POST"])
+@limiter.limit("5 per minute")
 def request_password_reset():
     session = get_session()
     data = request.get_json()
@@ -39,6 +41,7 @@ def request_password_reset():
 
 
 @bp.route("/api/reset_password", methods=["POST"])
+@limiter.limit("10 per minute")
 def reset_password():
     data = request.get_json()
     token = data.get("token")
@@ -46,7 +49,12 @@ def reset_password():
 
     try:
         session = get_session()
-        decoded_token = jwt.decode(token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"])
+        decoded_token = jwt.decode(
+            token,
+            app.config["JWT_SECRET_KEY"],
+            algorithms=["HS256"],
+            options={"verify_sub": False},
+        )
         user_id = decoded_token["sub"]["id"]
         email = decoded_token["sub"]["email"]
         if user_ops.verify_user_email(user_id, email, session, False):
@@ -67,8 +75,16 @@ def verify_token():
         data = request.get_json()
         token = data.get("token")
 
-        # Decode the token using pyjwt directly
-        decoded_token = jwt.decode(token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"])
+        # Decode the token using pyjwt directly. verify_sub=False because these
+        # email tokens carry a dict `sub` ({"id", "email", "operation", ...}),
+        # which PyJWT >= 2.10 rejects by default (RFC 7519 "sub must be a
+        # string") — same reason the app sets JWT_VERIFY_SUB=False.
+        decoded_token = jwt.decode(
+            token,
+            app.config["JWT_SECRET_KEY"],
+            algorithms=["HS256"],
+            options={"verify_sub": False},
+        )
 
         user_id = decoded_token["sub"]["id"]
         email = decoded_token["sub"]["email"]
@@ -98,6 +114,7 @@ def verify_token():
 
 
 @bp.route("/api/send_email_verification", methods=["POST"])
+@limiter.limit("5 per minute")
 def send_email_verification():
     session = get_session()
     data = request.get_json()
@@ -120,6 +137,7 @@ def send_email_verification():
 
 
 @bp.route("/api/register", methods=["POST"])
+@limiter.limit("10 per minute")
 def register():
     session = get_session()
     data = request.get_json()
@@ -144,6 +162,7 @@ def register():
 
 
 @bp.route("/api/login", methods=["POST"])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json()
     email = data.get("email")
@@ -153,6 +172,12 @@ def login():
     user = user_ops.get_user_with_email(email)
 
     if user is not None and check_password_hash(user.password, pword):
+        # A soft-disabled account cannot obtain a fresh session. Checked
+        # only after the password verifies, so we never reveal disabled status
+        # to someone who doesn't already hold the credentials.
+        if getattr(user, "disabled", False):
+            log_action("login_disabled", user_id=user.id, resource_type="user", resource_id=user.id)
+            return jsonify({"status": "error", "message": "This account has been disabled."}), 403
         user_id = user.id
         access_token = create_access_token(identity={"id": user_id})
         response = make_response(jsonify({"status": "success"}))
@@ -160,13 +185,26 @@ def login():
             response.set_cookie("token", access_token, httponly=True, samesite="Lax", secure=True)
         else:
             response.set_cookie("token", access_token, httponly=False, samesite="Lax", secure=False)
+        log_action("login", user_id=user_id, resource_type="user", resource_id=user_id)
         return response
     else:
+        # Don't leak whether the email exists; record the attempted email.
+        log_action("login_failed", details={"email": email})
         return jsonify({"status": "error", "message": "Invalid credentials"})
 
 
 @bp.route("/api/logout", methods=["POST"])
 def logout():
+    # Logout isn't @jwt_required; best-effort identify the actor for the audit
+    # trail without failing if the cookie is missing/expired.
+    user_id = None
+    try:
+        verify_jwt_in_request(optional=True)
+        identity = get_jwt_identity()
+        user_id = identity.get("id") if identity else None
+    except Exception:
+        user_id = None
+    log_action("logout", user_id=user_id)
     response = make_response(jsonify({"status": "success", "message": "Logged out"}))
     response.delete_cookie("token")
     return response

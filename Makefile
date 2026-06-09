@@ -2,8 +2,9 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 TEST_COMPOSE := docker compose -f docker-compose.test.yml
+SMOKE_COMPOSE := docker compose -f docker-compose.smoke.yml
 
-.PHONY: help up up-build down logs ps shell test lint fmt seed migrate migration
+.PHONY: help up up-build down logs ps shell test lint fmt seed grant-admin smoke migrate migration
 
 help: ## List available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -30,6 +31,12 @@ shell: ## Open a shell in the backend container
 test: ## Run the committable test suite in Docker (golden tests deselected)
 	$(TEST_COMPOSE) run --rm test
 
+smoke: ## Boot the real backend image (gunicorn + redis + alembic) and health-check /api
+	@$(SMOKE_COMPOSE) up --build --wait --wait-timeout 240; status=$$?; \
+	$(SMOKE_COMPOSE) logs --no-color smoke-backend | tail -n 30; \
+	$(SMOKE_COMPOSE) down -v >/dev/null 2>&1; \
+	exit $$status
+
 lint: ## Run ruff (lint) in Docker
 	$(TEST_COMPOSE) run --rm --no-deps test sh -c "uv sync --frozen && uv run ruff check . && uv run ruff format --check ."
 
@@ -38,6 +45,9 @@ fmt: ## Apply ruff formatting in Docker
 
 seed: ## Seed a dev org + verified user + sample filing (stack must be up)
 	$(COMPOSE) exec backend python scripts/seed.py
+
+grant-admin: ## Grant platform-admin to a user:  make grant-admin email=you@example.com
+	$(COMPOSE) exec backend python scripts/grant_platform_admin.py $(email)
 
 migrate: ## Apply DB migrations (alembic upgrade head)
 	$(COMPOSE) exec backend alembic upgrade head

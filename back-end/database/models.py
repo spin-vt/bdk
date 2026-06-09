@@ -39,7 +39,15 @@ class user(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String(50), unique=True, nullable=False)
     password = Column(String(256))
+    # is_admin == "created/owns an organization" (org-level admin). Distinct from
+    # is_platform_admin == the SPIN Lab operator who can reach the admin panel,
+    # impersonate users, etc. Platform admin is settable only via DB/seed/the
+    # grant_platform_admin management command.
     is_admin = Column(Boolean, default=False)
+    is_platform_admin = Column(Boolean, default=False, nullable=False, server_default="false")
+    # Soft-disable: a disabled user cannot log in and cannot reach the admin
+    # panel, without deleting their data. Reversible.
+    disabled = Column(Boolean, default=False, nullable=False, server_default="false")
     verified = Column(Boolean, default=False)
     organization_id = Column(Integer, ForeignKey("organization.id"))
     organization = relationship("organization", back_populates="users")
@@ -441,3 +449,27 @@ class ChallengeLocations(Base):
     contact_phone = Column(String)
     category_code = Column(String)
     location_id = Column(String)
+
+
+class audit_log(Base):
+    """Append-only record of security-relevant actions.
+
+    user_id is a plain Integer (NOT a FK) on purpose: audit rows must survive
+    the deletion of the user/org they reference (org delete cascades widely),
+    so the actor's email is also denormalized into details for durability.
+    """
+
+    __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_audit_log_ts", "ts"),
+        Index("ix_audit_log_user_id", "user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ts = Column(DateTime, nullable=False, default=datetime.utcnow)
+    user_id = Column(Integer, nullable=True)  # the actor; null for e.g. failed login
+    action = Column(String, nullable=False)  # "login", "impersonate_start", "org_delete", ...
+    resource_type = Column(String, nullable=True)  # "user" | "organization" | "folder" | ...
+    resource_id = Column(Integer, nullable=True)
+    details = Column(JSON, nullable=True)  # structured context (mode, names, target email, ...)
+    ip = Column(String, nullable=True)

@@ -1,0 +1,25 @@
+{% extends "admin/base.html" %}
+{% set active = 'tasks' %}
+{% block title %}Tasks{% endblock %}
+{% block content %}
+<h1>Tasks <span class="muted">(all organizations)</span></h1>
+{% if tasks %}
+<table>
+  <thead><tr><th>When</th><th>Operation</th><th>Status</th><th>User</th><th>Org</th><th>Runtime</th></tr></thead>
+  <tbody>
+    {% for t in tasks %}
+    <tr>
+      <td class="mono">{{ t.start_time or '—' }}</td>
+      <td>{{ t.operation_type }}{% if t.operation_detail %} <span class="muted">· {{ t.operation_detail }}</span>{% endif %}</td>
+      <td><span class="pill {{ t.status|lower }}">{{ t.status }}</span></td>
+      <td>{{ t.user_email or '—' }}</td>
+      <td>{{ t.organization_id or '—' }}</td>
+      <td class="mono">{{ '%.1fs'|format(t.runtime) if t.runtime else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No tasks recorded yet.</p>
+{% endif %}
+{% endblock %}

@@ -42,3 +42,23 @@ jobs:
       # Jest + React Testing Library component/contract tests (jsdom, no browser).
       - name: jest
         run: npm test -- --ci
+
+  boot-smoke:
+    name: backend boot smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Build the real backend image and boot it via gunicorn against a real
+      # Postgres + Redis (entrypoint runs `alembic upgrade head`). The pytest
+      # suite runs in-process with a memory:// limiter, so it can't catch "the
+      # image won't even start" — a dep missing from the lock, a Redis-storage
+      # boot failure, a broken migration, or WSGI wiring. `--wait` fails the job
+      # if /api never becomes healthy.
+      - name: boot + health-check /api
+        run: docker compose -f docker-compose.smoke.yml up --build --wait --wait-timeout 240
+      - name: backend logs (on failure)
+        if: failure()
+        run: docker compose -f docker-compose.smoke.yml logs smoke-backend
+      - name: teardown
+        if: always()
+        run: docker compose -f docker-compose.smoke.yml down -v

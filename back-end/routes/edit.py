@@ -12,6 +12,7 @@ from controllers.database_controller import (
 )
 from database.sessions import get_session
 from services import edit_service
+from services.audit import log_action
 from services.exceptions import ServiceError
 
 bp = Blueprint("edit", __name__)
@@ -33,6 +34,13 @@ def toggle_markers():
             markers=markers,
             polygonfeatures=polygonfeatures,
             session=session,
+        )
+        log_action(
+            "edit",
+            user_id=identity["id"],
+            resource_type="folder",
+            resource_id=folderid,
+            details={"marker_count": len(markers) if hasattr(markers, "__len__") else None},
         )
         return jsonify({"status": "success"}), 200
     except ServiceError as e:

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BDK Admin · Sign in</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin/admin.css') }}">
+</head>
+<body class="login-body">
+  <form class="login-card" method="post" action="/admin/login">
+    <h1>BDK <span>Admin</span></h1>
+    <p class="muted">Platform operator sign-in</p>
+    {% if error %}<div class="flash err">{{ error }}</div>{% endif %}
+    <label>Email
+      <input type="email" name="email" autocomplete="username" required autofocus>
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-primary" type="submit">Sign in</button>
+  </form>
+</body>
+</html>

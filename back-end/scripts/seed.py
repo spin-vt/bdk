@@ -37,6 +37,9 @@ def main():
                 password=generate_password_hash(PASSWORD, method="pbkdf2:sha256"),
                 verified=True,
                 is_admin=True,
+                # Dev login doubles as the platform admin so /admin is reachable
+                # out of the box.
+                is_platform_admin=True,
                 organization_id=org.id,
             )
         )
