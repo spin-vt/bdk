@@ -29,4 +29,17 @@ server {
         proxy_buffer_size 16k;
         proxy_busy_buffers_size 24k;
     }
+
+    # Server-rendered admin panel (Flask + htmx). Covers /admin/, /admin/api/,
+    # and /admin/static/. Longest-prefix match wins over `location /`.
+    location = /admin { return 301 /admin/; }
+    location /admin/ {
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffers 8 16k;
+        proxy_buffer_size 16k;
+        proxy_busy_buffers_size 24k;
+    }
 }

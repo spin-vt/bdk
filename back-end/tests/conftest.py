@@ -31,6 +31,10 @@ _DEFAULTS = {
     # In-memory Celery transports so eager tasks never reach for Redis.
     "CELERY_BROKER_URL": "memory://",
     "CELERY_RESULT_BACKEND": "cache+memory://",
+    # Rate limiting off by default in tests (in-memory limiter storage is
+    # process-global and would leak counts across tests); the dedicated
+    # rate-limit test flips it on locally.
+    "RATELIMIT_ENABLED": "false",
 }
 for _k, _v in _DEFAULTS.items():
     os.environ.setdefault(_k, _v)

@@ -17,6 +17,7 @@ from controllers.database_controller import (
 )
 from database.sessions import get_session
 from services import export_service
+from services.audit import log_action
 from services.exceptions import ServiceError
 
 bp = Blueprint("export", __name__)
@@ -45,6 +46,13 @@ def exportFiling(folderid):
                 )
             )
             response.headers["Access-Control-Expose-Headers"] = "Content-Disposition"
+            log_action(
+                "export",
+                user_id=identity["id"],
+                resource_type="folder",
+                resource_id=folderid,
+                details={"download_name": download_name},
+            )
             return response
         except ServiceError as e:
             return jsonify({"status": "error", "message": e.message}), e.status

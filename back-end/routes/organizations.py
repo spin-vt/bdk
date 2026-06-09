@@ -13,6 +13,8 @@ from controllers.database_controller import (
 )
 from database.sessions import get_session
 from routes._email import create_email_token, send_verification_email_with_token
+from services.audit import log_action
+from utils.admin_auth import require_admin
 from utils.logger_config import logger
 
 bp = Blueprint("organizations", __name__)
@@ -53,6 +55,13 @@ def create_organization():
         user.is_admin = True
         session.commit()
 
+        log_action(
+            "org_create",
+            user_id=user.id,
+            resource_type="organization",
+            resource_id=new_org.id,
+            details={"name": org_name},
+        )
         return jsonify({"status": "success", "message": "Organization created successfully!"}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
@@ -126,6 +135,7 @@ def join_organization():
 
 @bp.route("/api/delete_organization", methods=["DELETE"])
 @jwt_required()
+@require_admin
 def delete_organization():
     try:
         identity = get_jwt_identity()
@@ -142,8 +152,16 @@ def delete_organization():
         if not organization.name == orgName:
             return jsonify({"status": "error", "message": "Organization not found"}), 400
 
-        result = async_org_delete.apply_async(args=[userVal.organization_id])
+        org_id = userVal.organization_id
+        result = async_org_delete.apply_async(args=[org_id])
 
+        log_action(
+            "org_delete",
+            user_id=userVal.id,
+            resource_type="organization",
+            resource_id=org_id,
+            details={"name": orgName, "actor_email": userVal.email},
+        )
         return jsonify({"status": "success", "message": "Organization deleted successfully"}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401

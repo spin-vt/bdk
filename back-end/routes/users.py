@@ -23,6 +23,15 @@ def get_user_info():
         if not userVal:
             return jsonify({"status": "error", "message": "Please login to your account"}), 401
         userinfo = user_ops.get_userinfo_with_id(identity["id"], session=session)
+        # Impersonation banner: when a platform admin is "logged in as" this user,
+        # the app token carries an `impersonator` claim. Surface the operator's
+        # email so the SPA can show the banner + "Return to admin" link.
+        impersonator_id = identity.get("impersonator") if isinstance(identity, dict) else None
+        if impersonator_id and isinstance(userinfo, dict):
+            operator = user_ops.get_user_with_id(impersonator_id, session=session)
+            userinfo["impersonator"] = (
+                operator.email if operator and not isinstance(operator, str) else True
+            )
         return jsonify({"status": "success", "userinfo": userinfo}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401

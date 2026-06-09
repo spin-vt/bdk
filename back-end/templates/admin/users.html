@@ -1,0 +1,15 @@
+{% extends "admin/base.html" %}
+{% set active = 'users' %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1>Users</h1>
+<input class="search" type="search" name="q" value="{{ q }}" placeholder="Filter by email…"
+       hx-get="/admin/users?partial=1" hx-trigger="keyup changed delay:300ms, search"
+       hx-target="#user-rows" hx-include="this">
+<table>
+  <thead><tr><th>Email</th><th>Organization</th><th>Role</th><th>Verified</th><th>Status</th><th></th></tr></thead>
+  <tbody id="user-rows">
+    {% include "admin/_user_rows.html" %}
+  </tbody>
+</table>
+{% endblock %}

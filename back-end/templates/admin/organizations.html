@@ -1,0 +1,25 @@
+{% extends "admin/base.html" %}
+{% set active = 'organizations' %}
+{% block title %}Organizations{% endblock %}
+{% block content %}
+<h1>Organizations</h1>
+{% if organizations %}
+<table>
+  <thead><tr><th>Name</th><th>Provider ID</th><th>Brand</th><th>Users</th><th>Filings</th><th></th></tr></thead>
+  <tbody>
+    {% for o in organizations %}
+    <tr>
+      <td><a href="/admin/organizations/{{ o.id }}">{{ o.name }}</a></td>
+      <td class="mono">{{ o.provider_id or '—' }}</td>
+      <td>{{ o.brand_name or '—' }}</td>
+      <td>{{ o.user_count }}</td>
+      <td>{{ o.filing_count }}</td>
+      <td><a class="btn btn-ghost" href="/admin/organizations/{{ o.id }}">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No organizations.</p>
+{% endif %}
+{% endblock %}

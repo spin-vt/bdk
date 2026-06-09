@@ -1,0 +1,14 @@
+{% if users %}
+  {% for u in users %}
+  <tr>
+    <td><a href="/admin/users/{{ u.id }}">{{ u.email }}</a></td>
+    <td>{% if u.organization_name %}<a href="/admin/organizations/{{ u.organization_id }}">{{ u.organization_name }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{% if u.is_platform_admin %}<span class="pill success">platform</span>{% endif %}{% if u.is_admin %}<span class="pill">org-admin</span>{% endif %}</td>
+    <td>{{ '✓' if u.verified else '—' }}</td>
+    <td>{% if u.disabled %}<span class="pill failure">disabled</span>{% else %}active{% endif %}</td>
+    <td><a class="btn btn-ghost" href="/admin/users/{{ u.id }}">Manage</a></td>
+  </tr>
+  {% endfor %}
+{% else %}
+  <tr><td colspan="6" class="muted">No matching users.</td></tr>
+{% endif %}

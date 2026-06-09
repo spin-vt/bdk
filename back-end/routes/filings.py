@@ -12,6 +12,7 @@ from controllers.database_controller import (
 )
 from database.sessions import get_session
 from services import filing_service, upload_service
+from services.audit import log_action
 from services.exceptions import ServiceError
 from utils.logger_config import logger
 
@@ -66,6 +67,13 @@ def submit_data(folderid):
             import_folder_raw=request.form.get("importFolder"),
             deadline_raw=request.form.get("deadline"),
             session=session,
+        )
+        log_action(
+            "upload",
+            user_id=identity["id"],
+            resource_type="folder",
+            resource_id=folderid,
+            details={"task_id": result_id, "file_count": len(raw_files)},
         )
         return jsonify({"status": "success", "task_id": result_id}), 200  # return task id
 
@@ -173,6 +181,12 @@ def delete_filing():
         identity = get_jwt_identity()
         folderid = request.json["folderID"]
         filing_service.delete_filing(user_id=identity["id"], folderid=folderid, session=session)
+        log_action(
+            "filing_delete",
+            user_id=identity["id"],
+            resource_type="folder",
+            resource_id=folderid,
+        )
         return jsonify({"status": "success"}), 200
     except ServiceError as e:
         return jsonify({"status": "error", "message": e.message}), e.status

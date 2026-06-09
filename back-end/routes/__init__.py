@@ -4,7 +4,8 @@ Importing this package (or `routes:app` for gunicorn) registers every
 endpoint onto the shared app from utils.flask_app.
 """
 
-from routes.admin import bp as admin_bp
+from routes.admin_api import bp as admin_api_bp
+from routes.admin_ui import bp as admin_ui_bp
 from routes.auth import bp as auth_bp
 from routes.challenge import bp as challenge_bp
 from routes.edit import bp as edit_bp
@@ -19,7 +20,8 @@ from routes.wireless import bp as wireless_bp
 from utils.flask_app import app
 
 _blueprints = (
-    admin_bp,
+    admin_api_bp,
+    admin_ui_bp,
     auth_bp,
     challenge_bp,
     edit_bp,

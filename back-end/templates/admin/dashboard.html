@@ -1,0 +1,34 @@
+{% extends "admin/base.html" %}
+{% set active = 'dashboard' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="cards">
+  <div class="card"><div class="num">{{ stats.organizations }}</div><div class="lbl">Organizations</div></div>
+  <div class="card"><div class="num">{{ stats.users }}</div><div class="lbl">Users</div></div>
+  <div class="card"><div class="num">{{ stats.filings }}</div><div class="lbl">Filings</div></div>
+  <div class="card"><div class="num">{{ stats.exports }}</div><div class="lbl">Exports</div></div>
+  <div class="card"><div class="num">{{ stats.platform_admins }}</div><div class="lbl">Platform admins</div></div>
+</div>
+
+<h2>Recent tasks</h2>
+{% if stats.recent_tasks %}
+<table>
+  <thead><tr><th>When</th><th>Operation</th><th>Status</th><th>User</th><th>Org</th></tr></thead>
+  <tbody>
+    {% for t in stats.recent_tasks %}
+    <tr>
+      <td class="mono">{{ t.start_time or '—' }}</td>
+      <td>{{ t.operation_type }}{% if t.operation_detail %} <span class="muted">· {{ t.operation_detail }}</span>{% endif %}</td>
+      <td><span class="pill {{ t.status|lower }}">{{ t.status }}</span></td>
+      <td>{{ t.user_email or '—' }}</td>
+      <td>{{ t.organization_id or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No tasks recorded yet.</p>
+{% endif %}
+{% endblock %}

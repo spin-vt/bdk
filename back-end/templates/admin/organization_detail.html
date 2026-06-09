@@ -1,0 +1,54 @@
+{% extends "admin/base.html" %}
+{% set active = 'organizations' %}
+{% block title %}{{ org.name }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/admin/organizations">← Organizations</a></p>
+<h1>{{ org.name }}</h1>
+<dl class="kv">
+  <dt>Provider ID</dt><dd class="mono">{{ org.provider_id or '—' }}</dd>
+  <dt>Brand name</dt><dd>{{ org.brand_name or '—' }}</dd>
+</dl>
+
+<h2>Users</h2>
+{% if org.users %}
+<table>
+  <thead><tr><th>Email</th><th>Role</th><th>Verified</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for u in org.users %}
+    <tr>
+      <td><a href="/admin/users/{{ u.id }}">{{ u.email }}</a></td>
+      <td>{% if u.is_platform_admin %}<span class="pill success">platform</span>{% endif %}{% if u.is_admin %}<span class="pill">org-admin</span>{% endif %}</td>
+      <td>{{ '✓' if u.verified else '—' }}</td>
+      <td>{% if u.disabled %}<span class="pill failure">disabled</span>{% else %}active{% endif %}</td>
+      <td><a class="btn btn-ghost" href="/admin/users/{{ u.id }}">Manage</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No users in this organization.</p>
+{% endif %}
+
+<h2>Filings</h2>
+{% if org.filings %}
+<table>
+  <thead><tr><th>Name</th><th>Type</th><th>Deadline</th></tr></thead>
+  <tbody>
+    {% for f in org.filings %}
+    <tr><td>{{ f.name }}</td><td>{{ f.type }}</td><td class="mono">{{ f.deadline or '—' }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No filings.</p>
+{% endif %}
+
+<h2 class="danger-h">Danger zone</h2>
+<form class="danger" hx-post="/admin/api/organizations/{{ org.id }}/delete"
+      hx-confirm="Delete {{ org.name }} and ALL its filings, files, and tasks? This cannot be undone.">
+  <p class="muted">Deleting an organization cascades to every filing, file, and task it owns. Type
+    <strong>{{ org.name }}</strong> to confirm.</p>
+  <input type="text" name="confirm_name" placeholder="{{ org.name }}" autocomplete="off">
+  <button class="btn btn-danger" type="submit">Delete organization</button>
+</form>
+{% endblock %}
