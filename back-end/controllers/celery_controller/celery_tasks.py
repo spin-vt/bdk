@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import subprocess
+import time
 from datetime import datetime
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -30,6 +31,7 @@ from controllers.signalserver_controller.rasterprocessing import (
 )
 from database.models import file, kml_data
 from database.sessions import Session
+from utils.config import Config
 from utils.logger_config import logger
 from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
 from utils.wireless_form2args import wireless_raster_file_format, wireless_vector_file_format
@@ -195,8 +197,42 @@ def async_delete_files(self, file_ids, editfile_ids):
         session.close()
 
 
+# --- edit flow: fast DB apply + debounced tile regeneration -------------------
+# An edit used to be one task (editfile + kml_data changes + a full retile).
+# It is now dispatched as a chain (see services/edit_service.py):
+#   apply_edit_changes  — seconds; after it commits, kml_data (and therefore
+#                         exports) is correct and only the tiles are stale;
+#   regenerate_tiles    — the slow tippecanoe rebuild, single-flight per folder
+#                         with a dirty flag so rapid edits coalesce.
+
+TILES_DIRTY_KEY = "bdk:tiles-dirty:{folderid}"
+TILES_LOCK_KEY = "bdk:tiles-lock:{folderid}"
+TILES_LOCK_TTL = 3600  # safety expiry on the lock; no rebuild should take this long
+TILES_LOCK_WAIT = 1800  # max time a regenerate waits behind another rebuild
+
+
+def _tiles_redis():
+    """Redis client for the tile dirty/lock flags, or None when redis isn't
+    reachable (e.g. the tests' in-memory broker). Callers must treat None as
+    'no debounce' and always rebuild — correct, just less efficient."""
+    try:
+        import redis
+
+        client = redis.Redis.from_url(Config.CELERY_BROKER_URL, socket_connect_timeout=2)
+        client.ping()
+        return client
+    except Exception:
+        return None
+
+
+def _mark_tiles_dirty(folderid):
+    r = _tiles_redis()
+    if r is not None:
+        r.set(TILES_DIRTY_KEY.format(folderid=folderid), "1")
+
+
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def toggle_tiles(self, markers, folderid, polygonfeatures):
+def apply_edit_changes(self, markers, folderid, polygonfeatures):
     session = Session()
     try:
         user_folder = folder_ops.get_folder_with_id(folderid=folderid, session=session)
@@ -247,19 +283,8 @@ def toggle_tiles(self, markers, folderid, polygonfeatures):
         else:
             raise Exception("No folder for the user")
 
-        geojson_data = []
-        all_kmls = file_ops.get_files_with_postfix(user_folder.id, ".kml", session)
-        for kml_f in all_kmls:
-            geojson_data.append(vt_ops.read_kml(kml_f.id, session))
-
-        all_geojsons = file_ops.get_files_with_postfix(
-            folderid=user_folder.id, postfix=".geojson", session=session
-        )
-        for geojson_f in all_geojsons:
-            geojson_data.append(vt_ops.read_geojson(geojson_f.id, session))
-
-        mbtiles_ops.delete_mbtiles(user_folder.id, session)
-        vt_ops.create_tiles(geojson_data, user_folder.id, session)
+        # The availability CSV derives from kml_data, so it can refresh now —
+        # exports are correct without waiting for the retile.
         if user_folder.type == "export":
             existing_csvs = file_ops.get_files_by_type(
                 folderid=user_folder.id, filetype="export", session=session
@@ -291,11 +316,66 @@ def toggle_tiles(self, markers, folderid, polygonfeatures):
             session.add(new_csv_file)
 
     except Exception:
+        logger.exception(f"apply_edit_changes failed for folder {folderid}")
         session.rollback()  # rollback transaction on error
 
     finally:
         session.commit()
         session.close()
+
+    _mark_tiles_dirty(folderid)
+
+
+def _rebuild_folder_tiles(folderid):
+    """Rebuild a folder's vector tiles from current DB truth (the slow part)."""
+    session = Session()
+    try:
+        geojson_data = []
+        all_kmls = file_ops.get_files_with_postfix(folderid, ".kml", session)
+        for kml_f in all_kmls:
+            geojson_data.append(vt_ops.read_kml(kml_f.id, session))
+
+        all_geojsons = file_ops.get_files_with_postfix(
+            folderid=folderid, postfix=".geojson", session=session
+        )
+        for geojson_f in all_geojsons:
+            geojson_data.append(vt_ops.read_geojson(geojson_f.id, session))
+
+        mbtiles_ops.delete_mbtiles(folderid, session)
+        vt_ops.create_tiles(geojson_data, folderid, session)
+    finally:
+        session.commit()
+        session.close()
+
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def regenerate_tiles(self, folderid):
+    """Rebuild the folder's tiles, single-flight + coalescing. Every edit's
+    apply phase sets the dirty flag; the rebuild that runs after it clears it.
+    A queued regenerate that finds the folder clean no-ops (an earlier rebuild
+    already covered its edit), so N rapid edits cost ~1 rebuild, while 'task
+    SUCCESS' still always means 'the tiles include this chain's edit'."""
+    r = _tiles_redis()
+    if r is None:
+        _rebuild_folder_tiles(folderid)
+        return "tiles rebuilt"
+
+    lock_key = TILES_LOCK_KEY.format(folderid=folderid)
+    dirty_key = TILES_DIRTY_KEY.format(folderid=folderid)
+    waited = 0
+    while not r.set(lock_key, str(self.request.id), nx=True, ex=TILES_LOCK_TTL):
+        if waited >= TILES_LOCK_WAIT:
+            raise Exception(f"timed out waiting for the tile-rebuild lock on folder {folderid}")
+        time.sleep(5)
+        waited += 5
+    try:
+        if not r.get(dirty_key):
+            return "tiles fresh (an earlier rebuild covered this edit)"
+        r.delete(dirty_key)
+        _rebuild_folder_tiles(folderid)
+        return "tiles rebuilt"
+    finally:
+        r.delete(lock_key)
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)

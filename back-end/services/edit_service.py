@@ -1,9 +1,14 @@
 """Edit-apply flow: apply marker/polygon edits to a filing and retile.
 
-Extracted verbatim (behavior-preserving) from routes.edit.toggle_markers.
+Dispatched as a two-task chain: a fast DB apply (editfiles + kml_data, after
+which exports are already correct) followed by the slow, debounced tile
+rebuild. The recorded task id is the chain's final task, so a task reaching
+SUCCESS still means "the map tiles include this edit".
 """
 
-from controllers.celery_controller.celery_tasks import toggle_tiles
+from celery import chain
+
+from controllers.celery_controller.celery_tasks import apply_edit_changes, regenerate_tiles
 from controllers.database_controller import celerytaskinfo_ops, folder_ops, user_ops
 from services.exceptions import ServiceError
 from utils.logger_config import logger
@@ -48,7 +53,10 @@ def apply_edit(user_id, folderid, markers, polygonfeatures, session):
             all_filenames.update(point["editedFile"])
     concatenated_filenames = ", ".join(sorted(all_filenames))
     logger.debug(polygonfeatures)
-    result = toggle_tiles.apply_async(args=[filtered_markers, folderid, polygonfeatures])
+    result = chain(
+        apply_edit_changes.s(filtered_markers, folderid, polygonfeatures),
+        regenerate_tiles.si(folderid),
+    ).apply_async()
 
     celerytaskinfo_ops.create_celery_taskinfo(
         task_id=result.task_id,
