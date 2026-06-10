@@ -44,10 +44,10 @@ fmt: ## Apply ruff formatting in Docker
 	$(TEST_COMPOSE) run --rm --no-deps test sh -c "uv sync --frozen && uv run ruff format ."
 
 seed: ## Seed a dev org + verified user + sample filing (stack must be up)
-	$(COMPOSE) exec backend python scripts/seed.py
+	$(COMPOSE) exec -e PYTHONPATH=/app backend python scripts/seed.py
 
 grant-admin: ## Grant platform-admin to a user:  make grant-admin email=you@example.com
-	$(COMPOSE) exec backend python scripts/grant_platform_admin.py $(email)
+	$(COMPOSE) exec -e PYTHONPATH=/app backend python scripts/grant_platform_admin.py $(email)
 
 migrate: ## Apply DB migrations (alembic upgrade head)
 	$(COMPOSE) exec backend alembic upgrade head
