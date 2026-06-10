@@ -50,11 +50,13 @@ class _StubRedis:
 
     def __init__(self):
         self.store = {}
+        self.sets = []  # every key ever set, for asserting the lock was taken
 
     def set(self, key, value, nx=False, ex=None):
         if nx and key in self.store:
             return False
         self.store[key] = value
+        self.sets.append(key)
         return True
 
     def get(self, key):
@@ -133,6 +135,26 @@ def test_regenerate_tiles_coalesces_when_fresh(db_session, tasks, monkeypatch):
     assert calls["create_tiles"] == [folder.id]
     assert "rebuilt" in res
     assert stub.get(f"bdk:tiles-dirty:{folder.id}") is None
+    assert stub.get(f"bdk:tiles-lock:{folder.id}") is None  # lock released
+
+
+def test_process_data_uses_coalesced_rebuild(db_session, tasks, monkeypatch):
+    """process_data's tile step goes through the same per-folder lock +
+    dirty-flag path as edit retiles, so upload/delete/regenerate rebuilds
+    coalesce with edit rebuilds instead of racing them."""
+    ct, calls = tasks
+    s = db_session
+    _, _, folder, _ = _seed_edit_fixture(s)
+    stub = _StubRedis()
+    monkeypatch.setattr(ct, "_tiles_redis", lambda: stub)
+    # stub the heavy coverage compute; we're testing the tile-step plumbing
+    monkeypatch.setattr(ct.kml_ops, "add_network_data", lambda *a, **k: None)
+
+    ct.process_data.apply_async(args=[folder.id, 1]).get()
+
+    assert calls["create_tiles"] == [folder.id]
+    assert any(k == f"bdk:tiles-lock:{folder.id}" for k in stub.sets)  # lock taken
+    assert stub.get(f"bdk:tiles-dirty:{folder.id}") is None  # marked + consumed
     assert stub.get(f"bdk:tiles-lock:{folder.id}") is None  # lock released
 
 
