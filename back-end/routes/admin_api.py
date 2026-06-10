@@ -23,10 +23,7 @@ bp = Blueprint("admin_api", __name__)
 
 def _set_app_token_cookie(response, token):
     """Set the SPA's `token` cookie with the same flags routes/auth.py uses."""
-    if IN_PRODUCTION:
-        response.set_cookie("token", token, httponly=True, samesite="Lax", secure=True)
-    else:
-        response.set_cookie("token", token, httponly=False, samesite="Lax", secure=False)
+    response.set_cookie("token", token, httponly=True, samesite="Lax", secure=bool(IN_PRODUCTION))
     return response
 
 
