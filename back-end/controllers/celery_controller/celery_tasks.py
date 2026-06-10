@@ -240,6 +240,9 @@ def apply_edit_changes(self, markers, folderid, polygonfeatures):
                     content=feature_binary,
                     folderid=folderid,
                     session=session,
+                    # the exact per-point picks, so recomputes re-apply this
+                    # edit exactly instead of geometrically
+                    markers=markers[index] or None,
                 )
                 session.commit()
 

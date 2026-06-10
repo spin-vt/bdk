@@ -313,10 +313,23 @@ def rename_conflicting_columns(gdf):
 
 
 def filter_points_within_editfile_polygons(points_gdf, coverage_file, session):
+    """Drop the points this coverage file's linked editfiles exclude.
+
+    Editfiles that carry per-point markers are applied exactly: only the
+    marked location_ids whose pick names this coverage file are dropped.
+    Editfiles without markers (created before markers were persisted) fall
+    back to the geometric rule: every point inside the polygon is dropped.
+    """
     all_polygons = []
+    excluded_ids = set()
 
     editfiles = get_editfiles_for_file(coverage_file.id, session)
     for editfile in editfiles:
+        if editfile.markers:
+            for marker in editfile.markers:
+                if coverage_file.name in (marker.get("editedFile") or []):
+                    excluded_ids.add(int(marker["id"]))
+            continue
         try:
             geojson_feature = json.loads(editfile.data.decode("utf-8"))
             if geojson_feature["geometry"]["type"] == "Polygon":
@@ -325,6 +338,9 @@ def filter_points_within_editfile_polygons(points_gdf, coverage_file, session):
         except json.JSONDecodeError:
             logger.error("Failed to decode JSON data")
             continue
+
+    if excluded_ids:
+        points_gdf = points_gdf[~points_gdf["location_id"].astype(int).isin(excluded_ids)]
 
     if all_polygons:
         polygons_gdf = geopandas.GeoDataFrame(geometry=all_polygons, crs="EPSG:4326")

@@ -281,6 +281,11 @@ class editfile(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     data = Column(LargeBinary)
+    # The exact per-point picks this edit made: [{"id": <location_id>,
+    # "editedFile": [<coverage filenames>]}, ...]. NULL for editfiles created
+    # before markers were persisted — recomputes then fall back to applying
+    # the polygon geometrically (see kml_ops.filter_points_within_editfile_polygons).
+    markers = Column(JSON)
     folder_id = Column(Integer, ForeignKey("folder.id", ondelete="CASCADE"))
     timestamp = Column(DateTime)
     folder = relationship("folder", back_populates="editfiles")
@@ -290,6 +295,7 @@ class editfile(Base):
         new_edit_file = editfile(
             name=self.name,
             data=self.data,
+            markers=self.markers,
             folder_id=new_folder_id,
             timestamp=datetime.now(),
         )

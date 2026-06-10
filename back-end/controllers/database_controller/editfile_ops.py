@@ -47,7 +47,7 @@ def get_editfile_with_id(fileid, session=None):
             session.close()
 
 
-def create_editfile(filename, content, folderid, session=None):
+def create_editfile(filename, content, folderid, session=None, markers=None):
     owns_session = False
     if session is None:
         session = Session()
@@ -55,7 +55,11 @@ def create_editfile(filename, content, folderid, session=None):
 
     try:
         new_file = editfile(
-            name=filename, data=content, folder_id=folderid, timestamp=datetime.now()
+            name=filename,
+            data=content,
+            markers=markers,
+            folder_id=folderid,
+            timestamp=datetime.now(),
         )
         session.add(new_file)
         if owns_session:
