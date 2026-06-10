@@ -1,17 +1,26 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from flask_mail import Message
 
 from utils.flask_app import app, mail
 
+# Email tokens share the signing key with the session JWTs, so they carry an
+# explicit audience and the decoders require it — a session token can never
+# pass as an email token (or vice versa: session decoding requires claims
+# email tokens don't have).
+EMAIL_TOKEN_AUDIENCE = "bdk-email"
+
 
 def create_email_token(userid, email, operation, org_id=-1):
-    expiration = datetime.now() + timedelta(minutes=15)
+    # Expiry must be timezone-aware UTC: PyJWT treats a naive datetime as UTC,
+    # so naive local time on a non-UTC host mints already-expired tokens.
+    expiration = datetime.now(UTC) + timedelta(minutes=15)
     email_token = jwt.encode(
         {
             "sub": {"id": userid, "email": email, "operation": operation, "org_id": org_id},
             "exp": expiration,
+            "aud": EMAIL_TOKEN_AUDIENCE,
         },
         app.config["JWT_SECRET_KEY"],
         algorithm="HS256",

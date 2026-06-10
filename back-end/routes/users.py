@@ -8,6 +8,8 @@ from controllers.database_controller import (
     user_ops,
 )
 from database.sessions import get_session
+from utils.logger_config import logger
+from utils.validation import is_valid_email
 
 bp = Blueprint("users", __name__)
 
@@ -40,18 +42,29 @@ def get_user_info():
 @bp.route("/api/update_profile", methods=["POST"])
 @jwt_required()
 def update_profile():
+    session = get_session()
     try:
         identity = get_jwt_identity()
-        data = request.get_json()
+        # Only fields actually present in the body are applied — a missing
+        # field must never coerce to the string "None" (str(None)) and
+        # overwrite real data, which the old code did.
+        data = request.get_json(silent=True) or {}
         provider_id = data.get("providerId")
-        brand_name = str(data.get("brandName"))
-        email = str(data.get("email"))
-        org_name = str(data.get("organizationName"))
+        brand_name = data.get("brandName")
+        email = data.get("email")
+        org_name = data.get("organizationName")
 
-        session = get_session()
         userVal = user_ops.get_user_with_id(userid=identity["id"], session=session)
 
         if email and email != userVal.email:
+            if not is_valid_email(email):
+                return jsonify(
+                    {"status": "error", "message": "Please provide a valid email address."}
+                ), 400
+            if user_ops.get_user_with_email(email, session):
+                return jsonify(
+                    {"status": "error", "message": "That email address is already in use."}
+                ), 400
             userVal.email = email
             userVal.verified = False
 
@@ -60,13 +73,15 @@ def update_profile():
             if provider_id:
                 organization.provider_id = provider_id
             if brand_name:
-                organization.brand_name = brand_name
+                organization.brand_name = str(brand_name)
             if org_name:
-                organization.name = org_name
+                organization.name = str(org_name)
         session.commit()
         return jsonify({"status": "success", "message": "User profile updated successfully."}), 200
     except NoAuthorizationError:
         return jsonify({"status": "error", "message": "Please login to your account"}), 401
-    except Exception as e:
+    except Exception:
+        # Log the detail server-side; never echo internals to the client.
+        logger.exception("update_profile failed")
         session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": "Failed to update profile."}), 500

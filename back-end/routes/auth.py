@@ -10,11 +10,16 @@ from controllers.database_controller import (
     user_ops,
 )
 from database.sessions import get_session
-from routes._email import create_email_token, send_verification_email_with_token
+from routes._email import (
+    EMAIL_TOKEN_AUDIENCE,
+    create_email_token,
+    send_verification_email_with_token,
+)
 from services.audit import log_action
 from utils.flask_app import app, limiter
 from utils.logger_config import logger
 from utils.settings import IN_PRODUCTION
+from utils.validation import is_valid_email
 
 bp = Blueprint("auth", __name__)
 
@@ -53,6 +58,7 @@ def reset_password():
             token,
             app.config["JWT_SECRET_KEY"],
             algorithms=["HS256"],
+            audience=EMAIL_TOKEN_AUDIENCE,
             options={"verify_sub": False},
         )
         user_id = decoded_token["sub"]["id"]
@@ -78,11 +84,14 @@ def verify_token():
         # Decode the token using pyjwt directly. verify_sub=False because these
         # email tokens carry a dict `sub` ({"id", "email", "operation", ...}),
         # which PyJWT >= 2.10 rejects by default (RFC 7519 "sub must be a
-        # string") — same reason the app sets JWT_VERIFY_SUB=False.
+        # string") — same reason the app sets JWT_VERIFY_SUB=False. The
+        # audience requirement rejects any non-email token (e.g. a session JWT
+        # signed with the same key).
         decoded_token = jwt.decode(
             token,
             app.config["JWT_SECRET_KEY"],
             algorithms=["HS256"],
+            audience=EMAIL_TOKEN_AUDIENCE,
             options={"verify_sub": False},
         )
 
@@ -144,6 +153,11 @@ def register():
     email = data.get("email")
     password = data.get("password")
 
+    if not is_valid_email(email):
+        return jsonify({"status": "error", "message": "Please provide a valid email address."}), 400
+    if not password:
+        return jsonify({"status": "error", "message": "Please provide a password."}), 400
+
     response = user_ops.create_user_in_db(email, password, session)
 
     if "error" in response:
@@ -153,10 +167,11 @@ def register():
     access_token = create_access_token(identity={"id": userVal.id})
 
     response = make_response(jsonify({"status": "success"}))
-    if IN_PRODUCTION:
-        response.set_cookie("token", access_token, httponly=True, samesite="Lax", secure=True)
-    else:
-        response.set_cookie("token", access_token, httponly=False, samesite="Lax", secure=False)
+    # HttpOnly always — the frontend never reads this cookie from JS. Secure
+    # only in prod (dev is plain http through nginx).
+    response.set_cookie(
+        "token", access_token, httponly=True, samesite="Lax", secure=bool(IN_PRODUCTION)
+    )
 
     return response, 200
 
@@ -181,10 +196,9 @@ def login():
         user_id = user.id
         access_token = create_access_token(identity={"id": user_id})
         response = make_response(jsonify({"status": "success"}))
-        if IN_PRODUCTION:
-            response.set_cookie("token", access_token, httponly=True, samesite="Lax", secure=True)
-        else:
-            response.set_cookie("token", access_token, httponly=False, samesite="Lax", secure=False)
+        response.set_cookie(
+            "token", access_token, httponly=True, samesite="Lax", secure=bool(IN_PRODUCTION)
+        )
         log_action("login", user_id=user_id, resource_type="user", resource_id=user_id)
         return response
     else:

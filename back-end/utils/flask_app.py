@@ -56,6 +56,22 @@ def create_app():
     # Initialize other extensions
     jwt = JWTManager(app)
 
+    # Disabled (or deleted) users lose access IMMEDIATELY, not at token
+    # expiry: every @jwt_required request re-checks the user row. One indexed
+    # PK lookup per request via the request-scoped session — cheap at this
+    # app's scale, and the same policy the admin panel already enforces.
+    @jwt.token_in_blocklist_loader
+    def _reject_disabled_users(_jwt_header, jwt_payload):
+        identity = jwt_payload.get("sub")
+        user_id = identity.get("id") if isinstance(identity, dict) else None
+        if user_id is None:
+            return True
+        from database.models import user
+        from database.sessions import get_session
+
+        u = get_session().get(user, user_id)
+        return u is None or bool(getattr(u, "disabled", False))
+
     mail.init_app(app)
 
     # Rate limiting on auth endpoints. Storage reuses the Celery Redis in

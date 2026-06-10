@@ -141,6 +141,7 @@ def test_impersonation_token_is_short_lived(client):
             token,
             current_app.config["JWT_SECRET_KEY"],
             algorithms=["HS256"],
+            audience=current_app.config["JWT_DECODE_AUDIENCE"],
             options={"verify_sub": False},
         )
     # Impersonation tokens live ~30 min, NOT the app default 7 days.

@@ -1,7 +1,20 @@
 import base64
 import os
 
-from utils.settings import COOKIE_EXP_TIME, DATABASE_URL
+from utils.settings import COOKIE_EXP_TIME, DATABASE_URL, IN_PRODUCTION
+
+
+def validate_prod_secrets(in_production, jwt_secret):
+    """Refuse to boot a production instance on a weak JWT signing secret.
+    Dev/test instances are exempt."""
+    if in_production and (not jwt_secret or len(jwt_secret) < 32):
+        raise RuntimeError(
+            "JWT_SECRET must be at least 32 bytes in production "
+            "(set a long random value in the environment)."
+        )
+
+
+validate_prod_secrets(IN_PRODUCTION, os.getenv("JWT_SECRET"))
 
 
 # Centralized configuration settings
@@ -10,6 +23,12 @@ class Config:
     JWT_SECRET_KEY = base64.b64encode(os.getenv("JWT_SECRET").encode())
     JWT_TOKEN_LOCATION = [os.getenv("JWT_TOKEN_LOCATION")]
     JWT_ACCESS_COOKIE_NAME = os.getenv("JWT_ACCESS_COOKIE_NAME")
+    # Session tokens carry (and require) their own audience so no other token
+    # signed with the shared key — email verification tokens (aud=bdk-email),
+    # admin_session tokens — can ever pass as an app session. Without this,
+    # a 15-minute email token literally worked as a login cookie.
+    JWT_ENCODE_AUDIENCE = "bdk-app"
+    JWT_DECODE_AUDIENCE = "bdk-app"
     JWT_COOKIE_CSRF_PROTECT = False
     # flask-jwt-extended 4.7 enforces RFC 7519's "sub must be a string" by
     # default (JWT_VERIFY_SUB=True), which 422s every @jwt_required route here
