@@ -29,7 +29,14 @@ class Config:
     # a 15-minute email token literally worked as a login cookie.
     JWT_ENCODE_AUDIENCE = "bdk-app"
     JWT_DECODE_AUDIENCE = "bdk-app"
-    JWT_COOKIE_CSRF_PROTECT = False
+    # Double-submit CSRF on the cookie session: login/register set a
+    # JS-readable csrf_access_token cookie alongside the HttpOnly token, and
+    # every mutating /api request must echo it in X-CSRF-TOKEN (the frontend
+    # fetch wrapper does this globally). SameSite=Lax remains as
+    # defense-in-depth, not the only line.
+    JWT_COOKIE_CSRF_PROTECT = True
+    JWT_COOKIE_SECURE = bool(IN_PRODUCTION)
+    JWT_COOKIE_SAMESITE = "Lax"
     # flask-jwt-extended 4.7 enforces RFC 7519's "sub must be a string" by
     # default (JWT_VERIFY_SUB=True), which 422s every @jwt_required route here
     # because the app mints a dict identity ({"id": ...}). Disable that check to

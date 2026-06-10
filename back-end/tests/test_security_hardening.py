@@ -113,6 +113,34 @@ def test_email_token_rejected_as_session_cookie(client, db_session):
     assert resp.status_code in (401, 422)
 
 
+# --- CSRF: cookie-auth'd mutating requests need the double-submit header -------
+
+
+def _csrf_headers(client):
+    cookie = client.get_cookie("csrf_access_token")
+    return {"X-CSRF-TOKEN": cookie.value} if cookie else {}
+
+
+def test_mutating_request_requires_csrf_header(client, db_session):
+    """Login sets a JS-readable csrf_access_token cookie; mutating API calls
+    must echo it in X-CSRF-TOKEN (double-submit), so a cross-site form can't
+    ride the session cookie."""
+    _register(client)
+    assert client.get_cookie("csrf_access_token") is not None
+
+    resp = client.post("/api/update_profile", json={})  # no header
+    assert resp.status_code == 401
+
+    resp = client.post("/api/update_profile", json={}, headers=_csrf_headers(client))
+    assert resp.status_code == 200, resp.get_json()
+
+
+def test_get_requests_do_not_need_csrf(client, db_session):
+    _register(client)
+    resp = client.get("/api/user")
+    assert resp.status_code == 200
+
+
 # --- profile update input validation -----------------------------------------
 
 
@@ -134,7 +162,7 @@ def _setup_profile_user(client, db_session):
 def test_update_profile_empty_body_changes_nothing(client, db_session):
     """A missing field must never coerce to the literal string 'None'."""
     u, org = _setup_profile_user(client, db_session)
-    resp = client.post("/api/update_profile", json={})
+    resp = client.post("/api/update_profile", json={}, headers=_csrf_headers(client))
     assert resp.status_code == 200, resp.get_json()
     db_session.expire_all()
     assert u.email == "sec@example.com"
@@ -145,7 +173,9 @@ def test_update_profile_empty_body_changes_nothing(client, db_session):
 
 def test_update_profile_rejects_invalid_email(client, db_session):
     u, _ = _setup_profile_user(client, db_session)
-    resp = client.post("/api/update_profile", json={"email": "not-an-email"})
+    resp = client.post(
+        "/api/update_profile", json={"email": "not-an-email"}, headers=_csrf_headers(client)
+    )
     assert resp.status_code == 400
     db_session.expire_all()
     assert u.email == "sec@example.com"
@@ -157,7 +187,9 @@ def test_update_profile_rejects_taken_email(client, db_session):
 
     user_ops.create_user_in_db("other@example.com", "Password123!", db_session)
     db_session.commit()
-    resp = client.post("/api/update_profile", json={"email": "other@example.com"})
+    resp = client.post(
+        "/api/update_profile", json={"email": "other@example.com"}, headers=_csrf_headers(client)
+    )
     assert resp.status_code == 400
     db_session.expire_all()
     assert u.email == "sec@example.com"
@@ -168,6 +200,7 @@ def test_update_profile_valid_changes_apply(client, db_session):
     resp = client.post(
         "/api/update_profile",
         json={"email": "new@example.com", "brandName": "NewBrand", "organizationName": "NewOrg"},
+        headers=_csrf_headers(client),
     )
     assert resp.status_code == 200, resp.get_json()
     db_session.expire_all()

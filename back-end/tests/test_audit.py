@@ -11,6 +11,7 @@ import json
 
 import pytest
 
+from tests import conftest_helpers as H
 from tests.conftest import _db_reachable
 
 pytestmark = pytest.mark.skipif(
@@ -83,7 +84,7 @@ def client(db_session):
     from utils.flask_app import app
 
     app.config["TESTING"] = True
-    with app.test_client() as c:
+    with H.CsrfFlaskClient(app) as c:
         yield c
 
 

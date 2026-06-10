@@ -12,6 +12,7 @@ would break non-admin members.
 
 import pytest
 
+from tests import conftest_helpers as H
 from tests.conftest import _db_reachable
 
 pytestmark = pytest.mark.skipif(
@@ -25,7 +26,7 @@ def client(db_session):
     from utils.flask_app import app
 
     app.config["TESTING"] = True
-    with app.test_client() as c:
+    with H.CsrfFlaskClient(app) as c:
         yield c
 
 
@@ -94,7 +95,7 @@ def test_non_admin_member_cannot_delete_org(client):
 
     from utils.flask_app import app
 
-    with app.test_client() as member:
+    with H.CsrfFlaskClient(app) as member:
         member.post(
             "/api/register", json={"email": "member@example.com", "password": "Password123!"}
         )

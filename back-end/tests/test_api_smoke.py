@@ -11,6 +11,7 @@ import json
 
 import pytest
 
+from tests import conftest_helpers as H
 from tests.conftest import _db_reachable
 
 pytestmark = pytest.mark.skipif(
@@ -29,7 +30,7 @@ def client(db_session):
     app.config["TESTING"] = True
     # JWT_VERIFY_SUB=False is now set in the app Config (the dict-identity fix for
     # flask-jwt-extended 4.7), so these tests exercise the real production config.
-    with app.test_client() as c:
+    with H.CsrfFlaskClient(app) as c:
         yield c
 
 
