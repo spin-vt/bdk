@@ -153,23 +153,15 @@ def process_data(self, folderid, operation):
 
             file.computed = True
 
-        geojson_array = []
-        # This is a temporary solution, we should try optimize to use tile-join
-        all_kmls = file_ops.get_files_with_postfix(folderid, ".kml", session)
-        for kml_f in all_kmls:
-            geojson_array.append(vt_ops.read_kml(kml_f.id, session))
-
-        all_geojsons = file_ops.get_files_with_postfix(folderid, ".geojson", session)
-        for geojson_f in all_geojsons:
-            geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
-
-        mbtiles_ops.delete_mbtiles(folderid, session)
         session.commit()
         logger.info("finished coverage points computation, now creating vector tiles")
-
-        vt_ops.create_tiles(geojson_array, folderid, session)
-
         session.close()
+
+        # Tile building goes through the same per-folder single-flight path as
+        # edit retiles, so upload/delete/regenerate rebuilds coalesce with (and
+        # never race) edit rebuilds. Returns once the tiles cover this change.
+        _mark_tiles_dirty(folderid)
+        _coalesced_tile_rebuild(folderid, self.request.id)
 
     except Exception as e:
         session.close()
@@ -348,13 +340,13 @@ def _rebuild_folder_tiles(folderid):
         session.close()
 
 
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def regenerate_tiles(self, folderid):
-    """Rebuild the folder's tiles, single-flight + coalescing. Every edit's
-    apply phase sets the dirty flag; the rebuild that runs after it clears it.
-    A queued regenerate that finds the folder clean no-ops (an earlier rebuild
-    already covered its edit), so N rapid edits cost ~1 rebuild, while 'task
-    SUCCESS' still always means 'the tiles include this chain's edit'."""
+def _coalesced_tile_rebuild(folderid, owner_id):
+    """Rebuild a folder's tiles, single-flight + coalescing. Callers mark the
+    folder dirty after changing its data; the rebuild that runs after that
+    clears the flag. A caller that finds the folder clean no-ops (an earlier
+    rebuild already covered its change), so N rapid changes cost ~1 rebuild.
+    Returns only once the tiles cover the caller's change. Without redis, the
+    debounce degrades to always rebuilding (correct, less efficient)."""
     r = _tiles_redis()
     if r is None:
         _rebuild_folder_tiles(folderid)
@@ -363,7 +355,7 @@ def regenerate_tiles(self, folderid):
     lock_key = TILES_LOCK_KEY.format(folderid=folderid)
     dirty_key = TILES_DIRTY_KEY.format(folderid=folderid)
     waited = 0
-    while not r.set(lock_key, str(self.request.id), nx=True, ex=TILES_LOCK_TTL):
+    while not r.set(lock_key, str(owner_id), nx=True, ex=TILES_LOCK_TTL):
         if waited >= TILES_LOCK_WAIT:
             raise Exception(f"timed out waiting for the tile-rebuild lock on folder {folderid}")
         time.sleep(5)
@@ -376,6 +368,14 @@ def regenerate_tiles(self, folderid):
         return "tiles rebuilt"
     finally:
         r.delete(lock_key)
+
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def regenerate_tiles(self, folderid):
+    """The slow half of an edit chain: rebuild the folder's tiles via the
+    shared coalescing path. 'Task SUCCESS' always means 'the tiles include
+    this chain's edit'."""
+    return _coalesced_tile_rebuild(folderid, self.request.id)
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
