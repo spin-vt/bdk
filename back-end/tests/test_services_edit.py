@@ -1,6 +1,7 @@
-"""P1.4 — unit tests for the edit-apply service (no Flask). Pin behavior before
-the toggle_markers handler logic is extracted. toggle_tiles (the heavy retile
-pipeline) is stubbed so we test orchestration, not tippecanoe."""
+"""Unit tests for the edit-apply service (no Flask). The dispatched celery
+chain (DB apply + the heavy retile pipeline) is stubbed so we test the
+service's validation/orchestration, not tippecanoe; the chain itself is
+covered in test_tiles_split.py."""
 
 import pytest
 
@@ -11,11 +12,16 @@ class _FakeResult:
     task_id = "fake-edit-task"
 
 
+class _FakeChain:
+    def apply_async(self, *a, **k):
+        return _FakeResult()
+
+
 @pytest.fixture()
 def edit_service(monkeypatch):
     from services import edit_service as mod
 
-    monkeypatch.setattr(mod.toggle_tiles, "apply_async", lambda *a, **k: _FakeResult())
+    monkeypatch.setattr(mod, "chain", lambda *sigs: _FakeChain())
     return mod
 
 
