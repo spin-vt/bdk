@@ -2,7 +2,13 @@
 
 import jwt
 from flask import Blueprint, jsonify, make_response, request
-from flask_jwt_extended import create_access_token, get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended import (
+    create_access_token,
+    get_jwt_identity,
+    set_access_cookies,
+    unset_jwt_cookies,
+    verify_jwt_in_request,
+)
 from jwt import ExpiredSignatureError
 from werkzeug.security import check_password_hash
 
@@ -18,7 +24,6 @@ from routes._email import (
 from services.audit import log_action
 from utils.flask_app import app, limiter
 from utils.logger_config import logger
-from utils.settings import IN_PRODUCTION
 from utils.validation import is_valid_email
 
 bp = Blueprint("auth", __name__)
@@ -167,11 +172,9 @@ def register():
     access_token = create_access_token(identity={"id": userVal.id})
 
     response = make_response(jsonify({"status": "success"}))
-    # HttpOnly always — the frontend never reads this cookie from JS. Secure
-    # only in prod (dev is plain http through nginx).
-    response.set_cookie(
-        "token", access_token, httponly=True, samesite="Lax", secure=bool(IN_PRODUCTION)
-    )
+    # Sets the HttpOnly `token` cookie plus the JS-readable csrf_access_token
+    # (flags from JWT_COOKIE_* config: Secure in prod, SameSite=Lax).
+    set_access_cookies(response, access_token)
 
     return response, 200
 
@@ -196,9 +199,7 @@ def login():
         user_id = user.id
         access_token = create_access_token(identity={"id": user_id})
         response = make_response(jsonify({"status": "success"}))
-        response.set_cookie(
-            "token", access_token, httponly=True, samesite="Lax", secure=bool(IN_PRODUCTION)
-        )
+        set_access_cookies(response, access_token)
         log_action("login", user_id=user_id, resource_type="user", resource_id=user_id)
         return response
     else:
@@ -220,5 +221,5 @@ def logout():
         user_id = None
     log_action("logout", user_id=user_id)
     response = make_response(jsonify({"status": "success", "message": "Logged out"}))
-    response.delete_cookie("token")
+    unset_jwt_cookies(response)  # clears the token AND csrf cookies
     return response

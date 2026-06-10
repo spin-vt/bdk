@@ -10,20 +10,20 @@ reacts to HX-Redirect / HX-Refresh headers.
 """
 
 from flask import Blueprint, g, jsonify, redirect, request
+from flask_jwt_extended import set_access_cookies, unset_jwt_cookies
 
 from database.sessions import get_session
 from services import admin_service
 from services.audit import log_action
 from services.exceptions import ServiceError
 from utils.admin_auth import ADMIN_COOKIE, require_platform_admin
-from utils.settings import IN_PRODUCTION
 
 bp = Blueprint("admin_api", __name__)
 
 
 def _set_app_token_cookie(response, token):
-    """Set the SPA's `token` cookie with the same flags routes/auth.py uses."""
-    response.set_cookie("token", token, httponly=True, samesite="Lax", secure=bool(IN_PRODUCTION))
+    """Set the SPA's `token` + csrf cookies the same way routes/auth.py does."""
+    set_access_cookies(response, token)
     return response
 
 
@@ -70,7 +70,7 @@ def stop_impersonation():
     operator is identified by the admin_session cookie, which is required)."""
     log_action("impersonate_end", user_id=g.admin_user.id)
     response = redirect("/admin/")
-    response.delete_cookie("token")
+    unset_jwt_cookies(response)  # clears the app token AND its csrf cookie
     return response
 
 

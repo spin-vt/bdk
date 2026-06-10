@@ -137,3 +137,29 @@ def link_polygon_editfiles(session, folderid, cov_file, polygon_features):
         file_editfile_link_ops.link_file_and_editfile(cov_file.id, ef.id, session)
         created.append(ef)
     return created
+
+
+class CsrfFlaskClient:
+    """Mixin-style factory: a Flask test client that mirrors the SPA's fetch
+    wrapper — it echoes the csrf_access_token cookie as X-CSRF-TOKEN on every
+    mutating request (flask-jwt-extended double-submit CSRF)."""
+
+    def __new__(cls, app):
+        from flask.testing import FlaskClient
+
+        class _Client(FlaskClient):
+            def open(self, *args, **kwargs):
+                method = (kwargs.get("method") or "GET").upper()
+                if method not in ("GET", "HEAD", "OPTIONS"):
+                    cookie = self.get_cookie("csrf_access_token")
+                    if cookie:
+                        headers = kwargs.setdefault("headers", {})
+                        if isinstance(headers, dict):
+                            headers.setdefault("X-CSRF-TOKEN", cookie.value)
+                return super().open(*args, **kwargs)
+
+        prev = app.test_client_class
+        app.test_client_class = _Client
+        client = app.test_client()
+        app.test_client_class = prev
+        return client
