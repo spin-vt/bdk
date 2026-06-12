@@ -30,8 +30,9 @@ services:
     build: 
       context: ./back-end
       dockerfile: Dockerfile.worker
-    command: celery -A controllers.celery_controller.celery_config.celery worker --loglevel=DEBUG
+    command: celery -A controllers.celery_controller.celery_config.celery worker -B -s /tmp/celerybeat-schedule --loglevel=DEBUG
     environment: 
+      - PYTHONPATH=/app
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}

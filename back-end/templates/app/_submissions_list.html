@@ -1,0 +1,61 @@
+{# The submissions list + actions. While a generate job runs, the fragment
+   polls itself (watch=1) so the new snapshot appears when the job lands and
+   the "Submission ready" modal opens (delivered out-of-band below). #}
+<div id="submissions-list"
+     {% if generating %}hx-get="/submissions/list?watch=1" hx-trigger="load delay:2s" hx-swap="outerHTML"{% endif %}>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    {% if folder.status == 'filed' %}
+      <span class="chip good">filed ✓</span>
+      <span style="font-size:13px;color:var(--muted)">This filing is marked filed. Reopen it to make changes.</span>
+      <span style="flex:1"></span>
+      <button class="btn sm" hx-post="/submissions/reopen" hx-target="#submissions-list" hx-swap="outerHTML"
+              hx-confirm="Reopen this filing? Changes will need a new submission.">Reopen</button>
+    {% else %}
+      <button class="btn primary sm" hx-get="/submissions/sheet" hx-target="#modal-slot">Generate submission…</button>
+      {% if generating %}<span class="chip accent">Generating — it'll appear below shortly</span>{% endif %}
+      {% if landed and landed != 'SUCCESS' %}<span class="chip warn">Generating failed — check Jobs for details</span>{% endif %}
+      <span style="flex:1"></span>
+      {% if rows %}
+        <button class="btn sm" hx-post="/submissions/filed" hx-target="#submissions-list" hx-swap="outerHTML"
+                hx-confirm="Mark this filing as filed? Do this after you've uploaded the CSV in the FCC portal.">Mark as filed</button>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <table class="tbl">
+      <thead><tr><th>Submission</th><th style="width:120px">Fabric</th><th style="width:200px"></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>
+            <span class="num" style="font-weight:500">{{ r.name }}</span><br>
+            <span style="font-size:12px;color:var(--muted)">{{ r.when.strftime("%b %-d, %Y %H:%M") if r.when else "" }}</span>
+          </td>
+          <td>{% if r.fabric_version %}
+            {% if expected_fabric_version and r.fabric_version != expected_fabric_version %}
+              <span class="chip bad">v{{ r.fabric_version }} · wrong version</span>
+            {% else %}
+              <span class="chip ghost">v{{ r.fabric_version }}</span>
+            {% endif %}
+          {% endif %}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <a class="btn sm" href="/api/downloadexport/{{ r.file_id }}">Download CSV</a>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not rows %}
+        <tr><td colspan="3" style="color:var(--muted);text-align:center;padding:24px">
+          No submissions yet — generating one freezes a snapshot of this filing you can download anytime.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% if landed == 'SUCCESS' and folder.status != 'filed' %}
+{# Out-of-band: a watched generate job just landed — open the "Submission
+   ready" modal in the page's #modal-slot (spec rule 13). #}
+<div id="modal-slot" hx-swap-oob="true">
+  {% include "app/_submission_ready_modal.html" %}
+</div>
+{% endif %}

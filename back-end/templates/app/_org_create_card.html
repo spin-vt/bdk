@@ -1,0 +1,15 @@
+{# Create-organization card (shown when the user has no org yet) — also the
+   htmx swap target for POST /org/create error re-renders. #}
+<div class="card pad" id="org-create-card" style="display:flex;flex-direction:column;gap:14px">
+  <form hx-post="/org/create" hx-target="#org-create-card" hx-swap="outerHTML" style="display:contents">
+    <div class="fld">
+      <label for="org-create-name">Create your organization</label>
+      <input id="org-create-name" name="name" placeholder="Your company name" value="{{ name or '' }}">
+      <span class="help">Your filings, files, and map all live under your organization. Teammates can join it later.</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn primary sm" type="submit">Create</button>
+      {% if error %}<span class="help" style="color:var(--bad)">{{ error }}</span>{% endif %}
+    </div>
+  </form>
+</div>

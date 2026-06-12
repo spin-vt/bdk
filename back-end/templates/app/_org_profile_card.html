@@ -1,0 +1,22 @@
+{# Provider profile card — also the htmx swap target for POST /org/profile,
+   so save results (Saved ✓ / a plain-words error) re-render in place. #}
+<div class="card pad" id="org-profile-card" style="display:flex;flex-direction:column;gap:14px">
+  <form hx-post="/org/profile" hx-target="#org-profile-card" hx-swap="outerHTML" style="display:contents">
+    <div class="fld">
+      <label for="org-name">Provider name</label>
+      <input id="org-name" name="name" value="{{ org.name }}">
+      <span class="help">Also used as the brand name on your submission. Override it on a plan if you sell under a different name.</span>
+    </div>
+    <div class="fld">
+      <label for="org-pid">BDC Provider ID
+        {%- if not org.provider_id %} <span class="chip warn" style="margin-left:6px">needed to export</span>{% endif %}</label>
+      <input id="org-pid" name="provider_id" inputmode="numeric" placeholder="e.g. 330054" value="{{ org.provider_id or '' }}">
+      <span class="help"><b>Not your FRN.</b> This is the Provider ID shown in your BDC account — top-right of the BDC dashboard.</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn primary sm" type="submit">Save</button>
+      {% if saved %}<span class="chip good">Saved ✓</span>{% endif %}
+      {% if error %}<span class="help" style="color:var(--bad)">{{ error }}</span>{% endif %}
+    </div>
+  </form>
+</div>

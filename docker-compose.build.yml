@@ -4,17 +4,19 @@ services:
     build: 
       context: ./back-end
       dockerfile: Dockerfile.worker
-    command: celery -A controllers.celery_controller.celery_config.celery worker --loglevel=DEBUG
+    command: celery -A controllers.celery_controller.celery_config.celery worker -B -s /tmp/celerybeat-schedule --loglevel=DEBUG
+    environment:
+      - PYTHONPATH=/app
     volumes:
       - ./back-end:/app
 
-  
+
   backend:
     image: ghcr.io/spin-vt/worker
     build:
       context: ./back-end
       dockerfile: Dockerfile.backend
-    command: gunicorn routes:app -b 0.0.0.0:8000 -w 4 --log-level debug --reload
+    command: gunicorn routes:app -b 0.0.0.0:8000 -w 4 --threads 8 --log-level debug --reload
     volumes:
       - ./back-end:/app
     expose:

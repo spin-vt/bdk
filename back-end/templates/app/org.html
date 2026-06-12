@@ -1,0 +1,30 @@
+{% extends "app/base.html" %}
+{% block title %}Organization · BDK{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-inner" style="max-width:620px">
+    <h1>Organization</h1>
+    {% if org %}
+      {% include "app/_org_profile_card.html" %}
+      <div class="card pad">
+        <div class="sect-label" style="margin-bottom:10px">members</div>
+        {% for m in members %}
+        <div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:13.5px;border-top:1px solid var(--line)">
+          <span class="num">{{ m.email }}</span>
+          <span style="color:var(--muted);white-space:nowrap">{{ m.role }}</span>
+        </div>
+        {% endfor %}
+        <details style="margin-top:10px">
+          <summary class="btn sm" style="list-style:none;display:inline-flex">+ Invite</summary>
+          <p class="help" style="margin:10px 0 0">
+            Ask your teammate to create an account here, verify their email, and request to join
+            “{{ org.name }}” from their profile. Your organization admin gets the approval email.
+          </p>
+        </details>
+      </div>
+    {% else %}
+      {% include "app/_org_create_card.html" %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

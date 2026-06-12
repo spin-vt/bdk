@@ -54,3 +54,8 @@ migrate: ## Apply DB migrations (alembic upgrade head)
 
 migration: ## Create a migration:  make migration m="add foo table"
 	$(COMPOSE) exec backend alembic revision --autogenerate -m "$(m)"
+
+restart-app: ## Restart backend + worker (worker preloads task code). ⚠ Kills any RUNNING job mid-flight (stuck "updating…" until the sweep) — check the job pill first
+	@active=$$(docker compose exec db psql -tA -U $${POSTGRES_USER:-$$(grep ^POSTGRES_USER .env | cut -d= -f2)} -d $$(grep ^POSTGRES_DB .env | cut -d= -f2) -c "select count(*) from celerytaskinfo where status in ('PENDING','STARTED','RETRY')" 2>/dev/null || echo 0); \
+	if [ "$$active" != "0" ]; then echo "⚠  $$active job(s) still running — restarting will kill them. Ctrl-C to abort, or wait..."; sleep 5; fi
+	docker compose restart backend work

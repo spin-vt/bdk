@@ -1,0 +1,3 @@
+{# Inner HTML of the header job pill. Rendered by the page shell on first
+   paint and re-pushed by the SSE stream (event: pill) whenever jobs change. #}
+<span class="dot{% if jobs.busy %} busy{% endif %}"></span> {{ jobs.pill }}

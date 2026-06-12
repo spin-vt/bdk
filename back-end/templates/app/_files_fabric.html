@@ -1,0 +1,55 @@
+{# Fabric tab. Re-rendered whole (htmx target #files-tab) after an intake. #}
+{% set active = (fabric.files | selectattr("role", "equalto", "active") | list | first) if fabric and fabric.files else none %}
+{% if not active and folder.source_folder_id and (files or edits) %}
+<div class="card pad" style="border-color:var(--accent)">
+  <b style="font-size:13.5px">Everything carried over — this window just needs its fabric</b>
+  <p style="margin:4px 0 0;font-size:12.5px;color:var(--muted)">
+    Your network files{{ ", plans," if plans }} and {{ edits|length }} saved edit{{ "" if edits|length == 1 else "s" }} are all here.
+    Add the new window's fabric below and we'll recompute served locations with your edits re-applied.</p>
+</div>
+{% endif %}
+<div class="card">
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;flex-wrap:wrap">
+    {% if active %}
+      <span class="num" style="font-weight:500;font-size:13px">{{ active.name }}</span>
+      {% if active.version %}
+        {% if fabric.vintage and fabric.vintage.matches %}
+          <span class="chip good">v{{ active.version }} · current</span>
+        {% elif fabric.vintage and fabric.vintage.got_version %}
+          {# A known-wrong vintage is allowed but worn loudly. #}
+          <span class="chip bad">v{{ active.version }} · wrong version — {{ fabric.vintage.expected_label }} expects v{{ fabric.vintage.expected_version }}</span>
+        {% else %}
+          <span class="chip warn">v{{ active.version }}{% if fabric.vintage %} · {{ fabric.vintage.expected_label or "check the window" }}{% endif %}</span>
+        {% endif %}
+      {% endif %}
+      <span style="flex:1"></span>
+    {% else %}
+      <span style="font-size:13px;color:var(--muted)">none yet — upload your fabric to view locations</span>
+      <span style="flex:1"></span>
+    {% endif %}
+    {% if fabric_processing %}<span class="chip accent">Processing...</span>{% endif %}
+    <form id="fabric-upload-form" hx-post="/files/fabric/upload" hx-target="#fabric-feedback"
+          hx-encoding="multipart/form-data" hx-trigger="change"
+          style="display:flex;align-items:center;gap:8px">
+      {# One click: the styled button opens the picker; choosing a file submits. #}
+      <input type="file" name="fabric_file" accept=".zip,.csv" style="display:none">
+      <button class="btn {{ 'sm' if active else 'primary sm' }}" type="button"
+              onclick="this.form.elements.fabric_file.click()">
+        {{ "Replace…" if active else "Add the fabric" }}</button>
+      <span class="htmx-indicator upload-busy">Uploading…</span>
+    </form>
+  </div>
+  <div id="fabric-feedback"></div>
+  {% if active %}
+    <div style="display:flex;gap:28px;padding:2px 16px 14px;flex-wrap:wrap">
+      {% for n, label in [(fabric.stats.locations, "locations"), (fabric.stats.bsl_locations, "BSLs"), (fabric.stats.counties, "counties"), (fabric.stats.states, "states"), (fabric.stats.supplemental_addresses, "extra addresses")] %}
+        <div>
+          <div class="num" style="font-size:18px;font-weight:600">{{ "{:,}".format(n) }}</div>
+          <div class="sect-label">{{ label }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    {# The inline fabric map lands with the studio map (it needs the tile pipeline). #}
+  {% endif %}
+</div>
+<div class="coach">The file from the CostQuest email — the whole zip or any CSV inside it works. Fabric bigger than your service area? Extra locations just sit unserved — they won't be in your submission.</div>

@@ -1,0 +1,52 @@
+{# Create-a-filing modal: any opened BDC window, one filing per window.
+   `form`/`error` set = a failed create being re-rendered with the picks. #}
+<div class="scrim" onclick="if (event.target === this) this.remove()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2>Create a filing</h2>
+      <div class="sub">Any past window works — say, to bring your old filings in.</div>
+    </div>
+    <form hx-post="/filing/create" hx-target="#filing-modal-slot">
+      <div class="modal-bd">
+        {% if error %}<div style="color:var(--bad);font-size:13px">{{ error }}</div>{% endif %}
+        <div style="display:flex;gap:10px">
+          <div class="fld" style="flex:1">
+            <label for="filing-month">Data as of</label>
+            <select id="filing-month" name="month">
+              <option value="6" {{ "selected" if form.get("month", "6") == "6" }}>June 30</option>
+              <option value="12" {{ "selected" if form.get("month") == "12" }}>December 31</option>
+            </select>
+          </div>
+          <div class="fld" style="flex:1">
+            <label for="filing-year">Year</label>
+            <select id="filing-year" name="year">
+              {% for y in years %}
+                <option value="{{ y }}" {{ "selected" if form.get("year") == y|string }}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="fld">
+          <label for="filing-source">Start it with</label>
+          <select id="filing-source" name="source">
+            {% if filings %}
+              <option value="auto">Copy the nearest earlier filing (recommended)</option>
+              {% for f in filings %}
+                <option value="{{ f.id }}" {{ "selected" if form.get("source") == f.id|string }}>Copy from {{ f.label }}</option>
+              {% endfor %}
+            {% endif %}
+            <option value="scratch" {{ "selected" if form.get("source") == "scratch" or not filings }}>Start from scratch</option>
+          </select>
+          {% if filings %}
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">
+            Copying brings the coverage files, plans, and edits along. The fabric never copies — each window needs its own delivery.</div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn" type="button" onclick="this.closest('.scrim').remove()">Cancel</button>
+        <button class="btn primary" type="submit">Create filing</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,14 @@
+{% extends "app/auth_base.html" %}
+{% block title %}Create an account · BDK{% endblock %}
+{% block heading %}Create an account{% endblock %}
+{% block card %}
+{% if error %}<div style="color:var(--bad);font-size:13px">{{ error }}</div>{% endif %}
+<form method="post" style="display:flex;flex-direction:column;gap:10px">
+  <div class="fld"><label for="email">Email</label>
+    <input id="email" name="email" type="email" autocomplete="username" autofocus></div>
+  <div class="fld"><label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="new-password"></div>
+  <button class="btn primary" type="submit">Create account</button>
+</form>
+<div style="font-size:12.5px"><a href="/auth/login">Already have an account? Sign in</a></div>
+{% endblock %}

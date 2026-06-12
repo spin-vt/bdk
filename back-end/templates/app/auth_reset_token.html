@@ -1,0 +1,11 @@
+{% extends "app/auth_base.html" %}
+{% block title %}Set a new password · BDK{% endblock %}
+{% block heading %}Set a new password{% endblock %}
+{% block card %}
+{% if error %}<div style="color:var(--bad);font-size:13px">{{ error }} <a href="/auth/reset">Request a new link</a></div>{% endif %}
+<form method="post" style="display:flex;flex-direction:column;gap:10px">
+  <div class="fld"><label for="password">New password</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" autofocus></div>
+  <button class="btn primary" type="submit">Set password</button>
+</form>
+{% endblock %}

@@ -1,0 +1,100 @@
+{# Coverage tab: the files+edits table. Re-rendered whole (#files-tab) after
+   any mutation; tech/plan/buffer/remove are htmx posts targeting #files-tab. #}
+{% set shown = files if not tech_filter else (files | selectattr("techType", "equalto", tech_filter) | list) %}
+<div class="filterbar">
+  <span class="sect-label">coverage · {{ files|length }} file{{ "" if files|length == 1 else "s" }} + {{ edits|length }} edit{{ "" if edits|length == 1 else "s" }}</span>
+  <a class="chip click {{ 'accent' if not tech_filter else 'ghost' }}" href="/files?tab=coverage">all</a>
+  {% for t in techs_in_use %}
+    <a class="chip click {{ 'accent' if tech_filter == t else 'ghost' }}" href="/files?tab=coverage&tech={{ t }}">
+      {{ tech_names[t] }} ({{ t }}) · {{ files | selectattr("techType", "equalto", t) | list | length }}</a>
+  {% endfor %}
+  <span style="flex:1"></span>
+  {% if coverage_processing %}<span class="chip accent">Reading your files — they'll appear here shortly</span>{% endif %}
+  <form hx-post="/files/coverage/upload" hx-target="#files-tab" hx-encoding="multipart/form-data"
+        hx-trigger="change" style="display:flex;align-items:center;gap:8px">
+    {# One click: the styled button opens the picker; choosing files submits. #}
+    <input type="file" name="network_files" accept=".kml,.geojson" multiple style="display:none">
+    <button class="btn sm" type="button"
+            onclick="this.form.elements.network_files.click()">+ Add network files</button>
+    <span class="htmx-indicator upload-busy">Uploading…</span>
+  </form>
+</div>
+<div id="coverage-feedback"></div>
+<div class="card">
+  <table class="tbl">
+    <thead><tr><th>Coverage file</th><th style="width:84px">Geometry</th><th style="width:180px">Technology</th><th style="width:230px">Plan</th><th style="width:150px"></th></tr></thead>
+    <tbody>
+      {% for f in shown %}
+      {% set geom = "lines" if f.type == "wired" else "polygons" %}
+      {% set def = default_plans.get(f.techType) %}
+      {% set tech_plans = plans_by_tech.get(f.techType, []) %}
+      <tr>
+        <td class="num" style="font-weight:500;max-width:250px;overflow-wrap:anywhere">{{ f.name }}</td>
+        <td style="color:var(--muted)">{{ geom }}</td>
+        <td>
+          <select class="sel" style="width:100%;max-width:170px" name="tech"
+                  hx-post="/files/coverage/{{ f.id }}/tech" hx-target="#files-tab">
+            <optgroup label="Wired">
+              {% for t, name in wired_techs.items() %}
+                <option value="{{ t }}" {{ "selected" if f.techType == t }}>{{ name }} ({{ t }})</option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Fixed wireless">
+              {% for t, name in wireless_techs.items() %}
+                <option value="{{ t }}" {{ "selected" if f.techType == t }}>{{ name }} ({{ t }})</option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            {% if not tech_plans %}
+              <button class="btn sm" style="white-space:nowrap"
+                      hx-get="/files/modals/plan?tech={{ f.techType }}&return_tab=coverage" hx-target="#modal-slot">add a plan…</button>
+            {% else %}
+              <select class="sel" style="width:100%;max-width:200px" name="plan_id"
+                      hx-post="/files/coverage/{{ f.id }}/plan" hx-target="#files-tab">
+                <option value="">{{ def.name if def else "Default — (none yet)" }}</option>
+                {% for p in tech_plans if not p.is_default %}
+                  <option value="{{ p.id }}" {{ "selected" if f.plan_id == p.id }}>{{ p.name }} · {{ p.max_download }}/{{ p.max_upload }}</option>
+                {% endfor %}
+              </select>
+            {% endif %}
+            {% if not def and not f.plan_id and tech_plans %}
+              <button class="btn sm" style="white-space:nowrap"
+                      hx-get="/files/modals/plan?tech={{ f.techType }}&return_tab=coverage" hx-target="#modal-slot">add a plan…</button>
+            {% endif %}
+          </div>
+        </td>
+        <td style="text-align:right;white-space:nowrap">
+          {% if geom == "lines" %}
+            <button class="btn quiet sm" hx-get="/files/modals/buffer/{{ f.id }}" hx-target="#modal-slot">advanced</button>
+          {% endif %}
+          <button class="btn danger-quiet sm" hx-post="/files/coverage/{{ f.id }}/remove" hx-target="#files-tab"
+                  hx-confirm="Remove {{ f.name }}? Its coverage recomputes without it.">remove</button>
+        </td>
+      </tr>
+      {% endfor %}
+      {% for e in edits %}
+      {# Chip in the narrow file column; the auto-generated summary gets the
+         technology+plan columns' room. #}
+      <tr>
+        <td><span class="chip ghost">manual edit</span></td>
+        <td style="color:var(--muted)">drawn area</td>
+        <td colspan="2" style="font-weight:500">✏ {{ e.summary }}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <a class="btn quiet sm" href="/map?show_edit={{ e.id }}">show</a>
+          <a class="btn quiet sm" href="/map?edit_edit={{ e.id }}" title="Change this edit's shape or picks">edit</a>
+          <button class="btn danger-quiet sm" hx-post="/files/edits/{{ e.id }}/remove" hx-target="#files-tab"
+                  hx-confirm="Undo this edit? Coverage recomputes without it.">undo</button>
+        </td>
+      </tr>
+      {% endfor %}
+      {% if not shown and not edits %}
+      <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:24px">
+        {% if not files and not edits %}No coverage yet — add network files, or draw edits on the map.{% else %}Nothing matches this technology.{% endif %}
+      </td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

@@ -2,6 +2,9 @@ server {
     listen 80;
     server_name localhost;
 
+    # Large uploads (fabric deliveries, coverage files) — matches prod.
+    client_max_body_size 500M;
+
     # Frontend route for everything else
     location / {
         proxy_pass http://frontend:3000;
@@ -42,4 +45,19 @@ server {
         proxy_buffer_size 16k;
         proxy_busy_buffers_size 24k;
     }
+
+    # Server-rendered app pages (the redesigned UI), brought up page by page
+    # beside the SPA. These paths are new (the SPA doesn't own them), so they
+    # all route to the backend already; a page goes live when the backend
+    # replaces its placeholder — no nginx change per page.
+    location ~ ^/(org|files|map|submissions|setup|filing|assets|auth)(/|$) {
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_buffers 8 16k;
+        proxy_buffer_size 16k;
+        proxy_busy_buffers_size 24k;
+    }
+
 }

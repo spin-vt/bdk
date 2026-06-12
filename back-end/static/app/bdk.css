@@ -1,0 +1,392 @@
+/* bdk.css — BDK design system.
+   Three site-wide themes, switched by a class on <body> from the admin panel:
+     · theme-civic-light — light banner (DEFAULT; the :root values below)
+     · theme-civic       — same palette, dark banner
+     · theme-civic-vt    — Chicago Maroon banner + Burnt Orange accents
+   USWDS-inspired: Public Sans for UI, Roboto Mono for data (filenames, ids,
+   counts, chips), 2px radius, shadows only on floating cards.
+   Map data colors (tech layers, dots) are FIXED per technology — themes style
+   chrome only.
+   Gotcha (from the prototype): never put background-color fed by a CSS
+   variable inside a transition list — Chromium can freeze the stale value on
+   theme swap. */
+
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;600&display=swap');
+
+body.app {
+  /* civic-light (default) */
+  --font-ui: 'Public Sans', sans-serif;
+  --font-display: var(--font-ui);
+  --mono: 'Roboto Mono', monospace;
+  --bg: #F7F7F4;
+  --surface: #FFFFFF;
+  --line: #DFE1E2;
+  --line-strong: #A9AEB1;
+  --ink: #1B1B1B;
+  --ink-2: #3D4551;
+  --muted: #565C65;
+  --accent: #005EA2;
+  --accent-ink: #1A4480;
+  --good: #00A91C;
+  --bad: #B50909;
+  --warn: #93580B;
+  --r: 2px;
+  --shadow: 0 8px 24px rgba(27, 27, 27, .14);
+  --btn-primary-bg: #005EA2;
+  --btn-primary-fg: #fff;
+  --hdr-bg: #FFFFFF;
+  --hdr-fg: #1B1B1B;
+  --hdr-muted: #565C65;
+  --hdr-line: #C6CACE;
+  --hdr-rule: #DFE1E2;
+  --hdr-warn-fg: #93580B;
+  --hdr-warn-line: #D9C28C;
+  --hdr-btn-primary-bg: #005EA2;
+  --hdr-btn-primary-fg: #fff;
+  --map-land: #E8ECEF;
+}
+.chip.good { border-color: #008817; color: #00632B; }
+
+/* civic — same USWDS bones, dark banner */
+body.theme-civic {
+  --bg: #F0F0EC;
+  --hdr-bg: #1B1B1B;
+  --hdr-fg: #FFFFFF;
+  --hdr-muted: #A9AEB1;
+  --hdr-line: #3D4551;
+  --hdr-rule: transparent;
+  --hdr-warn-fg: #FFBE2E;
+  --hdr-warn-line: #6B5A2E;
+}
+
+/* civic-vt — Chicago Maroon + Burnt Orange */
+body.theme-civic-vt {
+  --accent: #861F41;
+  --accent-ink: #6B1934;
+  --btn-primary-bg: #861F41;
+  --good: #1A7A4B;
+  --hdr-bg: #861F41;
+  --hdr-fg: #FFFFFF;
+  --hdr-muted: #DCBFCA;
+  --hdr-line: #A85C72;
+  --hdr-rule: transparent;
+  --hdr-warn-fg: #FFC373;
+  --hdr-warn-line: #B07B53;
+  --hdr-btn-primary-bg: #FFFFFF;
+  --hdr-btn-primary-fg: #861F41;
+}
+body.theme-civic-vt .nav a.on { border-bottom-color: #E5751F; }
+body.theme-civic-vt .jobpill.busy .dot, body.theme-civic-vt .jobpill .dot.busy { background: #E5751F; }
+body.theme-civic-vt .chip.good { border-color: #1A7A4B; color: #14613B; }
+
+/* tech layer colors — data, fixed across themes */
+:root {
+  --tech-dsl: #7A5AE0;
+  --tech-cable: #B45309;
+  --tech-fiber: #2A6FDB;
+  --tech-fw: #0E7C86;
+  --dot-nonbsl: #AEB2A8;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+
+body.app {
+  height: 100%; display: flex; flex-direction: column;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* ---------- header ---------- */
+.hdr {
+  background: var(--hdr-bg);
+  color: var(--hdr-fg);
+  border-bottom: 1px solid var(--hdr-rule);
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 14px; height: 52px; flex-shrink: 0;
+}
+.hdr .logo {
+  font-weight: 700; font-size: 15px; letter-spacing: .04em;
+  display: flex; align-items: center; gap: 9px; font-family: var(--mono);
+  color: inherit; text-decoration: none;
+}
+.hdr .logo i {
+  width: 20px; height: 20px; background: var(--hdr-fg); color: var(--hdr-bg);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-style: normal; font-size: 11px; font-weight: 600; font-family: var(--mono);
+  border-radius: 2px;
+}
+.hdr-filing {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--hdr-line); border-radius: var(--r);
+  padding: 4px 10px; font-weight: 500; font-size: 12.5px;
+  font-family: var(--mono); white-space: nowrap; flex-shrink: 0;
+  color: inherit; background: none; cursor: pointer;
+}
+.hdr-filing .due { color: var(--hdr-muted); font-weight: 400; }
+@media (max-width: 1150px) { .hdr-filing .due { display: none; } }
+
+.nav { display: flex; gap: 2px; height: 100%; margin-left: 4px; }
+.nav a {
+  cursor: pointer; padding: 0 11px; font-size: 13.5px; font-weight: 500;
+  color: var(--hdr-muted); display: flex; align-items: center;
+  border-bottom: 2px solid transparent; text-decoration: none;
+  white-space: nowrap; font-family: var(--font-ui);
+}
+.nav a:hover { color: var(--hdr-fg); }
+.nav a.on { color: var(--hdr-fg); border-bottom-color: var(--accent); font-weight: 600; }
+.nav a .bub {
+  margin-left: 6px; font-size: 10px; font-weight: 600; color: var(--hdr-warn-fg);
+  border: 1px solid var(--hdr-warn-line); border-radius: 2px; padding: 0 5px; font-family: var(--mono);
+}
+
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* ---------- buttons ---------- */
+.btn {
+  all: unset; cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border-radius: var(--r); padding: 6px 14px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--line-strong); background-color: var(--surface); color: var(--ink);
+  transition: border-color .1s;
+  white-space: nowrap; box-sizing: border-box; font-family: var(--font-ui);
+}
+.btn:hover { border-color: var(--ink); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background-color: var(--btn-primary-bg); border-color: var(--btn-primary-bg); color: var(--btn-primary-fg); }
+.btn.primary:hover { filter: brightness(1.12); }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--accent-ink); }
+.btn.quiet:hover { text-decoration: underline; }
+.btn.sm { padding: 3px 9px; font-size: 12px; }
+.btn.danger-quiet { border-color: transparent; background: transparent; color: var(--bad); }
+.btn.danger-quiet:hover { text-decoration: underline; }
+.btn:disabled, .btn.disabled { opacity: .4; cursor: not-allowed; }
+
+/* header button variants */
+.hdr .btn { background-color: transparent; border-color: var(--hdr-line); color: var(--hdr-fg); }
+.hdr .btn:hover { border-color: var(--hdr-fg); }
+.hdr .btn.primary { background-color: var(--hdr-btn-primary-bg); border-color: var(--hdr-btn-primary-bg); color: var(--hdr-btn-primary-fg); }
+.hdr .btn.debt-on { border-color: var(--hdr-warn-line); color: var(--hdr-warn-fg); }
+/* …but the header's POPOVERS (filing switcher, debts, job tray) float over a
+   surface-colored card in every theme — buttons inside them use the page
+   palette, not the banner's (white-on-white under the dark banners). */
+.hdr .card .btn { background-color: var(--surface); border-color: var(--line-strong); color: var(--ink); }
+.hdr .card .btn:hover { border-color: var(--ink); }
+.hdr .card .btn.primary { background-color: var(--btn-primary-bg); border-color: var(--btn-primary-bg); color: var(--btn-primary-fg); }
+.hdr .card .btn.quiet { background-color: transparent; border-color: transparent; color: var(--accent-ink); }
+.hdr .card .btn.danger-quiet { background-color: transparent; border-color: transparent; color: var(--bad); }
+
+/* ---------- chips: square mono tags ---------- */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: 2px; padding: 1.5px 7px; font-size: 11.5px; font-weight: 500;
+  border: 1px solid var(--line-strong); background: transparent;
+  white-space: nowrap; font-family: var(--mono); color: var(--ink-2);
+}
+.chip.warn { border-color: var(--warn); color: var(--warn); }
+.chip.accent { border-color: var(--accent); color: var(--accent-ink); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.chip.bad { border-color: var(--bad); color: var(--bad); }
+.chip.ghost { border-color: var(--line); color: var(--muted); }
+.chip.click { cursor: pointer; }
+.chip.click:hover { border-color: var(--ink); color: var(--ink); }
+
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- cards, panels ---------- */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+.card.pad { padding: 16px; }
+.float { box-shadow: var(--shadow); border-color: var(--line-strong); }
+
+.sect-label {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); font-family: var(--mono);
+}
+
+hr.rule { border: none; border-top: 1px solid var(--line); margin: 0; }
+
+/* ---------- forms ---------- */
+.fld { display: flex; flex-direction: column; gap: 4px; }
+.fld label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.fld input, .fld select, select.sel {
+  font: inherit; color: var(--ink); font-family: var(--font-ui);
+  border: 1px solid var(--line-strong); border-radius: var(--r);
+  padding: 6px 9px; background: var(--surface); outline: none;
+}
+.fld input:focus, .fld select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.fld input:disabled { color: var(--muted); background: color-mix(in srgb, var(--ink) 5%, var(--surface)); cursor: not-allowed; }
+.fld .help { font-size: 12px; color: var(--muted); }
+select.sel { font-size: 12.5px; padding: 3px 6px; font-family: var(--mono); }
+
+.checkline { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; cursor: pointer; }
+.checkline input { margin-top: 2px; accent-color: var(--ink); }
+
+/* ---------- modal ---------- */
+.scrim {
+  position: fixed; inset: 0; background: rgba(20, 22, 19, .5);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+  animation: fadein .12s ease;
+}
+@keyframes fadein { from { opacity: 0; } }
+.modal {
+  background: var(--surface); border: 1px solid var(--ink); border-radius: var(--r); box-shadow: var(--shadow);
+  width: 540px; max-width: calc(100vw - 48px); max-height: calc(100vh - 64px);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: pop .14s ease;
+}
+@keyframes pop { from { transform: translateY(6px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .scrim, .modal, .toast { animation: none; } }
+.modal-hd { padding: 16px 20px 0; }
+.modal-hd h2 { margin: 0; font-size: 16.5px; letter-spacing: -.01em; font-family: var(--font-display); }
+.modal-hd .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.modal-bd { padding: 16px 20px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.modal-ft { padding: 12px 20px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+
+/* file pick rows */
+.pickrow {
+  display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px;
+  cursor: pointer; transition: border-color .1s;
+  background: var(--surface);
+}
+.pickrow:hover { border-color: var(--ink); }
+.pickrow.sel { border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+.pickrow .fname { font-weight: 500; font-size: 13px; font-family: var(--mono); }
+.pickrow .fmeta { font-size: 12px; color: var(--muted); }
+
+/* ---------- jobs pill & tray ---------- */
+.jobpill {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--hdr-line); background: transparent; color: var(--hdr-fg);
+  border-radius: var(--r); padding: 4px 11px 4px 8px; font-size: 12px; font-weight: 500;
+  cursor: pointer; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--mono);
+}
+.jobpill:hover { border-color: var(--hdr-fg); }
+.jobpill .dot { width: 7px; height: 7px; background: var(--good); flex-shrink: 0; border-radius: 1px; }
+/* busy lives on the dot itself: the SSE stream swaps only the pill's inner HTML */
+.jobpill.busy .dot, .jobpill .dot.busy { background: var(--accent); animation: pulse 1.2s ease infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .jobpill.busy .dot, .jobpill .dot.busy { animation: none; } }
+
+/* the pill is a <summary>: suppress the disclosure marker, anchor the tray */
+details.jobs { position: relative; }
+details.jobs > summary { list-style: none; }
+details.jobs > summary::-webkit-details-marker { display: none; }
+
+.tray {
+  position: absolute; right: 0; top: calc(100% + 8px); width: 340px; z-index: 40;
+}
+.jobrow { display: flex; gap: 10px; padding: 10px 14px; align-items: flex-start; color: var(--ink); }
+.jobrow + .jobrow { border-top: 1px solid var(--line); }
+.jobrow .jt { font-size: 13px; font-weight: 600; }
+.jobrow .js { font-size: 12px; color: var(--muted); }
+
+.pbar { height: 4px; background: var(--line); overflow: hidden; margin-top: 6px; }
+.pbar i { display: block; height: 100%; background: var(--accent); transition: width .3s linear; }
+.pbar.ind i { width: 38%; animation: pind 1.3s ease-in-out infinite; }
+@keyframes pind { from { margin-left: -38%; } to { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .pbar.ind i { animation: none; width: 100%; opacity: .45; } }
+
+/* ---------- debt popover ---------- */
+.debt-pop { position: absolute; right: 0; top: calc(100% + 8px); width: 330px; z-index: 40; color: var(--ink); }
+.debtrow { display: flex; align-items: center; gap: 10px; padding: 11px 14px; }
+.debtrow + .debtrow { border-top: 1px solid var(--line); }
+.debtrow .dt { font-size: 13px; font-weight: 600; flex: 1; }
+.debtrow .ic {
+  width: 20px; height: 20px; border: 1px solid var(--warn); color: var(--warn);
+  display: flex; align-items: center; justify-content: center; font-size: 11.5px; flex-shrink: 0;
+  font-family: var(--mono); border-radius: 2px;
+}
+
+/* ---------- map page ---------- */
+.mapwrap { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--map-land); }
+.mapcard { position: absolute; z-index: 10; }
+.maptools {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
+  display: flex; gap: 0; background: var(--surface);
+  border: 1px solid var(--line-strong); border-radius: var(--r); box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.maptools .btn { border: none; border-radius: 0; }
+.maptools .btn + .btn { border-left: 1px solid var(--line); }
+.maptools .btn.on { background: var(--ink); color: var(--surface); }
+
+.legend { display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--ink); font-family: var(--mono); }
+.legend .sw { width: 9px; height: 9px; display: inline-block; margin-right: 5px; border-radius: 99px; }
+
+.layerline { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
+.layerline input { accent-color: var(--ink); }
+.layerline .lc { width: 10px; height: 10px; border-radius: 2px; }
+
+/* search results */
+.srow { display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer; }
+.srow:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.srow + .srow { border-top: 1px solid var(--line); }
+
+/* ---------- pages ---------- */
+.page { flex: 1; min-height: 0; overflow: auto; }
+.page-inner { max-width: 880px; margin: 0 auto; padding: 26px 24px 60px; display: flex; flex-direction: column; gap: 16px; }
+.page h1 { font-size: 20px; margin: 0; letter-spacing: -.01em; font-family: var(--font-display); }
+.page .lede { color: var(--muted); margin: -8px 0 0; font-size: 13.5px; }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tbl th {
+  text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); font-weight: 600; padding: 8px 12px; border-bottom: 1px solid var(--line-strong);
+  font-family: var(--mono);
+}
+.tbl td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+
+.coach {
+  border: 1px dashed var(--line-strong); border-radius: var(--r); padding: 10px 12px;
+  font-size: 12.5px; color: var(--muted);
+}
+.coach b { color: var(--ink); }
+
+.filterbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* tabs */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-strong); }
+.tabs a, .tabs button {
+  all: unset; cursor: pointer; padding: 7px 13px; font-size: 13px; font-weight: 600;
+  color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-family: var(--font-ui); display: inline-flex; align-items: center;
+}
+.tabs a:hover, .tabs button:hover { color: var(--ink); }
+.tabs a.on, .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* setup overlay */
+.setup-stage { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center; padding: 28px; }
+.setup-stage h1 { font-family: var(--font-display); }
+.door {
+  flex: 1; border: 1px dashed var(--line-strong); border-radius: var(--r); padding: 20px 18px;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+  background: var(--surface);
+}
+.door.filled { border-style: solid; border-color: var(--good); }
+.door h3 { margin: 0; font-size: 15px; line-height: 1.3; font-family: var(--font-display); }
+.door .ic {
+  width: 32px; height: 32px; border: 1px solid var(--ink); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; font-size: 15px; border-radius: 2px;
+}
+.door p { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60;
+  background: var(--ink); color: var(--surface); border-radius: var(--r); padding: 10px 16px;
+  font-size: 13px; font-weight: 500; box-shadow: var(--shadow); font-family: var(--mono);
+  animation: toastin .18s ease;
+}
+@keyframes toastin { from { transform: translate(-50%, 8px); opacity: 0; } }
+
+/* upload-in-flight: htmx reveals .htmx-indicator and we dim the trigger */
+.upload-busy { font-size: 12.5px; color: var(--accent-ink); font-weight: 600; }
+form.htmx-request .btn { opacity: .5; pointer-events: none; }
+form.htmx-request .upload-busy::after { content: ""; display: inline-block; width: 8px; height: 8px;
+  margin-left: 6px; border-radius: 99px; background: var(--accent); animation: pulse 1.2s ease infinite; }
+@media (prefers-reduced-motion: reduce) { form.htmx-request .upload-busy::after { animation: none; } }

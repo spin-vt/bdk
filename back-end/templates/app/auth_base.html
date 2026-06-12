@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}BDK{% endblock %}</title>
+  <link rel="stylesheet" href="/assets/bdk.css">
+</head>
+{# body.app carries ALL of bdk.css's design tokens (plus the theme class) —
+   without it the card renders token-less. #}
+<body class="app{% if site_theme and site_theme != 'civic-light' %} theme-{{ site_theme }}{% endif %}">
+  <div class="setup-stage" style="min-height:100vh">
+    <div class="card pad float" style="width:380px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <div class="sect-label">Broadband Data Kit</div>
+        <h1 style="margin:4px 0 0;font-size:22px;font-family:var(--font-display)">{% block heading %}{% endblock %}</h1>
+      </div>
+      {% block card %}{% endblock %}
+    </div>
+  </div>
+</body>
+</html>

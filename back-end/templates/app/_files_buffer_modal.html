@@ -1,0 +1,26 @@
+{# Advanced settings for a line (wired) coverage file: the coverage buffer. #}
+<div class="scrim" onclick="if (event.target === this) this.remove()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2>Advanced settings</h2>
+      <div class="sub num">{{ f.name }}</div>
+    </div>
+    <form hx-post="/files/coverage/{{ f.id }}/buffer" hx-target="#files-tab">
+      <div class="modal-bd">
+        <div class="fld">
+          <label for="buffer-m">Coverage buffer</label>
+          <select id="buffer-m" name="buffer_m">
+            {% for m in buffer_choices %}
+              <option value="{{ m }}" {{ "selected" if (f.coverage_buffer_m or 100) == m }}>{{ m }} m</option>
+            {% endfor %}
+          </select>
+          <span class="help">Locations within this distance of the route count as covered. Most providers should leave this at 100 m. Changing it recomputes coverage.</span>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn" type="button" onclick="this.closest('.scrim').remove()">Cancel</button>
+        <button class="btn primary" type="submit" onclick="setTimeout(() => this.closest('.scrim') && this.closest('.scrim').remove(), 0)">Apply</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,45 @@
+{% extends "app/base.html" %}
+{% block title %}Setup · BDK{% endblock %}
+{% block content %}
+{% if mode == "no_org" %}
+<div class="setup-stage">
+  <div class="card pad float" style="width:460px">
+    <h1 style="margin:0;font-size:22px">First, your organization</h1>
+    <p style="margin:8px 0 12px;color:var(--muted);font-size:13.5px">
+      Filings belong to an organization — create yours (or join one) and come back.</p>
+    <a class="btn primary" href="/org">Set up the organization</a>
+  </div>
+</div>
+{% elif mode == "error" %}
+<div class="setup-stage">
+  <div class="card pad float" style="width:460px">
+    <p style="margin:0;color:var(--bad);font-size:13.5px">{{ error }}</p>
+  </div>
+</div>
+{% else %}
+{% include "app/_setup_stage.html" %}
+{% endif %}
+<script>
+  // Drag-drop onto a door: the drop fills the door's hidden file input and
+  // submits its form (the same one-click pattern as the upload buttons).
+  document.addEventListener("dragover", function (e) {
+    var door = e.target.closest("[data-door]");
+    if (!door) return;
+    e.preventDefault();
+    door.classList.add("filled");
+  });
+  document.addEventListener("dragleave", function (e) {
+    var door = e.target.closest("[data-door]");
+    if (door && !door.contains(e.relatedTarget)) door.classList.remove("filled");
+  });
+  document.addEventListener("drop", function (e) {
+    var door = e.target.closest("[data-door]");
+    if (!door) return;
+    e.preventDefault();
+    var input = door.querySelector('input[type="file"]');
+    if (!input || !e.dataTransfer.files.length) return;
+    input.files = e.dataTransfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+</script>
+{% endblock %}
