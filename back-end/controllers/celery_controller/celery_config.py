@@ -20,7 +20,16 @@ def make_celery():
         include=["controllers.celery_controller.celery_tasks"],
     )
     celery.conf.update(
-        # Any specific Celery configuration options
+        # Stuck-task detection: a chain's task-info row is keyed by its FINAL
+        # task id, so a crash in an earlier link leaves the row PENDING forever.
+        # Beat (the worker runs with -B) periodically sweeps stale active rows
+        # to FAILURE so the job tray can say so. See services.job_service.
+        beat_schedule={
+            "sweep-stuck-tasks": {
+                "task": "controllers.celery_controller.celery_tasks.sweep_stuck_tasks",
+                "schedule": 300.0,
+            }
+        },
     )
     return celery
 

@@ -1,4 +1,4 @@
-"""Service layer (P1.4).
+"""Service layer.
 
 Plain-Python business logic extracted from the route handlers: functions take
 plain args (ids, bytes, a DB session) and return plain data, so they're testable

@@ -1,4 +1,4 @@
-"""P1.4 — unit tests for the export service (no Flask). Pin behavior before the
+"""Unit tests for the export service (no Flask). Pin behavior before the
 exportFiling handler logic is extracted."""
 
 import io

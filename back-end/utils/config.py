@@ -47,6 +47,12 @@ class Config:
     SQLALCHEMY_DATABASE_URI = DATABASE_URL
     CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
     CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+    # An active task-info row (PENDING/STARTED/RETRY) older than this is
+    # presumed dead and swept to FAILURE (services.job_service). A chain row is
+    # keyed by its final task id, so an early-link crash strands it PENDING —
+    # nothing but the sweep ever resolves those. Default: 2 hours, comfortably
+    # above the slowest real operation (a full fabric replace + recompute).
+    STUCK_TASK_MAX_AGE_SECONDS = int(os.getenv("STUCK_TASK_MAX_AGE_SECONDS", "7200"))
 
     # Email configurations
     MAIL_SERVER = os.getenv("MAIL_SERVER")

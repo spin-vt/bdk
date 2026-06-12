@@ -154,6 +154,28 @@ def get_file_with_name(filename, folderid, session=None):
             session.close()
 
 
+def unique_filename(folderid, filename, session, taken=None):
+    """A filename not already used in this folder: 'name.ext' → 'name (2).ext'
+    and so on. Filenames are load-bearing keys (tiles' network_coverages, edit
+    markers' editedFile, map layer ids, get_file_with_name), so two files in
+    one filing must never share one. `taken` covers names assigned earlier in
+    the same uncommitted batch (sessions don't autoflush)."""
+    import os
+
+    taken = taken or set()
+    base, ext = os.path.splitext(filename)
+    candidate = filename
+    n = 2
+    while (
+        candidate in taken
+        or session.query(file).filter(file.folder_id == folderid, file.name == candidate).first()
+        is not None
+    ):
+        candidate = f"{base} ({n}){ext}"
+        n += 1
+    return candidate
+
+
 def create_file(
     filename,
     content,

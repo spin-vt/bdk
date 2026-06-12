@@ -282,7 +282,10 @@ def generate_csv_data(results, provider_id, brand_name):
     return availability_csv
 
 
-def export(folderid, providerid, brandname, deadline, session):
+def export(folderid, providerid, brandname, deadline, session, dispatch_copy=True):
+    """Build the availability CSV. dispatch_copy=True (the legacy /api path)
+    hands snapshot creation to a detached Celery task; the generate-submission
+    job passes False and snapshots inline so "job done" means downloadable."""
     from controllers.celery_controller.celery_tasks import async_folder_copy_for_export
 
     all_files = get_files_with_postfix(folderid, ".kml", session) + get_files_with_postfix(
@@ -295,9 +298,10 @@ def export(folderid, providerid, brandname, deadline, session):
 
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding="utf-8")
-    csv_data_str = availability_csv.to_csv(index=False, encoding="utf-8")
 
-    async_folder_copy_for_export.apply_async(args=[folderid, csv_data_str, brandname, deadline])
+    if dispatch_copy:
+        csv_data_str = availability_csv.to_csv(index=False, encoding="utf-8")
+        async_folder_copy_for_export.apply_async(args=[folderid, csv_data_str, brandname, deadline])
 
     return output
 
@@ -327,6 +331,11 @@ def filter_points_within_editfile_polygons(points_gdf, coverage_file, session):
     for editfile in editfiles:
         if editfile.markers:
             for marker in editfile.markers:
+                # Only exclude markers drop points. A marker carrying a
+                # plan_id SETS a plan instead — the point stays computed and
+                # reapply_plan_markers stamps it after add_to_db.
+                if marker.get("plan_id"):
+                    continue
                 if coverage_file.name in (marker.get("editedFile") or []):
                     excluded_ids.add(int(marker["id"]))
             continue
@@ -356,9 +365,50 @@ def filter_points_within_editfile_polygons(points_gdf, coverage_file, session):
     return points_gdf
 
 
+def reapply_plan_markers(coverage_file, session):
+    """Re-stamp set-plan area edits after a recompute rewrote this coverage
+    file's kml rows. Exclude markers are honored by
+    filter_points_within_editfile_polygons BEFORE the rows are written; plan
+    markers run here AFTER, so both kinds survive a full recompute exactly."""
+    from database.models import service_plan
+
+    plans = {}
+    for editfile in get_editfiles_for_file(coverage_file.id, session):
+        for marker in editfile.markers or []:
+            plan_id = marker.get("plan_id")
+            if not plan_id or coverage_file.name not in (marker.get("editedFile") or []):
+                continue
+            if plan_id not in plans:
+                plans[plan_id] = (
+                    session.query(service_plan)
+                    .filter(
+                        service_plan.id == plan_id,
+                        service_plan.folder_id == coverage_file.folder_id,
+                    )
+                    .one_or_none()
+                )
+            plan = plans[plan_id]
+            if plan is None:
+                continue  # plan since deleted -> the location keeps file values
+            session.query(kml_data).filter(
+                kml_data.file_id == coverage_file.id,
+                kml_data.location_id == int(marker["id"]),
+            ).update(
+                {
+                    kml_data.maxDownloadSpeed: plan.max_download,
+                    kml_data.maxUploadSpeed: plan.max_upload,
+                    kml_data.latency: 1 if plan.low_latency else 0,
+                    kml_data.category: plan.category,
+                }
+            )
+    session.commit()
+
+
 def compute_wireless_locations(folderid, kmlid, download, upload, tech, latency, category, session):
 
-    fabric_files = get_files_with_postfix(folderid, ".csv")
+    # Only the active (BSL) fabric drives coverage — non_bsl and supplemental
+    # CSVs live in the folder too but never enter computation.
+    fabric_files = get_files_by_type(folderid, "fabric")
     coverage_file = get_file_with_id(kmlid)
 
     if fabric_files is None or coverage_file is None:
@@ -398,12 +448,13 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, latency,
     res = add_to_db(
         bsl_fabric_in_wireless, kmlid, download, upload, tech, True, latency, category, session
     )
+    reapply_plan_markers(coverage_file, session)
     return res
 
 
 def preview_wireless_locations(folderid, kml_filename):
 
-    fabric_files = get_files_with_postfix(folderid, ".csv")
+    fabric_files = get_files_by_type(folderid, "fabric")
     with open(kml_filename, "rb") as file:  # Open the file in binary mode
         coverage_data = file.read()  # Read the entire content of the file into memory
 
@@ -439,8 +490,9 @@ def preview_wireless_locations(folderid, kml_filename):
 
 def compute_wired_locations(folderid, kmlid, download, upload, tech, latency, category, session):
 
-    # Fetch Fabric file from database
-    fabric_files = get_files_with_postfix(folderid, ".csv")
+    # Fetch the active (BSL) fabric from the database — never non_bsl /
+    # supplemental CSVs (see compute_wireless_locations).
+    fabric_files = get_files_by_type(folderid, "fabric")
     if not fabric_files:
         raise ValueError("No fabric file found")
 
@@ -463,7 +515,9 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, latency, ca
         geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)],
     )
 
-    buffer_meters = 100
+    # Per-file override (files & plans "advanced" setting); NULL keeps the
+    # pipeline's longstanding 100 m default.
+    buffer_meters = fiber_file_record.coverage_buffer_m or 100
     gdf_fiber = read_geo_bytes(fiber_file_record.data, suffix_for(fiber_file_record.name))
 
     fiber_paths = gdf_fiber[gdf_fiber.geom_type == "LineString"]
@@ -491,6 +545,7 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, latency, ca
     res = add_to_db(
         bsl_fabric_near_fiber, kmlid, download, upload, tech, False, latency, category, session
     )
+    reapply_plan_markers(fiber_file_record, session)
     return res
 
 

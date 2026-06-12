@@ -7,6 +7,11 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from database.base import Base
 
+# Importing the models module is what actually populates Base.metadata —
+# without it, autogenerate sees an empty metadata and proposes dropping every
+# table in the database.
+import database.models  # noqa: F401  isort: skip
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

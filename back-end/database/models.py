@@ -131,9 +131,24 @@ class folder(Base):  # filing, will change the name later for less confusion whe
     name = Column(String, nullable=False)
     type = Column(String, default="upload")  # Currently upload or export
     deadline = Column(Date)  # This deadline makes it a filing for the current period
+    # Filing status (upload folders only): "open" until the user explicitly
+    # marks the filing as filed after uploading the generated CSV to the FCC
+    # portal; reopening is allowed. Deadlines passing never auto-files.
+    status = Column(String, default="open", server_default="open", nullable=False)
+    filed_at = Column(DateTime, nullable=True)
+    # Lineage: the folder this one was copied from (a submission snapshot's
+    # source filing, a carry-forward's predecessor). Filing-scoped views — the
+    # submissions list above all — filter on this; snapshots must NEVER leak
+    # across filings.
+    source_folder_id = Column(
+        Integer,
+        ForeignKey("folder.id", ondelete="SET NULL", name="folder_source_folder_id_fkey"),
+        nullable=True,
+    )
     organization_id = Column(Integer, ForeignKey("organization.id", ondelete="CASCADE"))
     organization = relationship("organization", back_populates="folders")
     files = relationship("file", back_populates="folder", cascade="all, delete")
+    service_plans = relationship("service_plan", back_populates="folder", cascade="all, delete")
     mbtiles = relationship("mbtiles", back_populates="folder", cascade="all, delete")
     editfiles = relationship("editfile", back_populates="folder", cascade="all,delete")
 
@@ -141,23 +156,43 @@ class folder(Base):  # filing, will change the name later for less confusion whe
         name = name if name is not None else self.name
         type = type if type is not None else self.type
         new_folder = folder(
-            name=name, type=type, organization_id=self.organization_id, deadline=deadline
+            name=name,
+            type=type,
+            organization_id=self.organization_id,
+            deadline=deadline,
+            source_folder_id=self.id,
         )
         session.add(new_folder)
         session.flush()  # To generate an ID for the new folder
 
         new_file_mapping = {}
         new_editfile_mapping = {}
+        new_plan_mapping = {}
+
+        # Copy service plans first so copied files can point at the copies.
+        for plan in self.service_plans:
+            new_plan = plan.copy(session=session, new_folder_id=new_folder.id)
+            new_plan_mapping[plan.id] = new_plan.id
 
         # Copy related files, mbtiles
         for file in self.files:
             if not export and file.name.endswith(".csv"):
                 continue
             new_file = file.copy(session=session, new_folder_id=new_folder.id, export=export)
+            if file.plan_id in new_plan_mapping:
+                new_file.plan_id = new_plan_mapping[file.plan_id]
             new_file_mapping[file.id] = new_file.id
         for edit_file in self.editfiles:
             new_edit_file = edit_file.copy(session=session, new_folder_id=new_folder.id)
             new_editfile_mapping[edit_file.id] = new_edit_file.id
+            # Set-plan markers reference plan ids; point them at the copies.
+            if new_edit_file.markers and new_plan_mapping:
+                new_edit_file.markers = [
+                    {**m, "plan_id": new_plan_mapping[m["plan_id"]]}
+                    if isinstance(m, dict) and m.get("plan_id") in new_plan_mapping
+                    else m
+                    for m in new_edit_file.markers
+                ]
 
         # Only copy
         if export:
@@ -201,10 +236,29 @@ class file(Base):
     latency = Column(Integer)
     category = Column(String)
     computed = Column(Boolean, default=False)
+    # The service plan this coverage file is assigned to (None = legacy file
+    # whose speed/latency/category columns are standalone). Plan attributes are
+    # written through onto the columns above, so the compute/export pipeline
+    # reads the same columns it always has.
+    plan_id = Column(Integer, ForeignKey("service_plan.id", ondelete="SET NULL"), nullable=True)
+    # Fabric vintage (fabric-typed files only): the delivery's data-as-of date
+    # and CostQuest release suffix ("8", revised "3_2"), parsed from the inner
+    # CSV filename at intake. NULL = unknown vintage (renamed file) or a
+    # non-fabric / pre-v2-intake file.
+    fabric_data_as_of = Column(Date, nullable=True)
+    fabric_release = Column(String(20), nullable=True)
+    # Wired (line) coverage files only: how far from the route a location
+    # counts as covered, in metres. NULL means the pipeline's longstanding
+    # 100 m default — existing rows and files uploaded elsewhere never change
+    # behavior (golden-guarded).
+    coverage_buffer_m = Column(Integer, nullable=True)
     folder = relationship("folder", back_populates="files")
     fabric_data = relationship(
         "fabric_data", back_populates="file", cascade="all, delete"
     )  # Use fabric_data instead of data_entries
+    supplemental_data = relationship(
+        "supplemental_data", back_populates="file", cascade="all, delete"
+    )
     kml_data = relationship("kml_data", back_populates="file", cascade="all, delete")
     editfile_links = relationship("file_editfile_link", back_populates="file")
 
@@ -220,6 +274,9 @@ class file(Base):
             techType=self.techType,
             latency=self.latency,
             category=self.category,
+            fabric_data_as_of=self.fabric_data_as_of,
+            fabric_release=self.fabric_release,
+            coverage_buffer_m=self.coverage_buffer_m,
         )
         session.add(new_file)
         session.flush()
@@ -270,8 +327,24 @@ class file(Base):
                 }
                 kml_data_copies.append(kml_data_copy)
 
+            supplemental_copies = [
+                {
+                    "location_id": supp.location_id,
+                    "address": supp.address,
+                    "city": supp.city,
+                    "state": supp.state,
+                    "zip_code": supp.zip_code,
+                    "zip_suffix": supp.zip_suffix,
+                    "primary_supplemental": supp.primary_supplemental,
+                    "address_source": supp.address_source,
+                    "file_id": new_file.id,
+                }
+                for supp in self.supplemental_data
+            ]
+
             session.bulk_insert_mappings(fabric_data, fabric_data_copies)
             session.bulk_insert_mappings(kml_data, kml_data_copies)
+            session.bulk_insert_mappings(supplemental_data, supplemental_copies)
 
         return new_file
 
@@ -352,6 +425,34 @@ class fabric_data_temp(Base):
     latitude = Column(Float)
     longitude = Column(Float)
     fcc_rel = Column(String)
+
+
+class supplemental_data(Base):
+    """Extra addresses per fabric location (CostQuest Supplemental/Secondary
+    file), kept lean: this is an address-search index only — it never feeds
+    coverage computation or the export. Coordinates come from the location's
+    fabric_data row (the Supplemental CSV has none)."""
+
+    __tablename__ = "supplemental_data"
+    __table_args__ = (
+        Index("ix_supplemental_data_file_id", "file_id"),
+        Index("ix_supplemental_data_location_id", "location_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    location_id = Column(Integer)
+    address = Column(String)
+    city = Column(String)
+    state = Column(String)
+    zip_code = Column(String)
+    zip_suffix = Column(String)
+    primary_supplemental = Column(String)  # P (mirrors address_primary) or S
+    address_source = Column(String)
+    file_id = Column(
+        Integer,
+        ForeignKey("file.id", ondelete="CASCADE", name="supplemental_data_file_id_fkey"),
+    )
+    file = relationship("file", back_populates="supplemental_data")
 
 
 class kml_data(Base):
@@ -479,3 +580,54 @@ class audit_log(Base):
     resource_id = Column(Integer, nullable=True)
     details = Column(JSON, nullable=True)  # structured context (mode, names, target email, ...)
     ip = Column(String, nullable=True)
+
+
+class site_setting(Base):
+    """Site-wide key/value settings the platform operator controls from the
+    admin panel (e.g. site_theme). Not per-org, not user-visible to edit."""
+
+    __tablename__ = "site_setting"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(String(255), nullable=False)
+
+
+class service_plan(Base):
+    """A service plan a provider advertises: the max-speed plan per technology
+    (the per-tech default) plus any extras assigned per file or per drawn area.
+
+    Filing-scoped (folder_id): plans are parked/carried forward/frozen with
+    their filing, exactly like files and edits. `category` and `low_latency`
+    hold the BDC CSV codes (business_residential_code R/B/X; low_latency 1/0
+    via the file write-through). `brand` is an optional override; when None the
+    brand is the provider (organization) name."""
+
+    __tablename__ = "service_plan"
+
+    id = Column(Integer, primary_key=True)
+    folder_id = Column(Integer, ForeignKey("folder.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(100), nullable=False)
+    tech_code = Column(Integer, nullable=False)  # BDC technology code (50, 70, ...)
+    max_download = Column(Integer, nullable=False)
+    max_upload = Column(Integer, nullable=False)
+    low_latency = Column(Boolean, nullable=False, default=True, server_default="true")
+    category = Column(String(1), nullable=False, default="X", server_default="X")
+    brand = Column(String(100), nullable=True)
+    is_default = Column(Boolean, nullable=False, default=False, server_default="false")
+    folder = relationship("folder", back_populates="service_plans")
+
+    def copy(self, session, new_folder_id):
+        new_plan = service_plan(
+            folder_id=new_folder_id,
+            name=self.name,
+            tech_code=self.tech_code,
+            max_download=self.max_download,
+            max_upload=self.max_upload,
+            low_latency=self.low_latency,
+            category=self.category,
+            brand=self.brand,
+            is_default=self.is_default,
+        )
+        session.add(new_plan)
+        session.flush()
+        return new_plan

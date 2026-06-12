@@ -4,7 +4,7 @@
  * {status:'success', files_data:[...]} or {status:'error', message:'...'} (the
  * standard shape). This pins that the error path surfaces `message` (line 54
  * historically read `.error`, which is always undefined — a latent bug this
- * test catches; it's exactly the inconsistency P1.3 unifies).
+ * test catches; it's exactly the inconsistency the error-shape unification removes).
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import { toast } from "react-toastify";

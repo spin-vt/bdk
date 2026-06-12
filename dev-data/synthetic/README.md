@@ -17,12 +17,12 @@ math does not silently change.
 
 ## How it's generated
 
-`back-end/scripts/make_synthetic_dataset.py` takes the **real** Nez Perce
-coverage/fiber geometry from the prod extract (folder 13 inputs — the validated
-golden filing) and applies a single shared affine transform (uniform scale +
+`back-end/scripts/make_synthetic_dataset.py` takes **real** coverage/fiber
+geometry from the prod extract (folder 13 inputs — the validated golden
+filing) and applies a single shared affine transform (uniform scale +
 translate) so it overlays the synthetic Roanoke fabric. One transform for all
-layers preserves their spatial relationships; it also throws away the real Idaho
-locations, so the transformed output is safe to commit. The raw npns wireless
+layers preserves their spatial relationships; it also throws away the real
+locations, so the transformed output is safe to commit. The raw wireless
 polygons are then simplified to a ~30 m tolerance to keep the files lean and
 under GDAL's per-feature GeoJSON size limit.
 

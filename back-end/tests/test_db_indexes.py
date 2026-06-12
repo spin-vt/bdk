@@ -1,4 +1,4 @@
-"""Guard for P1.5 — the performance indexes on the hot tables must stay declared
+"""Guard: the performance indexes on the hot tables must stay declared
 on the ORM models. These columns drive the per-file coverage reads, tile
 lookups, and task listing; losing an index silently regresses query performance
 on large data, so we pin the index set.
@@ -18,6 +18,7 @@ from database.base import Base
 EXPECTED_INDEXES = {
     "kml_data": {("file_id",), ("location_id",)},
     "fabric_data": {("file_id",), ("location_id",)},
+    "supplemental_data": {("file_id",), ("location_id",)},
     "celerytaskinfo": {("organization_id",)},
     "vector_tiles": {("mbtiles_id", "zoom_level", "tile_column", "tile_row")},
 }

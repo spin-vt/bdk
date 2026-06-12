@@ -75,7 +75,7 @@ ignore = [
     "E722",  # bare except — present throughout; clean up in the refactor phase
     # The rules below flag REAL smells/bugs in the legacy code, not mechanical
     # nits. Deferred to a later refactor so they get fixed carefully (with
-    # tests) rather than auto-mangled. See docs/STATUS.md "Watch-outs".
+    # tests) rather than auto-mangled.
     "F841",  # unused local variable (×11)
     "B905",  # zip() without strict= (×6)
     "B012",  # return/break in finally swallows exceptions — get_kml_data (×1)
