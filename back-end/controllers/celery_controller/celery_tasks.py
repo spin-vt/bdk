@@ -153,6 +153,10 @@ def process_data(self, folderid, operation):
         # fabric intake dispatches the recompute when the new fabric lands.
         has_fabric = bool(file_ops.get_files_by_type(folderid, "fabric", session))
 
+        # The fabric is the same for every coverage file — parse it once for
+        # the whole run, not once per file (it's an ~80 MB CSV).
+        fabric_gdf = kml_ops.load_fabric_gdf(folderid) if has_fabric else None
+
         for file in coverage_files:
             if not has_fabric:
                 file.computed = False
@@ -183,6 +187,7 @@ def process_data(self, folderid, operation):
                 latency,
                 category,
                 session,
+                fabric=fabric_gdf,
             )
 
             file.computed = True

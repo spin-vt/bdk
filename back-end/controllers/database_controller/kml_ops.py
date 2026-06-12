@@ -2,24 +2,19 @@ import io
 import json
 import logging
 from io import StringIO
-from multiprocessing import Lock
 
 import geopandas
 import pandas
-import shapely
 from shapely.geometry import shape
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
 from database.models import fabric_data, kml_data
 from database.sessions import Session
 from utils.logger_config import logger
-from utils.settings import BATCH_SIZE
 
 from .file_editfile_link_ops import get_editfiles_for_file
 from .file_ops import get_file_with_id, get_files_by_type, get_files_with_postfix
 from .geo_io import read_geo_bytes, suffix_for
-
-db_lock = Lock()
 
 
 def get_kml_data(folderid, session=None):
@@ -195,58 +190,68 @@ def get_kml_data_by_file(fileid, session=None):
 
 
 def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, latency, category, session):
-    batch = []
-
+    """Write one coverage file's computed rows via COPY (one statement on the
+    session's own connection, so it commits with the session) — orders of
+    magnitude faster than per-row ORM objects for the big result sets."""
     fileVal = get_file_with_id(kmlid)
 
-    for _, row in pandaDF.iterrows():
-        try:
-            if row.location_id == "":
-                continue
+    try:
+        rows = pandaDF[pandaDF.location_id != ""]
+        if download == "":
+            download = 0
 
-            if download == "":
-                download = 0
+        columns = [
+            "location_id",
+            "served",
+            "wireless",
+            "lte",
+            "coveredLocations",
+            "maxDownloadNetwork",
+            "maxDownloadSpeed",
+            "maxUploadSpeed",
+            "techType",
+            "file_id",
+            "address_primary",
+            "longitude",
+            "latitude",
+            "latency",
+            "category",
+        ]
+        out = pandas.DataFrame(
+            {
+                "location_id": rows.location_id.astype(int).values,
+                "served": True,
+                "wireless": bool(wireless),
+                "lte": False,
+                "coveredLocations": fileVal.name,
+                "maxDownloadNetwork": fileVal.name,
+                "maxDownloadSpeed": int(download),
+                "maxUploadSpeed": int(upload),
+                "techType": tech,
+                "file_id": fileVal.id,
+                "address_primary": rows.address_primary.values,
+                "longitude": rows.longitude.values,
+                "latitude": rows.latitude.values,
+                "latency": latency,
+                "category": category,
+            },
+            columns=columns,
+        )
 
-            newData = kml_data(
-                location_id=int(row.location_id),
-                served=True,
-                wireless=wireless,
-                lte=False,
-                coveredLocations=fileVal.name,
-                maxDownloadNetwork=fileVal.name,
-                maxDownloadSpeed=int(download),
-                maxUploadSpeed=int(upload),
-                techType=tech,
-                file_id=fileVal.id,
-                address_primary=row.address_primary,
-                longitude=row.longitude,
-                latitude=row.latitude,
-                latency=latency,
-                category=category,
+        if len(out):
+            buf = StringIO()
+            out.to_csv(buf, index=False, header=False, na_rep="\\N")
+            buf.seek(0)
+            cols_sql = ", ".join(f'"{c}"' for c in columns)
+            cursor = session.connection().connection.cursor()
+            cursor.copy_expert(
+                f"COPY kml_data ({cols_sql}) FROM STDIN WITH (FORMAT csv, NULL '\\N')", buf
             )
-            batch.append(newData)
-
-            if len(batch) >= BATCH_SIZE:
-                with db_lock:
-                    try:
-                        session.bulk_save_objects(batch)
-                        session.commit()
-                    except IntegrityError:
-                        session.rollback()
-
-                batch = []
-        except Exception as e:
-            logging.error(f"Error occurred while inserting data: {e}")
-            return False
-
-    if batch:
-        with db_lock:
-            try:
-                session.bulk_save_objects(batch)
-                session.commit()
-            except IntegrityError:
-                session.rollback()
-    session.commit()
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logging.error(f"Error occurred while inserting data: {e}")
+        return False
 
     return True
 
@@ -404,27 +409,34 @@ def reapply_plan_markers(coverage_file, session):
     session.commit()
 
 
-def compute_wireless_locations(folderid, kmlid, download, upload, tech, latency, category, session):
+def load_fabric_gdf(folderid):
+    """Parse a folder's active-fabric CSVs into ONE point GeoDataFrame.
 
-    # Only the active (BSL) fabric drives coverage — non_bsl and supplemental
-    # CSVs live in the folder too but never enter computation.
+    This is the heavy, per-folder-constant part of every coverage compute
+    (an ~80 MB CSV parse + point construction), so callers recomputing
+    several coverage files should load it once and pass it to
+    add_network_data instead of paying it per file. Only the active (BSL)
+    fabric drives coverage — non_bsl and supplemental CSVs live in the
+    folder too but never enter computation. Returns None with no fabric."""
     fabric_files = get_files_by_type(folderid, "fabric")
-    coverage_file = get_file_with_id(kmlid)
-
-    if fabric_files is None or coverage_file is None:
-        raise FileNotFoundError("Fabric or coverage file not found in the database")
-
-    fabric_arr = []
-    for fabric_file in fabric_files:
-        tempdf = pandas.read_csv(StringIO(fabric_file.data.decode()))
-        fabric_arr.append(tempdf)
-    df = pandas.concat(fabric_arr)
-
-    fabric = geopandas.GeoDataFrame(
+    if not fabric_files:
+        return None
+    df = pandas.concat([pandas.read_csv(StringIO(ff.data.decode())) for ff in fabric_files])
+    return geopandas.GeoDataFrame(
         df,
         crs="EPSG:4326",
-        geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)],
+        geometry=geopandas.points_from_xy(df.longitude, df.latitude),
     )
+
+
+def compute_wireless_locations(
+    folderid, kmlid, download, upload, tech, latency, category, session, fabric=None
+):
+    coverage_file = get_file_with_id(kmlid)
+    if fabric is None:
+        fabric = load_fabric_gdf(folderid)
+    if fabric is None or coverage_file is None:
+        raise FileNotFoundError("Fabric or coverage file not found in the database")
 
     wireless_coverage = read_geo_bytes(coverage_file.data, suffix_for(coverage_file.name))
 
@@ -453,25 +465,12 @@ def compute_wireless_locations(folderid, kmlid, download, upload, tech, latency,
 
 
 def preview_wireless_locations(folderid, kml_filename):
-
-    fabric_files = get_files_by_type(folderid, "fabric")
     with open(kml_filename, "rb") as file:  # Open the file in binary mode
         coverage_data = file.read()  # Read the entire content of the file into memory
 
-    if fabric_files is None:
+    fabric = load_fabric_gdf(folderid)
+    if fabric is None:
         raise FileNotFoundError("Fabric or coverage file not found in the database")
-
-    fabric_arr = []
-    for fabric_file in fabric_files:
-        tempdf = pandas.read_csv(StringIO(fabric_file.data.decode()))
-        fabric_arr.append(tempdf)
-    df = pandas.concat(fabric_arr)
-
-    fabric = geopandas.GeoDataFrame(
-        df,
-        crs="EPSG:4326",
-        geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)],
-    )
 
     wireless_coverage = read_geo_bytes(coverage_data, ".kml")
 
@@ -488,19 +487,13 @@ def preview_wireless_locations(folderid, kml_filename):
     return bsl_fabric_in_wireless
 
 
-def compute_wired_locations(folderid, kmlid, download, upload, tech, latency, category, session):
-
-    # Fetch the active (BSL) fabric from the database — never non_bsl /
-    # supplemental CSVs (see compute_wireless_locations).
-    fabric_files = get_files_by_type(folderid, "fabric")
-    if not fabric_files:
+def compute_wired_locations(
+    folderid, kmlid, download, upload, tech, latency, category, session, fabric=None
+):
+    if fabric is None:
+        fabric = load_fabric_gdf(folderid)
+    if fabric is None:
         raise ValueError("No fabric file found")
-
-    fabric_arr = []
-    for fabric_file in fabric_files:
-        tempdf = pandas.read_csv(StringIO(fabric_file.data.decode()))
-        fabric_arr.append(tempdf)
-    df = pandas.concat(fabric_arr)
 
     # Fetch Fiber file from database
     fiber_file_record = get_file_with_id(kmlid)
@@ -508,12 +501,6 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, latency, ca
         raise ValueError(
             f"No file found with name {fiber_file_record.name} and id {fiber_file_record.id}"
         )
-
-    fabric = geopandas.GeoDataFrame(
-        df,
-        crs="EPSG:4326",
-        geometry=[shapely.geometry.Point(xy) for xy in zip(df.longitude, df.latitude)],
-    )
 
     # Per-file override (files & plans "advanced" setting); NULL keeps the
     # pipeline's longstanding 100 m default.
@@ -549,14 +536,19 @@ def compute_wired_locations(folderid, kmlid, download, upload, tech, latency, ca
     return res
 
 
-def add_network_data(folderid, kmlid, download, upload, tech, type, latency, category, session):
+def add_network_data(
+    folderid, kmlid, download, upload, tech, type, latency, category, session, fabric=None
+):
+    """Compute one coverage file's served locations. `fabric` is the optional
+    preloaded load_fabric_gdf() frame — pass it when computing several files
+    so the fabric is parsed once, not per file."""
     res = False
     if type == 0:
         res = compute_wired_locations(
-            folderid, kmlid, download, upload, tech, latency, category, session
+            folderid, kmlid, download, upload, tech, latency, category, session, fabric=fabric
         )
     elif type == 1:
         res = compute_wireless_locations(
-            folderid, kmlid, download, upload, tech, latency, category, session
+            folderid, kmlid, download, upload, tech, latency, category, session, fabric=fabric
         )
     return res
