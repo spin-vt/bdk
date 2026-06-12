@@ -1,4 +1,4 @@
-"""P1.4 — unit tests for the upload-dispatch service (no Flask).
+"""Unit tests for the upload-dispatch service (no Flask).
 
 These pin the validation branches of submit_data before the logic is extracted.
 The dispatch/orchestration happy path (operation 2: create-from-scratch) is

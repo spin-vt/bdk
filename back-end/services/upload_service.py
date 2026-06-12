@@ -95,6 +95,12 @@ def dispatch_upload(
         except ValueError:
             raise ServiceError("invalid deadline format", 400) from None
 
+        # One filing per org per BDC window (both create-from-scratch and
+        # create-by-import make a new filing for this deadline).
+        from services.filing_service import assert_window_available
+
+        assert_window_available(userVal.organization_id, deadline_date, session)
+
         if import_folder_id != -1:
             if not folder_ops.folder_belongs_to_organization(import_folder_id, user_id, session):
                 raise ServiceError(
@@ -153,9 +159,12 @@ def dispatch_upload(
         deadline = datetime.strptime(deadline_raw, "%Y-%m-%d").date()
 
     concatenated_filenames = ", ".join(filenames)
+    # Record the dispatch's CURRENT backend state, not a hardcoded PENDING:
+    # a near-instant chain can finish before this row exists (task_postrun
+    # then finds nothing to update and the row would say running forever).
     celerytaskinfo_ops.create_celery_taskinfo(
         task_id=result.task_id,
-        status="PENDING",
+        status=result.state or "PENDING",
         operation_type="Upload",
         operation_detail=operation_detail,
         user_email=userVal.email,
@@ -165,3 +174,23 @@ def dispatch_upload(
         files_changed=concatenated_filenames,
     )
     return result.id
+
+
+def guess_geometry(filename, data):
+    """Sniff a coverage upload's geometry and guess its technology (the files
+    page's one-tap-correctable default): lines -> wired Fiber (50), polygons ->
+    wireless Unlicensed FW (70). Files the geo readers can't parse get no
+    guess; mixed files prefer lines, matching what the wired compute extracts.
+    Returns {"geom": "lines"|"polygons"|None, "type": ..., "techType": ...}."""
+    from controllers.database_controller.geo_io import read_geo_bytes, suffix_for
+
+    try:
+        gdf = read_geo_bytes(data, suffix_for(filename))
+        geoms = set(gdf.geom_type.unique()) if len(gdf) else set()
+    except Exception:
+        geoms = set()
+    if geoms & {"LineString", "MultiLineString"}:
+        return {"geom": "lines", "type": "wired", "techType": 50}
+    if geoms & {"Polygon", "MultiPolygon"}:
+        return {"geom": "polygons", "type": "wireless", "techType": 70}
+    return {"geom": None, "type": None, "techType": None}

@@ -34,5 +34,9 @@ def init_db():
     container entrypoint); this is a fallback for fresh local databases.
     """
     inspector = inspect(engine)
-    if not inspector.has_table("fabric"):
+    # Sentinel must be a table that actually exists in any initialized BDK
+    # database. The old check used "fabric" (no such table -- it's fabric_data),
+    # so create_all ran on EVERY boot and silently created new model tables
+    # before their migrations existed.
+    if not inspector.has_table("organization"):
         Base.metadata.create_all(engine)

@@ -1,20 +1,20 @@
 """Generate the synthetic BDK test dataset (committable CI fixture).
 
-Takes the REAL Nez Perce coverage/fiber geometry from the prod extract (Idaho)
-and applies a single shared affine transform (uniform scale + translate) so it
-overlays the synthetic Roanoke, VA fabric footprint. One transform for all
-layers preserves their spatial relationships.
+Takes REAL coverage/fiber geometry from the prod extract and applies a single
+shared affine transform (uniform scale + translate) so it overlays the
+synthetic Roanoke, VA fabric footprint. One transform for all layers preserves
+their spatial relationships.
 
 Source geometry = the exact prod inputs of folder 13 (the validated golden
 filing): the 5 GHz / 25 GHz wireless coverage KMLs and the fiber loop KMLs. The
-transform throws away the real Idaho locations, so the OUTPUT (fake-location
+transform throws away the real locations, so the OUTPUT (fake-location
 geojson) is committable; the real inputs under dev-data/real-do-not-commit/ are
 NEVER committed.
 
 Tech mapping (matches the prod manifest):
-  fiber loops  -> wired,    techType 50
-  npns_5ghz    -> wireless, techType 70 (unlicensed)
-  npns_25ghz   -> wireless, techType 71 (licensed)
+  fiber loops      -> wired,    techType 50
+  5 GHz coverage   -> wireless, techType 70 (unlicensed)
+  2.5 GHz coverage -> wireless, techType 71 (licensed)
 
 Run:  uv run python scripts/make_synthetic_dataset.py
 """
@@ -34,15 +34,21 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 PROD = os.path.join(REPO, "dev-data", "real-do-not-commit", "prod-extract", "13", "inputs")
 SYNTH = os.path.join(REPO, "dev-data", "synthetic")
 FRAC = 0.6  # fraction of the synthetic footprint the coverage should occupy
-# The raw npns wireless polygons are ~150 MB of vertices — far too heavy to
+# The raw wireless polygons are ~150 MB of vertices — far too heavy to
 # commit and they blow past GDAL's per-feature GeoJSON size limit. Simplify to a
 # ~30 m tolerance: keeps the coverage footprint stable for a pinned served count
 # while making the fixture lean and readable. (Exactness is the prod golden's
 # job, not this synthetic CI fixture's.)
 SIMPLIFY_M = 30.0
 
-WIRELESS_5GHZ = "npns_5ghz_coverage_20240223.kml"
-WIRELESS_25GHZ = "npns_25ghz_coverage_20240223.kml"
+
+# The prod extract's wireless coverage KMLs, matched by band rather than by
+# their (provider-identifying) literal filenames.
+def _wireless_kml(band):
+    matches = glob.glob(os.path.join(PROD, f"*_{band}_coverage_*.kml"))
+    if len(matches) != 1:
+        raise SystemExit(f"expected exactly one {band} coverage KML in {PROD}, got {matches}")
+    return os.path.basename(matches[0])
 
 
 def read_all_layers(path):
@@ -70,13 +76,15 @@ def main():
     scx, scy = fabric.longitude.median(), fabric.latitude.median()
 
     # Load the real prod-13 layers.
-    total = read_all_layers(os.path.join(PROD, WIRELESS_5GHZ))
-    licensed = read_all_layers(os.path.join(PROD, WIRELESS_25GHZ))
+    wireless_5ghz = _wireless_kml("5ghz")
+    wireless_25ghz = _wireless_kml("25ghz")
+    total = read_all_layers(os.path.join(PROD, wireless_5ghz))
+    licensed = read_all_layers(os.path.join(PROD, wireless_25ghz))
 
     fiber_files = sorted(
         f
         for f in glob.glob(os.path.join(PROD, "*.kml"))
-        if os.path.basename(f) not in (WIRELESS_5GHZ, WIRELESS_25GHZ)
+        if os.path.basename(f) not in (wireless_5ghz, wireless_25ghz)
     )
     fiber = pd.concat([read_all_layers(f) for f in fiber_files], ignore_index=True)
     fiber = gpd.GeoDataFrame(fiber, geometry="geometry", crs="EPSG:4326")

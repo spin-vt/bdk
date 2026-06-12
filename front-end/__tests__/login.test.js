@@ -1,7 +1,7 @@
 /**
  * Contract test for pages/login.js — pins how the login page reads the
- * /api/login response shape. This is exactly the surface P1.3 (error-shape
- * unification) will change: if the backend response keys change, these tests
+ * /api/login response shape. This is exactly the surface an error-shape
+ * unification changes: if the backend response keys change, these tests
  * fail until the frontend is updated to match.
  *
  * Runs in jsdom (Node) — no browser. Heavy/irrelevant deps (Navbar, the router,

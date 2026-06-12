@@ -29,11 +29,11 @@ from controllers.signalserver_controller.rasterprocessing import (
     load_loss_to_color_mapping,
     read_rasterkmz,
 )
-from database.models import file, kml_data
+from database.models import file, kml_data, service_plan
 from database.sessions import Session
 from utils.config import Config
 from utils.logger_config import logger
-from utils.namingschemes import DATETIME_FORMAT, EXPORT_CSV_NAME_TEMPLATE
+from utils.namingschemes import DATETIME_FORMAT
 from utils.wireless_form2args import wireless_raster_file_format, wireless_vector_file_format
 
 
@@ -42,6 +42,7 @@ def add_files_to_folder(self, folderid, file_contents):
     logger.debug(f"folder id in add files to folder is {folderid}")
     try:
         session = Session()
+        batch_names = set()
         for filename, content, metadata_json in file_contents:
             metadata = json.loads(metadata_json)
             content_bytes = base64.b64decode(content)
@@ -54,6 +55,9 @@ def add_files_to_folder(self, folderid, file_contents):
                     session=session,
                 )
             elif filename.endswith(".kml") or filename.endswith(".geojson"):
+                # Filenames key tiles/edits/layers — never store a duplicate.
+                filename = file_ops.unique_filename(folderid, filename, session, taken=batch_names)
+                batch_names.add(filename)
                 downloadSpeed = metadata.get("downloadSpeed", "")
                 uploadSpeed = metadata.get("uploadSpeed", "")
                 techType = metadata.get("techType", "")
@@ -73,6 +77,22 @@ def add_files_to_folder(self, folderid, file_contents):
                     category=category,
                     session=session,
                 )
+                # The tech's default plan governs an unassigned file: inherit
+                # its values instead of the upload's placeholder speeds, so
+                # the first compute stamps the right numbers into kml_data.
+                from services import plan_service
+
+                try:
+                    tech_int = int(techType)
+                except (TypeError, ValueError):
+                    tech_int = None
+                if tech_int is not None:
+                    default = plan_service.default_plan_for(folderid, tech_int, session)
+                    if default is not None:
+                        fileVal.maxDownloadSpeed = default.max_download
+                        fileVal.maxUploadSpeed = default.max_upload
+                        fileVal.latency = 1 if default.low_latency else 0
+                        fileVal.category = default.category
 
         session.commit()
         return folderid
@@ -100,19 +120,14 @@ def process_data(self, folderid, operation):
         session = Session()
 
         recompute_coverage = operation in [3, 4]
-        csv_files = file_ops.get_files_with_postfix(folderid, ".csv", session)
 
         coverage_files = file_ops.get_files_with_postfix(
             folderid, ".kml", session
         ) + file_ops.get_files_with_postfix(folderid, ".geojson", session)
         logger.debug(coverage_files)
-        for file in csv_files:
-            if file.computed:
-                # Only need to readd fabric points for import
-                if operation != 3:
-                    continue
-            task = fabric_ops.write_to_db(file.id)
-            file.computed = True
+        # Ingest fabric CSVs routed by role (active/non_bsl -> fabric_data,
+        # supplemental -> the address index); import (op 3) re-ingests.
+        fabric_ops.write_folder_fabric(folderid, session, reimport=(operation == 3))
 
         # Delete all kml_data associated with the coverage_files if operation == 4
         if operation == 4:
@@ -122,7 +137,26 @@ def process_data(self, folderid, operation):
                 session.query(kml_data).filter(kml_data.file_id == file.id).delete()
             session.commit()  # Commit the deletions
 
+        # A recompute derives kml rows from the files' legacy columns — make
+        # those match the governing plans first (no-op for plan-less legacy
+        # filings, so the golden replays are untouched). This is also the
+        # self-heal for filings whose plans predate default write-through.
+        if recompute_coverage:
+            from services import plan_service
+
+            plan_service.restamp_folder(folderid, session)
+            session.commit()
+
+        # No fabric yet (a fresh filing, or a carry-forward — the import copy
+        # deliberately drops the old fabric): nothing to match coverage
+        # against, so leave the files uncomputed instead of crashing. The
+        # fabric intake dispatches the recompute when the new fabric lands.
+        has_fabric = bool(file_ops.get_files_by_type(folderid, "fabric", session))
+
         for file in coverage_files:
+            if not has_fabric:
+                file.computed = False
+                continue
             if file.computed:
                 if not recompute_coverage:
                     continue
@@ -167,6 +201,24 @@ def process_data(self, folderid, operation):
         session.close()
         self.update_state(state="FAILURE")
         raise e
+
+
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
+def import_fabric_data(self, folderid):
+    """Ingest a folder's not-yet-computed fabric CSVs without touching
+    coverage — the dispatch target for deliveries with only non_bsl /
+    supplemental parts (those roles never feed computation, so no recompute
+    and no retile)."""
+    session = Session()
+    try:
+        fabric_ops.write_folder_fabric(folderid, session)
+        session.commit()
+        return folderid
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
@@ -258,7 +310,22 @@ def apply_edit_changes(self, markers, folderid, polygonfeatures):
                     file_editfile_link_ops.link_file_and_editfile(file_id, new_editfile.id, session)
 
                 for marker in markers[index]:
-                    # Query kml_data_entries based on location_id and filenames from editedFile
+                    # A marker with a plan_id SETS that plan on the location
+                    # (stamping its values onto the kml rows); without one it
+                    # EXCLUDES the location (deletes the rows) — the original
+                    # semantics, unchanged.
+                    plan = None
+                    if marker.get("plan_id"):
+                        plan = (
+                            session.query(service_plan)
+                            .filter(
+                                service_plan.id == marker["plan_id"],
+                                service_plan.folder_id == user_folder.id,
+                            )
+                            .one_or_none()
+                        )
+                        if plan is None:
+                            continue  # plan since deleted -> leave the location be
                     for filename in marker["editedFile"]:
                         kml_data_entries = (
                             session.query(kml_data)
@@ -271,7 +338,13 @@ def apply_edit_changes(self, markers, folderid, polygonfeatures):
                             .all()
                         )
                         for entry in kml_data_entries:
-                            session.delete(entry)
+                            if plan is not None:
+                                entry.maxDownloadSpeed = plan.max_download
+                                entry.maxUploadSpeed = plan.max_upload
+                                entry.latency = 1 if plan.low_latency else 0
+                                entry.category = plan.category
+                            else:
+                                session.delete(entry)
 
             session.commit()
 
@@ -383,26 +456,13 @@ def regenerate_tiles(self, folderid):
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def async_folder_copy_for_export(self, folderid, serialized_csv, brandname, deadline):
+    from services import export_service
+
+    session = Session()
     try:
-        session = Session()
-
-        newfolder_name = f"Exported Filing for {deadline}"
-
-        csv_name = EXPORT_CSV_NAME_TEMPLATE.format(brand_name=brandname, deadline=deadline)
-
-        original_folder = folder_ops.get_folder_with_id(folderid=folderid, session=session)
-        new_folder = original_folder.copy(
-            name=newfolder_name, type="export", deadline=deadline, export=True, session=session
+        export_service.create_export_snapshot(
+            folderid, serialized_csv, brandname, deadline, session
         )
-        csv_file = file_ops.create_file(
-            filename=csv_name,
-            content=serialized_csv.encode("utf-8"),
-            folderid=new_folder.id,
-            filetype="export",
-            session=session,
-        )
-        session.add(csv_file)
-        session.commit()
     except Exception as e:
         session.rollback()  # Rollback any changes if there's an exception
         raise e
@@ -651,5 +711,45 @@ def async_org_delete(self, orgid):
     except Exception as e:
         session.rollback()  # Rollback any changes if there's an exception
         raise e
+    finally:
+        session.close()
+
+
+@celery.task
+def sweep_stuck_tasks():
+    """Periodic (Celery Beat) stuck-task sweep: an active task-info row older
+    than the threshold is presumed dead and marked FAILURE so the job tray can
+    tell the user instead of showing it as running forever."""
+    from services import job_service
+
+    session = Session()
+    try:
+        marked = job_service.sweep_stuck_tasks(session)
+        if marked:
+            logger.info(f"sweep_stuck_tasks: marked {marked} stale task(s) as FAILURE")
+        return marked
+    finally:
+        session.close()
+
+
+@celery.task(bind=True)
+def generate_submission(self, user_id, folderid):
+    """Generate a submission as a background job: build the filing's BDC
+    availability CSV and freeze it into an export snapshot, inline in this
+    task — when the job reports finished the snapshot is downloadable (the
+    page's completion modal relies on that). The submissions page serves the
+    snapshot's stored bytes, so downloads are byte-stable by construction.
+    No autoretry: a refused generate (e.g. provider id removed mid-job)
+    shouldn't loop."""
+    from services import export_service
+
+    session = Session()
+    try:
+        csv_output, download_name = export_service.export_filing(
+            user_id=user_id, folderid=folderid, session=session, snapshot_inline=True
+        )
+        if csv_output is None:
+            raise ValueError("The filing produced no availability rows")
+        return download_name
     finally:
         session.close()

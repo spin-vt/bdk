@@ -61,7 +61,10 @@ def get_editfiles():
     try:
         identity = get_jwt_identity()
         # Verify user own this folder
-        folder_ID = int(request.args.get("folder_ID"))
+        try:
+            folder_ID = int(request.args.get("folder_ID"))
+        except (TypeError, ValueError):
+            return jsonify({"status": "error", "message": "folderID must be integer"}), 400
         session = get_session()
 
         if not folder_ops.folder_belongs_to_organization(folder_ID, identity["id"], session):
@@ -330,9 +333,14 @@ def download_kmlfile(kml_filename):
     session = get_session()
     try:
         identity = get_jwt_identity()
+        # get_upload_folder takes the ORG id (this used to pass a nonexistent
+        # userid= kwarg, so every call to this endpoint was a TypeError 500).
+        userVal = user_ops.get_user_with_id(userid=identity["id"], session=session)
         folderVal = folder_ops.get_upload_folder(
-            userid=identity["id"], folderid=None, session=session
+            orgid=userVal.organization_id if userVal else None, folderid=None, session=session
         )
+        if not folderVal:
+            return jsonify({"status": "error", "message": "File not found"}), 404
         fileVal = file_ops.get_file_with_name(
             filename=kml_filename, folderid=folderVal.id, session=session
         )

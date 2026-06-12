@@ -55,6 +55,43 @@ def make_user(
     return u
 
 
+# --- CostQuest-shaped CSV builders (synthetic, byte-shaped like the real
+# --- delivery: same headers as rel 6/8, CRLF, mixed quoting) -------------------
+
+ACTIVE_FABRIC_HEADER = (
+    '"location_id","address_primary","city","state","zip","zip_suffix","unit_count",'
+    '"bsl_flag","building_type_code","land_use_code","address_confidence_code",'
+    '"county_geoid","block_geoid","h3_9","latitude","longitude","fcc_rel"'
+)
+SUPPLEMENTAL_HEADER = (
+    '"location_id","address_id","parcel_id","address_confidence_code","address_range",'
+    '"pre_direction","street_name","suffix","post_direction","primary_supplemental",'
+    '"address","city","state","zip","zip_suffix","address_source","fcc_rel"'
+)
+
+
+def make_active_fabric_csv(rows):
+    """rows: list of (location_id, address, bsl_flag, lat, lon, county_geoid, state)."""
+    lines = [ACTIVE_FABRIC_HEADER]
+    for loc, addr, bsl, lat, lon, county, state in rows:
+        lines.append(
+            f'{loc},"{addr}","ROANOKE","{state}","24018","",1,{bsl},"R",1,"1",'
+            f'"{county}","511610306004013","8944d8d10dbffff",{lat},{lon},"12312025"'
+        )
+    return ("\r\n".join(lines) + "\r\n").encode()
+
+
+def make_supplemental_csv(rows):
+    """rows: list of (location_id, p_or_s, address)."""
+    lines = [SUPPLEMENTAL_HEADER]
+    for loc, ps, addr in rows:
+        lines.append(
+            f'{loc},"A1","P1","1","123","","MAIN","ST","","{ps}","{addr}",'
+            f'"ROANOKE","VA","24018","","C","12312025"'
+        )
+    return ("\r\n".join(lines) + "\r\n").encode()
+
+
 def seed_fabric(session, folderid, csv_bytes, filename="test_fabric.csv"):
     """Create a fabric file row and import its CSV into fabric_data (COPY)."""
     f = file_ops.create_file(
@@ -163,3 +200,13 @@ class CsrfFlaskClient:
         client = app.test_client()
         app.test_client_class = prev
         return client
+
+
+def login_page_session(client, email, password="Password123!"):
+    """Give a Flask test client the shared app `token` session the way a browser
+    gets one: register through the real endpoint (which sets the cookie). Used
+    by the server-rendered app-page tests; any page test should authenticate
+    through this rather than minting tokens by hand."""
+    resp = client.post("/api/register", json={"email": email, "password": password})
+    assert resp.status_code == 200, resp.get_json()
+    return resp

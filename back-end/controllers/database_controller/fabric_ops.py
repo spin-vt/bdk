@@ -9,9 +9,33 @@ from database.sessions import Session
 from utils.facts import states
 from utils.settings import DATABASE_URL
 
+from . import supplemental_ops
 from .file_ops import get_files_with_postfix
 
 db_lock = Lock()
+
+# file.type values whose rows land in fabric_data (point records). Coverage
+# computation reads only "fabric" (the Active_BSL file); "fabric_non_bsl"
+# locations are stored and rendered but never computed against or exported as
+# served. "fabric_supplemental" is the address-search index (supplemental_ops).
+FABRIC_POINT_TYPES = ("fabric", "fabric_non_bsl")
+
+
+def write_folder_fabric(folderid, session, reimport=False):
+    """Ingest every not-yet-computed fabric-typed CSV in a folder, routed by
+    role (the process_data CSV step). Non-fabric CSVs — e.g. an export
+    folder's availability CSV — are left alone. With reimport=True (filing
+    import, operation 3) already-computed fabric is re-ingested."""
+    for f in get_files_with_postfix(folderid, ".csv", session):
+        if f.computed and not reimport:
+            continue
+        if f.type in FABRIC_POINT_TYPES:
+            write_to_db(f.id)
+        elif f.type == "fabric_supplemental":
+            supplemental_ops.write_to_db(f.id)
+        else:
+            continue
+        f.computed = True
 
 
 def check_num_records_greater_zero(folderid):
