@@ -38,9 +38,13 @@ def get_files_with_postfix(folderid, postfix, session=None):
         owns_session = True
 
     try:
+        # Deterministic order: downstream merges (get_kml_data's per-file
+        # property stamping, the tile pipeline's feature stream) must produce
+        # identical output for identical inputs.
         files_with_ending = (
             session.query(file)
             .filter(file.folder_id == folderid, file.name.endswith(postfix))
+            .order_by(file.id)
             .all()
         )
         return files_with_ending
@@ -72,7 +76,10 @@ def get_files_by_type(folderid, filetype, session=None):
 
     try:
         files_with_type = (
-            session.query(file).filter(file.folder_id == folderid, file.type == filetype).all()
+            session.query(file)
+            .filter(file.folder_id == folderid, file.type == filetype)
+            .order_by(file.id)
+            .all()
         )
         return files_with_type
     except NoResultFound:

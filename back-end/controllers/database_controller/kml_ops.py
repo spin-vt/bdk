@@ -34,6 +34,8 @@ def get_kml_data(folderid, session=None):
         all_data = {}
         if len(fabric_files) > 0:
             for fabric_file in fabric_files:
+                # Ordered so the tile pipeline's feature stream (and therefore
+                # tile bytes) is a deterministic function of the data.
                 all_locations = (
                     session.query(
                         fabric_data.location_id,
@@ -43,8 +45,9 @@ def get_kml_data(folderid, session=None):
                         fabric_data.bsl_flag,
                     )
                     .filter(fabric_data.file_id == fabric_file.id)
+                    .order_by(fabric_data.location_id)
                     .all()
-                )  # Change to fabric_file.id
+                )
 
                 # Initialize a dictionary to hold location_id as key and its data as value, including location_id itself
                 all_data.update(

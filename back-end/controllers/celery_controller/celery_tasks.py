@@ -403,16 +403,19 @@ def _rebuild_folder_tiles(folderid):
     """Rebuild a folder's vector tiles from current DB truth (the slow part)."""
     session = Session()
     try:
+        # extend, not append: the array must be FLAT features (each becomes
+        # one ldjson line for tippecanoe), matching every other create_tiles
+        # caller.
         geojson_data = []
         all_kmls = file_ops.get_files_with_postfix(folderid, ".kml", session)
         for kml_f in all_kmls:
-            geojson_data.append(vt_ops.read_kml(kml_f.id, session))
+            geojson_data.extend(vt_ops.read_kml(kml_f.id, session))
 
         all_geojsons = file_ops.get_files_with_postfix(
             folderid=folderid, postfix=".geojson", session=session
         )
         for geojson_f in all_geojsons:
-            geojson_data.append(vt_ops.read_geojson(geojson_f.id, session))
+            geojson_data.extend(vt_ops.read_geojson(geojson_f.id, session))
 
         mbtiles_ops.delete_mbtiles(folderid, session)
         vt_ops.create_tiles(geojson_data, folderid, session)
@@ -683,10 +686,10 @@ def raster2vector(self, data, userid, outfile_name):
             geojson_array = []
             all_kmls = file_ops.get_files_with_postfix(fileVal.folder_id, ".kml", session)
             for kml_f in all_kmls:
-                geojson_array.append(vt_ops.read_kml(kml_f.id, session))
+                geojson_array.extend(vt_ops.read_kml(kml_f.id, session))
             all_geojsons = file_ops.get_files_with_postfix(fileVal.folder_id, ".geojson", session)
             for geojson_f in all_geojsons:
-                geojson_array.append(vt_ops.read_geojson(geojson_f.id, session))
+                geojson_array.extend(vt_ops.read_geojson(geojson_f.id, session))
 
             logger.info("Creating Vector Tiles")
             mbtiles_ops.delete_mbtiles(fileVal.folder_id, session)

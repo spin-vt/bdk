@@ -39,9 +39,9 @@ def tasks(monkeypatch):
     monkeypatch.setattr(
         ct.mbtiles_ops, "delete_mbtiles", lambda fid, s: calls["delete_mbtiles"].append(fid)
     )
-    empty = {"type": "FeatureCollection", "features": []}
-    monkeypatch.setattr(ct.vt_ops, "read_kml", lambda fid, s: empty)
-    monkeypatch.setattr(ct.vt_ops, "read_geojson", lambda fid, s: empty)
+    # read_kml/read_geojson return flat feature LISTS (one ldjson line each).
+    monkeypatch.setattr(ct.vt_ops, "read_kml", lambda fid, s: [])
+    monkeypatch.setattr(ct.vt_ops, "read_geojson", lambda fid, s: [])
     return ct, calls
 
 

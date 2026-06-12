@@ -492,9 +492,11 @@ class mbtiles(Base):
     vector_tiles = relationship("vector_tiles", back_populates="mbtiles", cascade="all, delete")
 
     def copy(self, session, new_folder_id):
+        # The vector_tiles rows are the tileset; the mbtiles file blob is no
+        # longer stored (nothing ever read it back).
         new_mbtile = mbtiles(
             filename=self.filename,
-            tile_data=self.tile_data,
+            tile_data=None,
             timestamp=datetime.now(),
             folder_id=new_folder_id,
         )
