@@ -229,6 +229,109 @@ def delete_organization(org_id):
 # --- helpers ----------------------------------------------------------------
 
 
+@bp.route("/admin/api/users/create", methods=["POST"])
+@require_platform_admin
+def create_user():
+    """Operator-created account: born verified, optional org, temp password
+    shown once (never logged). Follow up with the reset-email button for the
+    emailed-activation flavor."""
+    session = get_session()
+    body = _body()
+    org_raw = body.get("organization_id")
+    try:
+        org_id = int(org_raw) if org_raw not in (None, "", "none") else None
+    except (TypeError, ValueError):
+        return _err(ServiceError("Invalid organization id", 400))
+    try:
+        temp_password, target = admin_service.create_user(
+            body.get("email"), session, organization_id=org_id
+        )
+    except ServiceError as e:
+        return _err(e)
+    log_action(
+        "admin_create_user",
+        user_id=g.admin_user.id,
+        resource_type="user",
+        resource_id=target.id,
+        details={"target_email": target.email, "organization_id": org_id},
+    )
+    return jsonify(
+        {
+            "status": "success",
+            "message": f"Created {target.email}. Their temporary password is shown once below.",
+            "temp_password": temp_password,
+            "user_id": target.id,
+        }
+    )
+
+
+@bp.route("/admin/api/organizations/create", methods=["POST"])
+@require_platform_admin
+def create_organization():
+    session = get_session()
+    body = _body()
+    try:
+        org = admin_service.create_organization_admin(
+            body.get("name"), session, provider_id=body.get("provider_id")
+        )
+    except ServiceError as e:
+        return _err(e)
+    log_action(
+        "admin_create_org",
+        user_id=g.admin_user.id,
+        resource_type="organization",
+        resource_id=org.id,
+        details={"name": org.name},
+    )
+    return _ok_refresh(f"Created organization {org.name}.")
+
+
+@bp.route("/admin/api/users/<int:user_id>/organization", methods=["POST"])
+@require_platform_admin
+def set_organization(user_id):
+    """Attach the user to an org, move them, or detach (organization_id null/
+    empty). Lands as a plain member either way."""
+    session = get_session()
+    body = _body()
+    org_raw = body.get("organization_id")
+    try:
+        org_id = int(org_raw) if org_raw not in (None, "", "none") else None
+    except (TypeError, ValueError):
+        return _err(ServiceError("Invalid organization id", 400))
+    try:
+        target, org = admin_service.set_organization(user_id, org_id, session)
+    except ServiceError as e:
+        return _err(e)
+    log_action(
+        "set_organization",
+        user_id=g.admin_user.id,
+        resource_type="user",
+        resource_id=target.id,
+        details={"target_email": target.email, "organization_id": org_id},
+    )
+    where = f"moved to {org.name}" if org else "removed from their organization"
+    return _ok_refresh(f"{target.email} {where}.")
+
+
+@bp.route("/admin/api/users/<int:user_id>/org-admin", methods=["POST"])
+@require_platform_admin
+def set_org_admin(user_id):
+    session = get_session()
+    value = _truthy(_body().get("value"))
+    try:
+        target = admin_service.set_org_admin(user_id, value, session)
+    except ServiceError as e:
+        return _err(e)
+    log_action(
+        "set_org_admin",
+        user_id=g.admin_user.id,
+        resource_type="user",
+        resource_id=target.id,
+        details={"value": value, "target_email": target.email},
+    )
+    return _ok_refresh(f"{target.email} org-admin set to {value}.")
+
+
 def _truthy(value):
     return str(value).lower() in ("1", "true", "yes", "on")
 

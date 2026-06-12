@@ -1,0 +1,19 @@
+{% extends "admin/base.html" %}
+{% set active = 'settings' %}
+{% block title %}Site settings{% endblock %}
+{% block content %}
+<h1>Site settings</h1>
+{% if saved %}<p class="flash success">Saved.</p>{% endif %}
+{% if error %}<p class="flash error">{{ error }}</p>{% endif %}
+<form method="post" action="/admin/settings">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label for="site_theme">Site theme</label>
+  <select id="site_theme" name="site_theme">
+    {% for t in themes %}
+    <option value="{{ t }}" {{ 'selected' if t == current }}>{{ t }}{{ ' (default)' if t == 'civic-light' }}</option>
+    {% endfor %}
+  </select>
+  <p class="muted">Applied to every provider-facing page site-wide. Providers don't choose themes.</p>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

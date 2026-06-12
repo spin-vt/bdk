@@ -44,6 +44,24 @@
   </button>
 </div>
 
+<h2>Organization &amp; permissions</h2>
+<form class="actions" hx-post="/admin/api/users/{{ target.id }}/organization"
+      hx-confirm="Change {{ target.email }}'s organization? They land as a plain member.">
+  <select name="organization_id">
+    <option value="" {{ 'selected' if not target.organization_id }}>no organization</option>
+    {% for o in organizations %}
+      <option value="{{ o.id }}" {{ 'selected' if target.organization_id == o.id }}>{{ o.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn" type="submit">Set organization</button>
+  {% if target.organization_id %}
+  <button class="btn" type="button" hx-post="/admin/api/users/{{ target.id }}/org-admin"
+          hx-vals='{"value": "{{ 'false' if target.is_admin else 'true' }}"}'>
+    {{ 'Revoke org-admin' if target.is_admin else 'Make org-admin' }}
+  </button>
+  {% endif %}
+</form>
+
 <h2 class="danger-h">Danger zone</h2>
 <form class="danger" hx-post="/admin/api/users/{{ target.id }}/delete"
       hx-confirm="Delete user {{ target.email }}? This cannot be undone.">

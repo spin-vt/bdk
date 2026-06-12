@@ -143,3 +143,50 @@ def test_logout_clears_cookie(client):
     assert resp.status_code in (301, 302)
     # Cookie deletion is an expired Set-Cookie for admin_session.
     assert "admin_session=" in resp.headers.get("Set-Cookie", "")
+
+
+# --- site settings (theme) ---------------------------------------------------
+
+
+def _admin_session(client, email="op@example.com"):
+    from utils.admin_auth import mint_admin_session
+    from utils.flask_app import app
+
+    uid = _make_user(email, is_platform_admin=True, verified=True)
+    with app.test_request_context():
+        token, csrf = mint_admin_session(uid)
+    client.set_cookie("admin_session", token)
+    return uid, csrf
+
+
+def test_settings_requires_admin(client):
+    resp = client.get("/admin/settings")
+    assert resp.status_code in (301, 302)
+    assert "/admin/login" in resp.headers.get("Location", "")
+
+
+def test_settings_page_shows_default_theme(client):
+    _admin_session(client)
+    resp = client.get("/admin/settings")
+    assert resp.status_code == 200
+    assert b"civic-light" in resp.data
+
+
+def test_settings_theme_roundtrip_applies_to_app_pages(client):
+    _, csrf = _admin_session(client)
+    resp = client.post("/admin/settings", data={"csrf_token": csrf, "site_theme": "civic-vt"})
+    assert resp.status_code == 200
+    assert b"Saved." in resp.data
+
+    # Every provider-facing page now renders with the chosen theme class.
+    client.post("/api/register", json={"email": "themed@example.com", "password": "Password123!"})
+    page = client.get("/org")
+    assert page.status_code == 200
+    assert b"theme-civic-vt" in page.data
+
+
+def test_settings_rejects_unknown_theme(client):
+    _, csrf = _admin_session(client)
+    resp = client.post("/admin/settings", data={"csrf_token": csrf, "site_theme": "hotdog-stand"})
+    assert resp.status_code == 400
+    assert b"Unknown theme." in resp.data
