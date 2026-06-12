@@ -38,6 +38,7 @@ dependencies = [
     "Pillow>=10.3",
     "shortuuid>=1.0.11",
     "flask-limiter>=3.8",
+    "orjson>=3.11.9",
 ]
 
 [dependency-groups]

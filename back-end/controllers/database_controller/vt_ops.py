@@ -1,4 +1,3 @@
-import json
 import os
 import sqlite3
 import subprocess
@@ -6,6 +5,7 @@ import uuid
 from datetime import datetime
 from multiprocessing import Lock
 
+import orjson
 import psycopg2
 from psycopg2 import Binary
 from psycopg2.extras import execute_values
@@ -226,13 +226,18 @@ def create_tiles(geojson_array, folderid, session):
             ],
         }
 
-        # print(geojson_array)
         point_geojson["features"].extend(geojson for geojson in geojson_array)
         uuid_str = str(uuid.uuid4())
         unique_geojson_filename = f"data{uuid_str}.geojson"
 
-        with open(unique_geojson_filename, "w") as f:
-            json.dump(point_geojson, f)
+        # Newline-delimited features (not one giant FeatureCollection):
+        # orjson is much faster than json for the big point sets, and
+        # tippecanoe's -P can only parallelize input parsing on
+        # line-delimited input.
+        with open(unique_geojson_filename, "wb") as f:
+            for feat in point_geojson["features"]:
+                f.write(orjson.dumps(feat))
+                f.write(b"\n")
 
         outputFile = f"output{uuid_str}.mbtiles"
         command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
