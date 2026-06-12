@@ -32,21 +32,52 @@ def tasks(monkeypatch):
     """celery_tasks with the tile pipeline stubbed; records rebuild calls."""
     from controllers.celery_controller import celery_tasks as ct
 
-    calls = {"create_tiles": [], "delete_mbtiles": []}
+    calls = {"create_tiles": [], "delete_mbtiles": [], "splice": [], "splice_result": True}
     monkeypatch.setattr(
         ct.vt_ops, "create_tiles", lambda gj, fid, s: calls["create_tiles"].append(fid)
     )
     monkeypatch.setattr(
         ct.mbtiles_ops, "delete_mbtiles", lambda fid, s: calls["delete_mbtiles"].append(fid)
     )
+
+    def fake_splice(fid, bboxes, s):
+        calls["splice"].append((fid, bboxes))
+        return calls["splice_result"]
+
+    monkeypatch.setattr(ct.vt_ops, "splice_tiles", fake_splice)
     # read_kml/read_geojson return flat feature LISTS (one ldjson line each).
     monkeypatch.setattr(ct.vt_ops, "read_kml", lambda fid, s: [])
     monkeypatch.setattr(ct.vt_ops, "read_geojson", lambda fid, s: [])
     return ct, calls
 
 
+def _b(value):
+    return value.encode() if isinstance(value, str) else value
+
+
+class _StubPipeline:
+    """Queues commands like redis-py's transactional pipeline."""
+
+    def __init__(self, stub):
+        self.stub = stub
+        self.ops = []
+
+    def lrange(self, key, start, end):
+        self.ops.append(lambda: self.stub.lrange(key, start, end))
+
+    def get(self, key):
+        self.ops.append(lambda: self.stub.get(key))
+
+    def delete(self, key):
+        self.ops.append(lambda: self.stub.delete(key))
+
+    def execute(self):
+        return [op() for op in self.ops]
+
+
 class _StubRedis:
-    """Just enough of the redis interface for the dirty/lock flags."""
+    """Just enough of the redis interface for the dirty/lock/settle flags.
+    Returns bytes like redis-py does."""
 
     def __init__(self):
         self.store = {}
@@ -60,10 +91,26 @@ class _StubRedis:
         return True
 
     def get(self, key):
-        return self.store.get(key)
+        return _b(self.store.get(key))
 
     def delete(self, key):
         self.store.pop(key, None)
+
+    def rpush(self, key, value):
+        self.store.setdefault(key, []).append(value)
+        self.sets.append(key)
+
+    def lrange(self, key, start, end):
+        assert (start, end) == (0, -1)
+        return [_b(v) for v in self.store.get(key, [])]
+
+    def scan_iter(self, match):
+        import fnmatch
+
+        return [_b(k) for k in list(self.store) if fnmatch.fnmatch(k, match)]
+
+    def pipeline(self, transaction=True):
+        return _StubPipeline(self)
 
 
 def _seed_edit_fixture(s):
@@ -113,29 +160,94 @@ def test_regenerate_tiles_rebuilds(db_session, tasks):
     assert calls["create_tiles"] == [folder.id]
 
 
-def test_regenerate_tiles_coalesces_when_fresh(db_session, tasks, monkeypatch):
-    """With redis flags: a rebuild only runs if the folder is dirty, so a
-    queued regenerate whose edits were covered by an earlier rebuild no-ops."""
+def test_regenerate_tiles_coalesces_and_splices(db_session, tasks, monkeypatch):
+    """With redis flags: a refresh only runs if the folder is dirty, and
+    edit-scoped (bbox) dirt is SPLICED — only the edited region's tiles are
+    regenerated, no full rebuild — leaving a settle flag for the stale
+    overview zooms."""
     ct, calls = tasks
     s = db_session
     _, _, folder, _ = _seed_edit_fixture(s)
     stub = _StubRedis()
     monkeypatch.setattr(ct, "_tiles_redis", lambda: stub)
 
-    # not dirty -> tiles already cover current truth -> no rebuild
+    # not dirty -> tiles already cover current truth -> no refresh
     res = ct.regenerate_tiles.apply_async(args=[folder.id]).get()
     assert calls["create_tiles"] == []
     assert "fresh" in res
 
-    # the apply phase marks the folder dirty -> next regenerate rebuilds + clears
+    # the apply phase records the edit's bbox -> next regenerate splices
     markers = [[{"id": 123, "editedFile": ["cov.kml"]}]]
     ct.apply_edit_changes.apply_async(args=[markers, folder.id, [POLYGON]]).get()
-    assert stub.get(f"bdk:tiles-dirty:{folder.id}") is not None
+    assert stub.get(f"bdk:tiles-dirty:{folder.id}") == b"bbox"
     res = ct.regenerate_tiles.apply_async(args=[folder.id]).get()
-    assert calls["create_tiles"] == [folder.id]
-    assert "rebuilt" in res
+    assert "spliced" in res
+    assert calls["create_tiles"] == []  # no full rebuild
+    assert calls["splice"] == [(folder.id, [[-80.01, 37.27, -80.0, 37.28]])]
     assert stub.get(f"bdk:tiles-dirty:{folder.id}") is None
+    assert stub.get(f"bdk:tiles-dirty-bbox:{folder.id}") is None
+    assert stub.get(f"bdk:tiles-settle:{folder.id}") is not None  # z0-8 stale
     assert stub.get(f"bdk:tiles-lock:{folder.id}") is None  # lock released
+
+
+def test_splice_failure_falls_back_to_full_rebuild(db_session, tasks, monkeypatch):
+    ct, calls = tasks
+    s = db_session
+    _, _, folder, _ = _seed_edit_fixture(s)
+    stub = _StubRedis()
+    monkeypatch.setattr(ct, "_tiles_redis", lambda: stub)
+    calls["splice_result"] = False  # e.g. no tileset to splice into
+
+    markers = [[{"id": 123, "editedFile": ["cov.kml"]}]]
+    ct.apply_edit_changes.apply_async(args=[markers, folder.id, [POLYGON]]).get()
+    res = ct.regenerate_tiles.apply_async(args=[folder.id]).get()
+    assert "rebuilt" in res
+    assert calls["splice"] != []  # tried
+    assert calls["create_tiles"] == [folder.id]  # fell back
+    assert stub.get(f"bdk:tiles-settle:{folder.id}") is None  # full = settled
+
+
+def test_full_dirt_wins_over_bboxes(db_session, tasks, monkeypatch):
+    """A whole-tileset change (upload, recompute) coalescing with an edit must
+    full-rebuild — splicing only the edit's region would miss the rest."""
+    ct, calls = tasks
+    s = db_session
+    _, _, folder, _ = _seed_edit_fixture(s)
+    stub = _StubRedis()
+    monkeypatch.setattr(ct, "_tiles_redis", lambda: stub)
+
+    ct._mark_tiles_dirty(folder.id)  # process_data style: everything stale
+    ct._mark_tiles_dirty(folder.id, bbox=[-80.01, 37.27, -80.0, 37.28])
+    assert stub.get(f"bdk:tiles-dirty:{folder.id}") == b"full"  # bbox didn't downgrade
+
+    res = ct.regenerate_tiles.apply_async(args=[folder.id]).get()
+    assert "rebuilt" in res
+    assert calls["splice"] == []
+    assert calls["create_tiles"] == [folder.id]
+
+
+def test_settle_task_rebuilds_quiet_folders(db_session, tasks, monkeypatch):
+    import time as time_mod
+
+    ct, calls = tasks
+    s = db_session
+    _, _, folder, _ = _seed_edit_fixture(s)
+    stub = _StubRedis()
+    monkeypatch.setattr(ct, "_tiles_redis", lambda: stub)
+    dispatched = []
+    monkeypatch.setattr(ct.regenerate_tiles, "apply_async", lambda args: dispatched.append(args[0]))
+
+    # A folder spliced moments ago: still in its quiet window -> left alone.
+    stub.set(f"bdk:tiles-settle:{folder.id}", str(time_mod.time()))
+    ct.settle_stale_tiles.run()
+    assert dispatched == []
+
+    # Quiet long enough -> one full rebuild dispatched, flag consumed.
+    stub.set(f"bdk:tiles-settle:{folder.id}", str(time_mod.time() - ct.TILES_SETTLE_QUIET - 1))
+    ct.settle_stale_tiles.run()
+    assert dispatched == [folder.id]
+    assert stub.get(f"bdk:tiles-settle:{folder.id}") is None
+    assert stub.get(f"bdk:tiles-dirty:{folder.id}") == b"full"
 
 
 def test_process_data_uses_coalesced_rebuild(db_session, tasks, monkeypatch):

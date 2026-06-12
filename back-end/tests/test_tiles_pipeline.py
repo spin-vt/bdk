@@ -170,6 +170,89 @@ def test_rebuild_replaces_tileset(db_session):
     assert {r.zoom_level for r in tile_rows(db_session, sets[0].id)} == set(range(17))
 
 
+def snapshot_rows(s, mbtiles_id):
+    return {
+        (r.zoom_level, r.tile_column, r.tile_row): bytes(r.tile_data)
+        for r in tile_rows(s, mbtiles_id)
+    }
+
+
+def test_splice_matches_full_rebuild_byte_for_byte(db_session):
+    """THE splice gate: after an edit-shaped change, regenerating only the
+    dirty region and splicing the rows into the live tileset must produce
+    byte-identical z9-16 tiles to a full rebuild — inside the region (same
+    content) and outside it (untouched). z0-8 stays deliberately stale."""
+    from controllers.celery_controller import celery_tasks as ct
+    from controllers.database_controller import vt_ops
+    from database.models import kml_data
+
+    folder, fab, cov = seed_tile_folder(db_session)
+    build_tiles(db_session, folder, cov)
+    db_session.expire_all()
+    tileset = folder_tilesets(db_session, folder.id)[0]
+    before = snapshot_rows(db_session, tileset.id)
+
+    # The "edit": exclude every served location inside a small box (exactly
+    # what an exclusion edit does - it deletes the kml rows).
+    EDIT = (-80.03, 37.25, -80.00, 37.27)  # minx, miny, maxx, maxy
+    doomed = (
+        db_session.query(kml_data)
+        .filter(
+            kml_data.file_id == cov.id,
+            kml_data.longitude >= EDIT[0],
+            kml_data.longitude <= EDIT[2],
+            kml_data.latitude >= EDIT[1],
+            kml_data.latitude <= EDIT[3],
+        )
+        .all()
+    )
+    assert doomed, "the edit box must catch served points"
+    for row in doomed:
+        db_session.delete(row)
+    db_session.commit()
+
+    assert vt_ops.splice_tiles(folder.id, [list(EDIT)], db_session) is True
+    db_session.expire_all()
+    sets = folder_tilesets(db_session, folder.id)
+    assert len(sets) == 1 and sets[0].id == tileset.id  # spliced IN PLACE
+    spliced = snapshot_rows(db_session, tileset.id)
+
+    # Reference: what a full rebuild produces from the same DB truth.
+    ct._rebuild_folder_tiles(folder.id)
+    db_session.expire_all()
+    rebuilt = snapshot_rows(db_session, folder_tilesets(db_session, folder.id)[0].id)
+
+    spliced_hi = {k: v for k, v in spliced.items() if k[0] >= 9}
+    rebuilt_hi = {k: v for k, v in rebuilt.items() if k[0] >= 9}
+    assert spliced_hi.keys() == rebuilt_hi.keys()
+    diff = [k for k in rebuilt_hi if spliced_hi[k] != rebuilt_hi[k]]
+    assert diff == [], f"{len(diff)} z9-16 tiles differ from a full rebuild"
+
+    # The splice must have actually changed something (the edit is visible)...
+    ranges = vt_ops.dirty_z9_ranges([list(EDIT)])
+    changed = [k for k in spliced_hi if spliced_hi[k] != before.get(k)]
+    assert changed, "the spliced region should differ from the pre-edit tiles"
+    # ...while every changed tile lies inside the dirty region (locality).
+    for z, x, y_tms in changed:
+        y_xyz = (2**z - 1) - y_tms
+        assert vt_ops._in_ranges(z, x, y_xyz, ranges), (
+            f"tile {(z, x, y_tms)} outside the region changed"
+        )
+
+    # z0-8 untouched (stale by design until the settle rebuild).
+    for k, v in spliced.items():
+        if k[0] <= 8:
+            assert before[k] == v
+
+
+def test_splice_without_tileset_falls_back(db_session):
+    from controllers.database_controller import vt_ops
+
+    folder, fab, cov = seed_tile_folder(db_session)
+    # No tiles built yet -> nothing to splice into.
+    assert vt_ops.splice_tiles(folder.id, [[-80.03, 37.25, -80.00, 37.27]], db_session) is False
+
+
 def test_folder_copy_carries_rows_not_blob(db_session):
     folder, fab, cov = seed_tile_folder(db_session)
     build_tiles(db_session, folder, cov)

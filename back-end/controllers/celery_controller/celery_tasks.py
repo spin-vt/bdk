@@ -255,9 +255,12 @@ def async_delete_files(self, file_ids, editfile_ids):
 #                         with a dirty flag so rapid edits coalesce.
 
 TILES_DIRTY_KEY = "bdk:tiles-dirty:{folderid}"
+TILES_DIRTY_BBOX_KEY = "bdk:tiles-dirty-bbox:{folderid}"
+TILES_SETTLE_KEY = "bdk:tiles-settle:{folderid}"
 TILES_LOCK_KEY = "bdk:tiles-lock:{folderid}"
 TILES_LOCK_TTL = 3600  # safety expiry on the lock; no rebuild should take this long
 TILES_LOCK_WAIT = 1800  # max time a regenerate waits behind another rebuild
+TILES_SETTLE_QUIET = 600  # settle the stale z0-8 only after edits go quiet this long
 
 
 def _tiles_redis():
@@ -274,10 +277,59 @@ def _tiles_redis():
         return None
 
 
-def _mark_tiles_dirty(folderid):
+def _mark_tiles_dirty(folderid, bbox=None):
+    """Record that the folder's tiles no longer match DB truth. With a bbox
+    ([minx, miny, maxx, maxy] lon/lat) the dirt is scoped to that region and
+    the rebuild may splice just its tiles; without one the whole tileset is
+    stale. A bbox never downgrades already-recorded whole-tileset dirt."""
     r = _tiles_redis()
-    if r is not None:
-        r.set(TILES_DIRTY_KEY.format(folderid=folderid), "1")
+    if r is None:
+        return
+    dirty_key = TILES_DIRTY_KEY.format(folderid=folderid)
+    if bbox is None:
+        r.set(dirty_key, "full")
+    else:
+        r.rpush(TILES_DIRTY_BBOX_KEY.format(folderid=folderid), json.dumps(bbox))
+        r.set(dirty_key, "bbox", nx=True)
+
+
+def _pop_tiles_dirt(r, folderid):
+    """Atomically consume the folder's recorded dirt -> (flag, [bbox, ...]).
+    Atomic so a mark racing this pop is either fully consumed now or fully
+    left for the next rebuild — never half-eaten."""
+    pipe = r.pipeline(transaction=True)
+    pipe.lrange(TILES_DIRTY_BBOX_KEY.format(folderid=folderid), 0, -1)
+    pipe.delete(TILES_DIRTY_BBOX_KEY.format(folderid=folderid))
+    pipe.get(TILES_DIRTY_KEY.format(folderid=folderid))
+    pipe.delete(TILES_DIRTY_KEY.format(folderid=folderid))
+    raw_bboxes, _, dirty, _ = pipe.execute()
+    return dirty, [json.loads(b) for b in raw_bboxes]
+
+
+def _features_bbox(features):
+    """[minx, miny, maxx, maxy] over every coordinate of the given GeoJSON
+    features, or None when there are no coordinates."""
+    coords = []
+
+    def walk(node):
+        if isinstance(node, (list, tuple)):
+            if (
+                len(node) >= 2
+                and isinstance(node[0], (int, float))
+                and isinstance(node[1], (int, float))
+            ):
+                coords.append((node[0], node[1]))
+            else:
+                for item in node:
+                    walk(item)
+
+    for feature in features or []:
+        walk(((feature or {}).get("geometry") or {}).get("coordinates"))
+    if not coords:
+        return None
+    xs = [c[0] for c in coords]
+    ys = [c[1] for c in coords]
+    return [min(xs), min(ys), max(xs), max(ys)]
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
@@ -396,27 +448,16 @@ def apply_edit_changes(self, markers, folderid, polygonfeatures):
         session.commit()
         session.close()
 
-    _mark_tiles_dirty(folderid)
+    # An edit only changes points inside its drawn polygons, so the dirt is
+    # scoped: the rebuild can splice just that region's z9-16 tiles.
+    _mark_tiles_dirty(folderid, bbox=_features_bbox(polygonfeatures))
 
 
 def _rebuild_folder_tiles(folderid):
     """Rebuild a folder's vector tiles from current DB truth (the slow part)."""
     session = Session()
     try:
-        # extend, not append: the array must be FLAT features (each becomes
-        # one ldjson line for tippecanoe), matching every other create_tiles
-        # caller.
-        geojson_data = []
-        all_kmls = file_ops.get_files_with_postfix(folderid, ".kml", session)
-        for kml_f in all_kmls:
-            geojson_data.extend(vt_ops.read_kml(kml_f.id, session))
-
-        all_geojsons = file_ops.get_files_with_postfix(
-            folderid=folderid, postfix=".geojson", session=session
-        )
-        for geojson_f in all_geojsons:
-            geojson_data.extend(vt_ops.read_geojson(geojson_f.id, session))
-
+        geojson_data = vt_ops.folder_coverage_features(folderid, session)
         mbtiles_ops.delete_mbtiles(folderid, session)
         vt_ops.create_tiles(geojson_data, folderid, session)
     finally:
@@ -424,20 +465,38 @@ def _rebuild_folder_tiles(folderid):
         session.close()
 
 
+def _splice_folder_tiles(folderid, bboxes):
+    """Splice the dirty regions' z9-16 tiles into the live tileset. True on
+    success; False (fall back to a full rebuild) on any failure."""
+    try:
+        session = Session()
+        try:
+            return vt_ops.splice_tiles(folderid, bboxes, session)
+        finally:
+            session.close()
+    except Exception:
+        logger.exception(f"tile splice failed for folder {folderid}; doing a full rebuild")
+        return False
+
+
 def _coalesced_tile_rebuild(folderid, owner_id):
-    """Rebuild a folder's tiles, single-flight + coalescing. Callers mark the
-    folder dirty after changing its data; the rebuild that runs after that
-    clears the flag. A caller that finds the folder clean no-ops (an earlier
-    rebuild already covered its change), so N rapid changes cost ~1 rebuild.
-    Returns only once the tiles cover the caller's change. Without redis, the
-    debounce degrades to always rebuilding (correct, less efficient)."""
+    """Refresh a folder's tiles, single-flight + coalescing. Callers mark the
+    folder dirty after changing its data; the refresh that runs after that
+    consumes the dirt. A caller that finds the folder clean no-ops (an
+    earlier refresh already covered its change), so N rapid changes cost ~1
+    refresh. Returns only once the tiles cover the caller's change.
+
+    Dirt scoped to bboxes (edits) is SPLICED — only the dirty regions' z9-16
+    tiles are regenerated, into the current tileset — leaving the z0-8
+    overview tiles slightly stale (sub-pixel at those zooms); the settle
+    task full-rebuilds once the folder goes quiet. Whole-tileset dirt, a
+    splice failure, or no redis means a full rebuild."""
     r = _tiles_redis()
     if r is None:
         _rebuild_folder_tiles(folderid)
         return "tiles rebuilt"
 
     lock_key = TILES_LOCK_KEY.format(folderid=folderid)
-    dirty_key = TILES_DIRTY_KEY.format(folderid=folderid)
     waited = 0
     while not r.set(lock_key, str(owner_id), nx=True, ex=TILES_LOCK_TTL):
         if waited >= TILES_LOCK_WAIT:
@@ -445,10 +504,14 @@ def _coalesced_tile_rebuild(folderid, owner_id):
         time.sleep(5)
         waited += 5
     try:
-        if not r.get(dirty_key):
+        dirty, bboxes = _pop_tiles_dirt(r, folderid)
+        if not dirty:
             return "tiles fresh (an earlier rebuild covered this edit)"
-        r.delete(dirty_key)
+        if dirty == b"bbox" and bboxes and _splice_folder_tiles(folderid, bboxes):
+            r.set(TILES_SETTLE_KEY.format(folderid=folderid), str(time.time()))
+            return "tiles spliced"
         _rebuild_folder_tiles(folderid)
+        r.delete(TILES_SETTLE_KEY.format(folderid=folderid))
         return "tiles rebuilt"
     finally:
         r.delete(lock_key)
@@ -456,10 +519,40 @@ def _coalesced_tile_rebuild(folderid, owner_id):
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def regenerate_tiles(self, folderid):
-    """The slow half of an edit chain: rebuild the folder's tiles via the
-    shared coalescing path. 'Task SUCCESS' always means 'the tiles include
-    this chain's edit'."""
+    """The slow half of an edit chain: refresh the folder's tiles via the
+    shared coalescing path (a splice when the dirt is edit-scoped, a full
+    rebuild otherwise). 'Task SUCCESS' always means 'the tiles include this
+    chain's edit'."""
     return _coalesced_tile_rebuild(folderid, self.request.id)
+
+
+@celery.task
+def settle_stale_tiles():
+    """Beat housekeeping: splices leave a folder's z0-8 overview tiles
+    slightly stale (an edited dot is sub-pixel at those zooms). Once a
+    spliced folder has been quiet for TILES_SETTLE_QUIET, run one full
+    rebuild to reconcile. Background work — no job row, so no pill."""
+    r = _tiles_redis()
+    if r is None:
+        return "no redis; nothing to settle"
+    settled = []
+    for key in r.scan_iter(match=TILES_SETTLE_KEY.format(folderid="*")):
+        key = key.decode() if isinstance(key, bytes) else key
+        try:
+            folderid = int(key.rsplit(":", 1)[1])
+            last_splice = float(r.get(key) or 0)
+        except (ValueError, AttributeError):
+            r.delete(key)
+            continue
+        if time.time() - last_splice < TILES_SETTLE_QUIET:
+            continue
+        # Consume the flag first: if the rebuild fails the next edit's splice
+        # re-flags, and the dirty mark below survives for the retry anyway.
+        r.delete(key)
+        _mark_tiles_dirty(folderid)
+        regenerate_tiles.apply_async(args=[folderid])
+        settled.append(folderid)
+    return f"settling folders {settled}" if settled else "nothing to settle"
 
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
