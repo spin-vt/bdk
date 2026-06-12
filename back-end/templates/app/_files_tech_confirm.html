@@ -1,0 +1,23 @@
+{# Cross-geometry friction modal: a lines file picking a fixed-wireless tech
+   (or vice versa) is unusual — confirm before changing the compute type. #}
+<div class="scrim" onclick="if (event.target === this) this.remove()">
+  <div class="modal">
+    <div class="modal-hd"><h2>Change technology?</h2></div>
+    <div class="modal-bd">
+      <p style="margin:0;font-size:13.5px">
+        Heads up — <b class="num">{{ f.name }}</b> is a
+        <b>{{ "route (lines)" if f.type == "wired" else "polygon" }}</b> file.
+        It's unusual for {{ "routes" if f.type == "wired" else "polygons" }} to represent a
+        <b>{{ "wired" if new_type == "wired" else "fixed wireless" }}</b> service area.
+        Are you sure you want to change the technology type?
+      </p>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" type="button" onclick="this.closest('.scrim').remove()">Cancel</button>
+      <button class="btn primary"
+              hx-post="/files/coverage/{{ f.id }}/tech" hx-vals='{"tech": "{{ tech }}", "confirm": "1"}'
+              hx-target="#files-tab" onclick="setTimeout(() => this.closest('.scrim') && this.closest('.scrim').remove(), 0)">
+        Change to {{ tech_names[tech] }} ({{ tech }})</button>
+    </div>
+  </div>
+</div>

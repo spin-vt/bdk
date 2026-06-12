@@ -1,0 +1,13 @@
+{% extends "app/auth_base.html" %}
+{% block title %}Email verification · BDK{% endblock %}
+{% block heading %}{{ "Email verified ✓" if ok else "Verification failed" }}{% endblock %}
+{% block card %}
+{% if ok %}
+<p style="margin:0;font-size:13.5px;color:var(--muted)">You're all set — uploads and filings are unlocked.</p>
+<a class="btn primary" href="/setup">Continue</a>
+{% else %}
+<p style="margin:0;font-size:13px;color:var(--bad)">{{ error }}</p>
+<p style="margin:0;font-size:12.5px;color:var(--muted)">Sign in and use the "resend" button in the header banner to get a fresh link.</p>
+<a class="btn" href="/auth/login">Back to sign in</a>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends "app/base.html" %}
+{% block title %}Map · BDK{% endblock %}
+{% block content %}
+{% if not folder %}
+<div class="page"><div class="page-inner" style="max-width:620px">
+  <h1>Map</h1>
+  <div class="card pad"><p style="margin:0;color:var(--muted);font-size:13.5px">
+    No filing yet — the map shows a filing's coverage and locations.</p></div>
+</div></div>
+{% else %}
+<link rel="stylesheet" href="/assets/maplibre-gl.css">
+<script type="application/json" id="bdk-map-config">{{ config_json | safe }}</script>
+<div class="mapwrap" id="map-shell">
+  <div id="map" style="position:absolute;inset:0"></div>
+
+  {# tools (the .maptools component positions itself top-center) #}
+  <div class="maptools">
+    <button class="btn sm on" id="tool-browse" type="button">Browse</button>
+    {% if not read_only %}
+    <button class="btn sm" id="tool-draw" type="button"
+            title="Draw a polygon on the map, then choose what happens to each technology inside">✏ Draw an edit</button>
+    {% endif %}
+  </div>
+  {% if not read_only %}
+  <div class="mapcard card float" id="draw-tools" style="left:50%;transform:translateX(-50%);top:52px;display:none;padding:8px 12px;font-size:12.5px">
+    <div style="color:var(--muted);max-width:240px">Click to place vertices; click the first vertex, double-click, or press Enter to finish. Esc cancels. Click an existing edit to change or delete it.</div>
+  </div>
+  {% endif %}
+
+  {# search card #}
+  <div class="mapcard card float" style="left:14px;top:14px;width:250px">
+    <div style="display:flex;align-items:center;gap:7px;padding:7px 10px">
+      <span style="color:var(--muted);font-size:13px">⌕</span>
+      <input id="addr-search" placeholder="Find an address…" autocomplete="off"
+             style="all:unset;flex:1;font-size:13px;font-family:inherit">
+    </div>
+    <div id="addr-results" style="display:none;border-top:1px solid var(--line)"></div>
+    {% if not fabric_present %}
+    <div style="border-top:1px solid var(--line);padding:9px 10px;font-size:12.5px;color:var(--muted)">
+      <b style="color:var(--ink)">Search needs the fabric.</b> Addresses come from the FCC's location
+      list — once it's in, you can search every address in your footprint.
+      <div style="margin-top:6px"><a class="btn sm" href="/files?tab=fabric">Add the fabric</a></div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# filing card #}
+  <div class="mapcard card float" style="left:14px;top:120px;width:250px;padding:12px 14px">
+    <div style="display:flex;align-items:baseline;gap:8px">
+      <b style="font-size:14px">{{ filing_name or folder.name }}{{ " · snapshot" if viewing_snapshot }}</b>
+      {% if served_count %}
+        <span class="num" style="font-size:12.5px;color:var(--good);font-weight:600">{{ "{:,}".format(served_count) }} served</span>
+      {% else %}
+        <span style="font-size:12.5px;color:var(--muted)">{{ "no fabric yet" if not fabric_present else "nothing computed yet" }}</span>
+      {% endif %}
+    </div>
+    <div style="display:flex;flex-direction:column;margin-top:8px">
+      {% for t in techs %}
+      <label class="layerline"><input type="checkbox" checked data-tech-toggle="{{ t }}">
+        <span class="lc" style="background:{{ tech_colors[t] }}"></span>
+        {{ tech_names[t] }} <span style="color:var(--muted)">({{ t }})</span></label>
+      {% endfor %}
+      <label class="layerline"><input type="checkbox" checked id="locations-toggle">
+        <span class="lc" style="background:var(--good);border-radius:99px"></span> Locations</label>
+    </div>
+    <hr class="rule" style="margin:8px 0">
+    {% if read_only %}
+      <span style="font-size:12.5px;color:var(--muted)">{{ edits|length }} edit{{ "" if edits|length == 1 else "s" }} frozen in this view</span>
+    {% else %}
+      <details>
+        <summary class="btn quiet sm" style="list-style:none">{{ edits|length }} manual edit{{ "" if edits|length == 1 else "s" }} ▾</summary>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px" id="edits-list">
+          {% if not edits %}<span style="font-size:12.5px;color:var(--muted)">none yet — use “Draw an edit”</span>{% endif %}
+          {% for e in edits %}
+          <div style="display:flex;align-items:center;gap:6px;font-size:12.5px" data-editfile-row="{{ e.id }}">
+            <span style="flex:1">{{ e.summary }}</span>
+            <button class="btn quiet sm" type="button" data-show-edit="{{ e.id }}">show</button>
+            <button class="btn quiet sm" type="button" data-edit-edit="{{ e.id }}" title="Change this edit's shape or picks">edit</button>
+            <button class="btn danger-quiet sm" type="button" data-undo-edit="{{ e.id }}" data-edit-name="{{ e.name }}">undo</button>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+    {% endif %}
+    <div id="map-status" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
+  </div>
+
+  {# legend #}
+  <div class="mapcard card float" style="left:14px;bottom:14px;padding:8px 12px">
+    <div class="legend">
+      <span><span class="sw" style="background:var(--good)"></span>served</span>
+      <span><span class="sw" style="background:var(--bad)"></span>not served</span>
+      <span><span class="sw" style="background:#AEB2A8;width:7px;height:7px"></span>non-BSL</span>
+    </div>
+  </div>
+
+  {# inspector (filled by the island when a draw closes) #}
+  <div class="mapcard card float" id="edit-inspector" style="right:14px;top:96px;width:290px;padding:14px 16px;display:none"></div>
+
+  {# contextual banners #}
+  {% if viewing_snapshot %}
+  <div class="mapcard card float" style="left:50%;transform:translateX(-50%);bottom:14px;padding:8px 12px;display:flex;align-items:center;gap:12px">
+    <span class="chip warn">read-only</span>
+    <span style="font-size:13px;font-weight:600">Submission snapshot · {{ folder.name }}</span>
+    <a class="btn sm" href="/map">Back to working filing</a>
+  </div>
+  {% elif filed %}
+  <div class="mapcard card float" style="left:50%;transform:translateX(-50%);bottom:14px;padding:8px 12px;display:flex;align-items:center;gap:12px">
+    <span class="chip good">filed ✓</span>
+    <span style="font-size:13px;font-weight:600">{{ filing_name or folder.name }} is marked as filed</span>
+    <button class="btn sm" type="button" id="map-reopen">Reopen for edits</button>
+  </div>
+  {% endif %}
+  {% if not fabric_present and has_files and not read_only %}
+  <div class="mapcard card float" style="right:14px;bottom:14px;width:270px;padding:12px 14px">
+    <b style="font-size:13.5px">Locations stay dark until the fabric is in</b>
+    <p style="margin:4px 0 8px;font-size:12.5px;color:var(--muted)">
+      Your network files are here, but served locations come from matching them against the FCC fabric.</p>
+    <a class="btn primary sm" href="/files?tab=fabric">Add the fabric</a>
+  </div>
+  {% elif not has_files and not read_only %}
+  <div class="mapcard card float" style="right:14px;bottom:14px;width:270px;padding:12px 14px">
+    <b style="font-size:13.5px">No network on the map yet</b>
+    <p style="margin:4px 0 8px;font-size:12.5px;color:var(--muted)">
+      Add your coverage files and they'll appear here.</p>
+    <a class="btn primary sm" href="/files?tab=coverage">Add network files</a>
+  </div>
+  {% endif %}
+</div>
+<script src="/assets/maplibre-gl.js"></script>
+<script src="/assets/map.js"></script>
+{% endif %}
+{% endblock %}

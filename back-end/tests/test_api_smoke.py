@@ -194,7 +194,7 @@ def test_cannot_access_other_orgs_filing(client, no_tiles):
 
         resp = c2.get(f"/api/served-data/{a_folder_id}")
         # Route returns 400 with an "not belong to your organization" message,
-        # in the unified {status:error, message} shape (P1.3).
+        # in the unified {status:error, message} shape.
         assert resp.status_code in (400, 403), resp.get_json()
         body = resp.get_json()
         assert body["status"] == "error"
@@ -203,7 +203,7 @@ def test_cannot_access_other_orgs_filing(client, no_tiles):
 
 def test_unhandled_exception_returns_json_500(client, monkeypatch):
     """An unexpected error returns a clean JSON 500 in the unified shape, not an
-    HTML stack trace (P1.3 global error handler)."""
+    HTML stack trace (the global error handler)."""
     from utils.flask_app import app
 
     # TESTING=True makes Flask re-raise instead of invoking error handlers; turn

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}BDK{% endblock %}</title>
+  <link rel="stylesheet" href="/assets/bdk.css">
+  <script src="/assets/htmx.min.js" defer></script>
+  <script>
+    // Double-submit CSRF: every htmx request echoes the JS-readable
+    // csrf_access_token cookie as X-CSRF-TOKEN (same contract as the SPA's
+    // fetch wrapper). GETs ignore it; all page POSTs require it.
+    document.addEventListener('htmx:configRequest', function (e) {
+      var m = document.cookie.match(/(?:^|;\s*)csrf_access_token=([^;]*)/);
+      if (m) e.detail.headers['X-CSRF-TOKEN'] = decodeURIComponent(m[1]);
+    });
+    // A failed request must never look like "nothing happened": surface a
+    // plain-words toast (e.g. nginx 413 on an oversized fabric upload, which
+    // htmx would otherwise swallow because the error page isn't swappable).
+    function bdkToast(msg) {
+      var t = document.getElementById('bdk-toast');
+      if (!t) {
+        t = document.createElement('div');
+        t.id = 'bdk-toast';
+        t.style.cssText = 'position:fixed;bottom:18px;left:50%;transform:translateX(-50%);' +
+          'z-index:200;background:var(--ink);color:var(--surface);padding:10px 16px;' +
+          'border-radius:6px;font-size:13px;max-width:480px;box-shadow:var(--shadow)';
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.style.display = '';
+      clearTimeout(t._hide);
+      t._hide = setTimeout(function () { t.style.display = 'none'; }, 8000);
+    }
+    // Oversized uploads: reject client-side, instantly and deterministically
+    // (a 413 mid-upload can surface as a connection reset the browser never
+    // turns into a response). Capture phase so htmx's change trigger never
+    // fires for the rejected pick. Matches nginx's client_max_body_size.
+    var MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+    document.addEventListener('change', function (e) {
+      var input = e.target;
+      if (!input || input.type !== 'file' || !input.files) return;
+      for (var i = 0; i < input.files.length; i++) {
+        if (input.files[i].size > MAX_UPLOAD_BYTES) {
+          e.stopPropagation();
+          input.value = '';
+          bdkToast('"' + input.files[i].name + '" is too large to upload — the limit is 500 MB. ' +
+            'Try uploading a smaller region, or contact support for assistance.');
+          return;
+        }
+      }
+    }, true);
+    document.addEventListener('htmx:responseError', function (e) {
+      var s = e.detail.xhr ? e.detail.xhr.status : 0;
+      if (s === 413) {
+        bdkToast("That file is too large to upload — the server accepts up to 500 MB. " +
+          "Try uploading a smaller region, or contact support for assistance.");
+      } else {
+        bdkToast("That didn't work (error " + s + "). Try again — if it keeps failing, reload the page.");
+      }
+    });
+    document.addEventListener('htmx:sendError', function () {
+      bdkToast("The server couldn't be reached. Check your connection and try again.");
+    });
+  </script>
+</head>
+<body class="app{% if site_theme != 'civic-light' %} theme-{{ site_theme }}{% endif %}">
+  <header class="hdr">
+    <a class="logo" href="/map"><i>B</i> BDK</a>
+    {# Filing switcher: current label + a dropdown of the org's filings and
+       the next window's explicit "+ Start" (a filing is NEVER auto-created). #}
+    <details class="jobs">
+      <summary class="hdr-filing" style="list-style:none">{{ filing_name or "No filing yet" }}
+        {%- if filing_status == 'filed' %} <span class="due">· completed{{ " " + filing_filed_on if filing_filed_on }} ✓</span>
+        {%- elif filing_due %} <span class="due">· due {{ filing_due }} · {{ filing_due_rel }}</span>{% endif %}
+        <span style="opacity:.6;margin-left:4px">▾</span></summary>
+      <div class="debt-pop card float" style="left:0;right:auto;width:320px">
+        {% if switcher %}
+          {# A newly opened window leads; the org's filings follow; creating
+             any other (past) window is always the last entry. #}
+          {% if switcher.next_window %}
+          <div class="debtrow" id="start-next-row">
+            <span class="dt">The {{ switcher.next_window.label }} window is open<br>
+              <span style="font-weight:500;color:var(--muted);font-size:12px">
+                due {{ switcher.next_window.due | friendly_date }}{% if switcher.filings %} — we'll start from everything in your current filing{% endif %}</span></span>
+            <button class="btn primary sm" hx-post="/filing/start-next" hx-target="#start-next-row"
+                    style="white-space:nowrap">+ Start the {{ switcher.next_window.label }} filing</button>
+          </div>
+          {% endif %}
+          {% for f in switcher.filings %}
+          {% set is_current = f.id == current_folder_id %}
+          <div class="debtrow" {% if not is_current %}hx-post="/filing/select/{{ f.id }}" style="cursor:pointer"{% endif %}>
+            <span class="dt">{{ f.label }}
+              {%- if f.status == 'filed' %} <span class="chip good" style="margin-left:6px">filed ✓</span>{% endif %}
+              <br><span style="font-weight:500;color:var(--muted);font-size:12px">
+                {{- "current filing" if is_current else "switch to this filing" -}}</span></span>
+            {% if is_current %}<span class="chip accent">current</span>{% endif %}
+          </div>
+          {% endfor %}
+          <div class="debtrow">
+            <button class="btn quiet sm" style="width:100%" title="Start a filing for any past window"
+                    hx-get="/filing/modals/new" hx-target="#filing-modal-slot">+ Create new filing…</button>
+          </div>
+        {% endif %}
+      </div>
+    </details>
+    <nav class="nav">
+      {% set here = request.path %}
+      <a href="/map" class="{{ 'on' if here.startswith('/map') }}">Map</a>
+      <a href="/files" class="{{ 'on' if here.startswith('/files') }}">Files &amp; Plans</a>
+      <a href="/org" class="{{ 'on' if here.startswith('/org') }}">Organization</a>
+      <a href="/submissions" class="{{ 'on' if here.startswith('/submissions') }}">Submissions</a>
+    </nav>
+    <div class="hdr-right">
+      {# Job pill + tray, live over the org-scoped SSE stream. The shell
+         renders the current state server-side; the stream pushes the same
+         fragments whenever the org's jobs change. #}
+      <details class="jobs">
+        <summary class="jobpill" id="job-pill">{% include "app/_job_pill.html" %}</summary>
+        <div class="tray card float" id="job-tray">{% include "app/_job_tray.html" %}</div>
+      </details>
+      {% if filing_status == 'filed' %}
+        <span class="chip good">filed ✓</span>
+      {% elif debts is defined %}
+        <details class="jobs">
+          <summary class="btn sm{{ ' debt-on' if debts or fabric_warning }}">
+            {%- if not debts and fabric_warning %}Ready — wrong fabric version
+            {%- elif not debts %}Ready to submit
+            {%- elif debts|length == 1 %}One task to finish
+            {%- else %}{{ debts|length }} tasks to finish{% endif %}</summary>
+          <div class="debt-pop card float">
+            {% if not debts and not fabric_warning %}
+              <div class="debtrow"><span class="ic" style="border-color:var(--good);color:var(--good)">✓</span>
+                <span class="dt">All set — generate your submission anytime</span></div>
+            {% endif %}
+            {% if fabric_warning %}
+              <div class="debtrow"><span class="ic" style="border-color:var(--bad);color:var(--bad)">!</span>
+                <span class="dt">Wrong fabric version<br><span style="font-weight:500;color:var(--muted);font-size:12px">this fabric is v{{ fabric_warning.got_version }}, but {{ fabric_warning.expected_label }} expects v{{ fabric_warning.expected_version }} — you can still file, but location IDs may not match</span></span>
+                <a class="btn sm" href="/files?tab=fabric">fix</a></div>
+            {% endif %}
+            {% for d in debts %}
+              <div class="debtrow"><span class="ic">!</span>
+                <span class="dt">{{ d.label }}<br><span style="font-weight:500;color:var(--muted);font-size:12px">{{ d.sub }}</span></span>
+                <a class="btn sm" href="{{ d.fix }}">fix</a></div>
+            {% endfor %}
+          </div>
+        </details>
+        <a class="btn primary sm" href="/submissions">Generate submission…</a>
+      {% endif %}
+      <form method="post" action="/auth/logout" style="display:inline">
+        <button class="btn quiet sm" type="submit" title="Sign out">Sign out</button>
+      </form>
+    </div>
+    <script>
+      // Jobs stream, gated on tab visibility. Browsers cap HTTP/1.1
+      // connections at 6 per host and every open EventSource holds one, so a
+      // handful of open tabs would otherwise starve ALL requests to the app
+      // (pages "hang"). Only the visible tab keeps a stream; hidden tabs drop
+      // theirs and re-sync the moment they're shown again.
+      (function () {
+        var es = null;
+        function connect() {
+          if (es) return;
+          es = new EventSource('/api/jobs/events');
+          es.addEventListener('pill', function (e) {
+            document.getElementById('job-pill').innerHTML = e.data;
+          });
+          es.addEventListener('tray', function (e) {
+            document.getElementById('job-tray').innerHTML = e.data;
+          });
+        }
+        function disconnect() {
+          if (es) { es.close(); es = null; }
+        }
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden) { disconnect(); } else { connect(); }
+        });
+        if (!document.hidden) connect();
+      })();
+    </script>
+  </header>
+  {# The header's own modal slot (the create-a-filing modal) — present on
+     every page, distinct from the per-page #modal-slot. #}
+  <div id="filing-modal-slot"></div>
+  {% if user_verified is defined and not user_verified %}
+  <div style="background:#FFF8E6;border-bottom:1px solid var(--line);padding:7px 16px;font-size:13px;display:flex;align-items:center;gap:10px">
+    <span class="chip warn">verify your email</span>
+    <span>We sent a link to your inbox — uploads unlock once it's clicked.</span>
+    <form method="post" action="/auth/verify/resend" style="display:inline">
+      <button class="btn quiet sm" type="submit">Resend the email</button>
+    </form>
+  </div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</body>
+</html>

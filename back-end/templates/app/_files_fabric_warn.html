@@ -1,0 +1,15 @@
+{# The vintage hard-warning (overridable). Rendered into #fabric-feedback; the
+   upload form above is untouched, so "Use anyway" re-submits the same file. #}
+<div class="card" style="border-color:#ECC7BC;background:var(--bad-soft, #FAEDE9);padding:10px 12px;margin:0 16px 12px;font-size:12.5px">
+  <b style="color:var(--bad)">{{ message }}</b><br>
+  Location IDs won't match what the FCC expects for this window, and your filing would be rejected or wrong.
+  <div style="margin-top:6px;display:flex;gap:8px">
+    {# hx-encoding is LOAD-BEARING: htmx only puts the included form's File
+       into the request when the requesting element is multipart — without it
+       the override arrives fileless ("Choose a file first"). #}
+    <button class="btn sm" hx-post="/files/fabric/upload" hx-target="#files-tab"
+            hx-encoding="multipart/form-data"
+            hx-include="#fabric-upload-form" hx-vals='{"override": "1"}'>Use anyway</button>
+    <button class="btn quiet sm" onclick="document.getElementById('fabric-feedback').innerHTML=''">OK</button>
+  </div>
+</div>

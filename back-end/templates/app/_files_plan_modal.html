@@ -1,0 +1,86 @@
+{# New/edit plan modal. `plan` set = editing; `form` set = a failed save being
+   re-rendered with the user's values; otherwise a fresh form. #}
+<div class="scrim" onclick="if (event.target === this) this.remove()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2>{{ ("Edit plan — " + plan.name) if plan else "New plan" }}</h2>
+      <div class="sub">This is the maximum speed plan you advertise.</div>
+    </div>
+    <form hx-post="/files/plans/save" hx-target="#modal-slot">
+      <div class="modal-bd">
+        {% if error %}<div style="color:var(--bad);font-size:13px">{{ error }}</div>{% endif %}
+        <input type="hidden" name="return_tab" value="{{ return_tab }}">
+        {% if plan %}<input type="hidden" name="plan_id" value="{{ plan.id }}">{% endif %}
+        <div class="fld">
+          <label for="plan-name">Plan name <span style="color:var(--muted);font-weight:500">(optional — left blank it names itself, e.g. "Fiber 100/10")</span></label>
+          <input id="plan-name" name="name" placeholder="e.g. Gig Fiber"
+                 value="{{ form.get("name") if form else (plan.name if plan else "") }}">
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+          <div class="fld" style="flex:1;min-width:180px">
+            <label for="plan-tech">Technology</label>
+            {# Switching tech re-aims the default checkbox: checked when the
+               picked tech has no default yet (this plan excluded). The list
+               rides a data attribute — never inline server values into
+               handler strings. #}
+            <select id="plan-tech" name="tech" data-techs-with-default="{{ techs_with_default | join(',') }}"
+                    onchange="var has=(this.getAttribute('data-techs-with-default')||'').split(','); this.closest('form').querySelector('input[name=is_default]').checked = has.indexOf(this.value) === -1;">
+              {% for code, tname in tech_names.items() %}
+                <option value="{{ code }}" {{ "selected" if code == tech }}>{{ tname }} ({{ code }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <label class="checkline" style="padding-bottom:9px">
+            <input type="checkbox" name="is_default"
+                   {{ "checked" if ((form.get("is_default") == "on") if form else default_checked | default(false)) }}>
+            <span>Set as default</span>
+          </label>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="fld" style="flex:1">
+            <label for="plan-down">Max advertised download (Mbps)</label>
+            <input id="plan-down" name="down" type="number" min="1"
+                   value="{{ form.get("down") if form else (plan.max_download if plan else "") }}">
+          </div>
+          <div class="fld" style="flex:1">
+            <label for="plan-up">Max advertised upload (Mbps)</label>
+            <input id="plan-up" name="up" type="number" min="1"
+                   value="{{ form.get("up") if form else (plan.max_upload if plan else "") }}">
+          </div>
+        </div>
+        <label class="checkline">
+          <input type="checkbox" name="low_latency"
+                 {{ "checked" if (form.get("low_latency") if form else (plan.low_latency if plan else True)) }}>
+          <span>Low-latency service (under 100 ms)</span>
+        </label>
+        <div class="fld">
+          <label for="plan-category">Who can buy it</label>
+          <select id="plan-category" name="category">
+            {% for code, label in category_labels.items() %}
+              <option value="{{ code }}" {{ "selected" if (plan.category if plan else "X") == code }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="fld">
+          <label class="checkline" style="font-weight:600">
+            <input type="checkbox" name="use_default_brand" {{ "checked" if not (plan and plan.brand) }}
+                   onchange="var b=this.closest('.fld').querySelector('input[name=brand]'); b.disabled=this.checked; b.value=this.checked ? b.getAttribute('data-default-brand') : ''; if (!this.checked) b.focus();">
+            <span>Use default brand name</span>
+          </label>
+          {# While the default is in use, the input shows the actual default
+             (the provider name) — disabled, so it never posts. The default
+             rides a data attribute: inlining it into the onchange string
+             broke the handler (quotes inside a quoted attribute). #}
+          <input name="brand" placeholder="Brand name customers see"
+                 data-default-brand="{{ org_name or '' }}"
+                 value="{{ plan.brand if plan and plan.brand else (org_name or '') }}"
+                 {{ "disabled" if not (plan and plan.brand) }}>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn" type="button" onclick="this.closest('.scrim').remove()">Cancel</button>
+        <button class="btn primary" type="submit">Save plan</button>
+      </div>
+    </form>
+  </div>
+</div>

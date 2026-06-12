@@ -67,7 +67,7 @@ services:
       - ./back-end:/app
     working_dir: /app
     # Boot the prod WSGI server (entrypoint runs `alembic upgrade head` first).
-    command: gunicorn routes:app -b 0.0.0.0:8000 -w 2
+    command: gunicorn routes:app -b 0.0.0.0:8000 -w 2 --threads 4
     healthcheck:
       # No curl in the image; use python. /api is the lightweight health route.
       test:

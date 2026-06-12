@@ -1,0 +1,38 @@
+{% extends "app/base.html" %}
+{% block title %}Files & Plans · BDK{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-inner">
+    <h1>Files &amp; Plans</h1>
+    <p class="lede">Coverage files and manual edits decide <b>where</b> you serve. Plans define <b>what</b> you sell there.</p>
+
+    {% if not folder %}
+      <div class="card pad">
+        <p style="margin:0;color:var(--muted);font-size:13.5px">
+          No filing yet — files and plans live inside a filing.
+          {% if not switcher or not switcher.filings %}Start one from the <a href="/setup">setup page</a>.{% endif %}
+        </p>
+      </div>
+    {% else %}
+      {% set fabric_missing = not fabric or not fabric.files %}
+      {% set ns = namespace(miss=0) %}
+      {% for t in techs_in_use %}{% if not default_plans.get(t) %}{% set ns.miss = ns.miss + 1 %}{% endif %}{% endfor %}
+      <div class="tabs">
+        <a href="/files?tab=fabric" class="{{ 'on' if tab == 'fabric' }}">Fabric
+          {%- if fabric_missing %} <span class="chip warn" style="margin-left:7px">needed</span>{% endif %}</a>
+        <a href="/files?tab=coverage" class="{{ 'on' if tab == 'coverage' }}">Coverage <span class="num">· {{ files|length + edits|length }}</span></a>
+        <a href="/files?tab=plans" class="{{ 'on' if tab == 'plans' }}">Plans <span class="num">· {{ plans|length }}</span>
+          {%- if ns.miss %} <span class="chip warn" style="margin-left:7px">{{ ns.miss }} missing</span>{% endif %}</a>
+      </div>
+
+      <div id="files-tab">
+        {% if tab == 'fabric' %}{% include "app/_files_fabric.html" %}
+        {% elif tab == 'plans' %}{% include "app/_files_plans.html" %}
+        {% else %}{% include "app/_files_coverage.html" %}{% endif %}
+      </div>
+    {% endif %}
+
+    <div id="modal-slot"></div>
+  </div>
+</div>
+{% endblock %}

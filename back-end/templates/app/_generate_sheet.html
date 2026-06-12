@@ -1,0 +1,43 @@
+{# The generate sheet — the app's ONLY hard gate. Every gate shows ✓ or !
+   with a fix link; Generate enables only when everything passes. #}
+<div class="scrim" onclick="if (event.target === this) this.remove()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2>Generate submission</h2>
+      <div class="sub">First, let's check you've prepared everything — then we'll build the CSV you upload in the FCC's BDC portal.</div>
+    </div>
+    <div class="modal-bd">
+      {% if not debts %}
+        <div style="display:flex;align-items:center;gap:10px;font-size:13.5px">
+          <span class="chip good">✓</span><span style="flex:1;font-weight:500">Everything's ready</span>
+        </div>
+      {% endif %}
+      {% for d in debts %}
+        <div style="display:flex;align-items:center;gap:10px;font-size:13.5px">
+          <span class="chip warn">!</span>
+          <span style="flex:1;font-weight:700">{{ d.label }}<br>
+            <span style="font-weight:500;color:var(--muted);font-size:12px">{{ d.sub }}</span></span>
+          <a class="btn sm" href="{{ d.fix }}">fix</a>
+        </div>
+      {% endfor %}
+      {% if fabric_warning %}
+        {# Allowed but loud: a red row here + a click-through confirm on
+           Generate. NOT a debt — wrong-vintage filings are overridable. #}
+        <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;border:1px solid var(--bad);border-radius:8px;padding:8px 10px">
+          <span class="chip bad">!</span>
+          <span style="flex:1;font-weight:700;color:var(--bad)">Wrong fabric version<br>
+            <span style="font-weight:500;color:var(--muted);font-size:12px">this fabric is v{{ fabric_warning.got_version }}, but {{ fabric_warning.expected_label }} expects v{{ fabric_warning.expected_version }} — location IDs may not match what the FCC checks against</span></span>
+          <a class="btn sm" href="/files?tab=fabric">fix</a>
+        </div>
+      {% endif %}
+    </div>
+    <div class="modal-ft">
+      <button class="btn" type="button" onclick="this.closest('.scrim').remove()">Not yet</button>
+      <button class="btn primary{{ ' disabled' if debts or generating }}" {{ "disabled" if debts or generating }}
+              hx-post="/submissions/generate" hx-target="#submissions-list" hx-swap="outerHTML"
+              {% if fabric_warning %}hx-confirm="This filing's fabric is v{{ fabric_warning.got_version }}, but {{ fabric_warning.expected_label }} expects v{{ fabric_warning.expected_version }}. Location IDs may not match what the FCC checks against. Generate with the wrong fabric anyway?"{% endif %}
+              hx-on::after-request="this.closest('.scrim') && this.closest('.scrim').remove()">
+        {{ "Generating…" if generating else ("Generate anyway" if fabric_warning else "Generate") }}</button>
+    </div>
+  </div>
+</div>

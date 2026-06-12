@@ -1,0 +1,92 @@
+{# The setup stage: doors / carry-forward welcome / building card. Polls
+   itself while a job runs so "Building your map…" resolves on its own. #}
+<div class="setup-stage" id="setup-stage"
+     {% if mode == "building" %}hx-get="/setup/stage" hx-trigger="load delay:2.5s" hx-swap="outerHTML"{% endif %}>
+{% if mode == "building" %}
+  <div class="card pad float" style="width:460px;text-align:center">
+    <h1 style="margin:0;font-size:22px">Building your map…</h1>
+    <p style="margin:8px 0 0;color:var(--muted);font-size:13.5px">
+      Matching your network against the locations — this usually takes under a minute.
+      You can <a href="/map">watch it land on the map</a>.</p>
+    <div class="pbar ind" style="margin-top:12px"><i></i></div>
+  </div>
+{% elif mode == "carry" %}
+  <div class="card pad float" style="width:540px;display:flex;flex-direction:column;gap:12px">
+    <div>
+      <div class="sect-label">{{ filing_name or folder.name }} · {{ org_name or "" }}</div>
+      <h1 style="margin:4px 0 0;font-size:22px">Welcome back — we kept everything</h1>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:7px;font-size:13.5px">
+      <span><span class="chip good">✓</span>&nbsp; {{ files|length }} coverage file{{ "" if files|length == 1 else "s" }} + technology assignments</span>
+      {% if plan_count %}<span><span class="chip good">✓</span>&nbsp; {{ plan_count }} service plan{{ "" if plan_count == 1 else "s" }}</span>{% endif %}
+      {% if edit_count %}<span><span class="chip good">✓</span>&nbsp; {{ edit_count }} manual edit{{ "" if edit_count == 1 else "s" }} — will re-apply as drawn areas</span>{% endif %}
+      {% if provider_set %}<span><span class="chip good">✓</span>&nbsp; BDC Provider ID</span>{% endif %}
+      <span><span class="chip warn">1 thing needed</span>&nbsp; the <b>new</b> fabric — the FCC emailed you a fresh one for this window</span>
+    </div>
+    {% if vintage_warn %}<div style="font-size:12.5px;color:var(--bad)">{{ vintage_warn }} Pick the file again to use it anyway.</div>{% endif %}
+    {% if error %}<div style="font-size:12.5px;color:var(--bad)">{{ error }}</div>{% endif %}
+    <div style="display:flex;gap:8px;align-items:center">
+      <form hx-post="/setup/fabric" hx-target="#setup-stage" hx-swap="outerHTML"
+            hx-encoding="multipart/form-data" hx-trigger="change" style="display:inline">
+        {% if vintage_warn %}<input type="hidden" name="override" value="1">{% endif %}
+        <input type="file" name="fabric_file" accept=".zip,.csv" style="display:none">
+        <button class="btn primary" type="button" onclick="this.form.elements.fabric_file.click()">Drop the new fabric</button>
+        <span class="htmx-indicator upload-busy">Uploading…</span>
+      </form>
+      <a class="btn" href="/map">Look around first</a>
+    </div>
+    <div class="coach">Same network as last time? Drop the new fabric and you're done. If things changed, update your files after.</div>
+  </div>
+{% else %}
+  <div style="width:640px;display:flex;flex-direction:column;gap:16px">
+    <div>
+      <div class="sect-label">{{ filing_name or folder.name }} · {{ org_name or "" }}</div>
+      <h1 style="margin:4px 0 0;font-size:24px">Let's get your network on the map</h1>
+      <p style="margin:6px 0 0;color:var(--muted);font-size:14px">
+        Two kinds of files, either order. You can see your map before everything's perfect — details can wait.</p>
+    </div>
+    {% if error %}<div style="font-size:13px;color:var(--bad)">{{ error }}</div>{% endif %}
+    <div style="display:flex;gap:14px">
+      <div class="door{{ ' filled' if files }}" data-door>
+        <span class="ic">⌁</span>
+        <h3>Your network</h3>
+        <p>Routes or coverage polygons — KML or GeoJSON. We'll figure out what each file is.</p>
+        {% if files %}
+        <div style="display:flex;flex-direction:column;gap:4px">
+          {% for f in files %}<span class="chip good">{{ f.name }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        <form hx-post="/setup/network" hx-target="#setup-stage" hx-swap="outerHTML"
+              hx-encoding="multipart/form-data" hx-trigger="change">
+          <input type="file" name="network_files" accept=".kml,.geojson" multiple style="display:none">
+          <button class="btn{{ '' if files else ' primary' }}" type="button"
+                  onclick="this.form.elements.network_files.click()">
+            {{ "Add more files" if files else "Add network files" }}</button>
+          <span class="htmx-indicator upload-busy">Uploading…</span>
+        </form>
+      </div>
+      <div class="door{{ ' filled' if fabric_file }}" data-door>
+        <span class="ic">▦</span>
+        <h3>The FCC fabric</h3>
+        <p>You receive this from CostQuest via email — it's the official list of locations. Just drop the file here unchanged.</p>
+        {% if fabric_file %}<span class="chip good">{{ fabric_file.name }} ✓</span>{% endif %}
+        {% if vintage_warn %}<p style="color:var(--bad)">{{ vintage_warn }} Pick the file again to use it anyway.</p>{% endif %}
+        <form hx-post="/setup/fabric" hx-target="#setup-stage" hx-swap="outerHTML"
+              hx-encoding="multipart/form-data" hx-trigger="change">
+          {% if vintage_warn %}<input type="hidden" name="override" value="1">{% endif %}
+          <input type="file" name="fabric_file" accept=".zip,.csv" style="display:none">
+          <button class="btn" type="button" onclick="this.form.elements.fabric_file.click()">
+            {{ "Replace fabric" if fabric_file else "Add the fabric" }}</button>
+          <span class="htmx-indicator upload-busy">Uploading…</span>
+        </form>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <a class="btn primary{{ ' disabled' if not can_continue }}" href="{{ '/map' if can_continue else '#' }}">Let's get started!</a>
+      {% if can_continue and not fabric_file %}
+        <span style="font-size:12.5px;color:var(--muted)">No fabric yet — your network shows on the map; served locations come once the fabric is in.</span>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+</div>

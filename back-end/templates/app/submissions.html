@@ -1,0 +1,18 @@
+{% extends "app/base.html" %}
+{% block title %}Submissions · BDK{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="page-inner" style="max-width:760px">
+    <h1>Submissions</h1>
+    <p class="lede">Generate a submission, then upload the CSV in the FCC's BDC portal and mark the filing as filed.</p>
+    {% if not folder %}
+      <div class="card pad">
+        <p style="margin:0;color:var(--muted);font-size:13.5px">No filing yet — submissions are generated from a filing.</p>
+      </div>
+    {% else %}
+      {% include "app/_submissions_list.html" %}
+    {% endif %}
+    <div id="modal-slot"></div>
+  </div>
+</div>
+{% endblock %}

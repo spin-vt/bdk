@@ -1,0 +1,32 @@
+{# Plans tab: ONE flat list — technology is a plan attribute, not the
+   grouping. One default per technology ("tech default" chip). #}
+<p class="lede" style="margin:0">One default plan per technology. Add more only if you sell something different on a specific file or area.</p>
+<div class="card pad" style="display:flex;flex-direction:column;gap:10px">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <b>Plans</b>
+    {% for t in techs_in_use if not default_plans.get(t) %}
+      <span class="chip warn">no default {{ tech_names[t] }} plan — needed to export</span>
+    {% endfor %}
+    <span style="flex:1"></span>
+    <button class="btn sm" hx-get="/files/modals/plan?return_tab=plans" hx-target="#modal-slot">+ another plan</button>
+  </div>
+  {% set sorted_plans = plans | sort(attribute="id") | sort(attribute="is_default", reverse=true) | sort(attribute="tech_code") %}
+  {% for p in sorted_plans %}
+  <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;flex-wrap:wrap">
+    <span class="chip ghost">{{ tech_names[p.tech_code] }} ({{ p.tech_code }})</span>
+    <b>{{ p.name }}</b>
+    {% if p.is_default %}<span class="chip accent">tech default</span>{% endif %}
+    {# low latency is the norm — only call out the unusual case #}
+    <span class="num" style="color:var(--muted);font-size:12.5px">{{ p.max_download }}/{{ p.max_upload }} Mbps{{ " · high latency" if not p.low_latency }} · {{ category_labels[p.category] }}</span>
+    <span style="flex:1"></span>
+    <span style="font-size:12px;color:var(--muted)">
+      {%- set used = plan_usage.get(p.id, 0) -%}
+      {%- if used %}on {{ used }} file{{ "s" if used > 1 }}
+      {%- elif not p.is_default %}unused — pick it on a file in the Coverage tab{% endif %}</span>
+    <button class="btn sm" hx-get="/files/modals/plan?plan_id={{ p.id }}&return_tab=plans" hx-target="#modal-slot">edit</button>
+  </div>
+  {% endfor %}
+  {% if not plans %}
+    <p style="margin:0;color:var(--muted);font-size:13.5px">No plans yet — every technology you file needs a default plan.</p>
+  {% endif %}
+</div>

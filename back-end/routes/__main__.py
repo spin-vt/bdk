@@ -8,4 +8,6 @@ from routes import app
 from utils.settings import backend_port
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=backend_port, debug=True)
+    # threaded so long-lived responses (e.g. SSE streams) don't block other
+    # requests on the single dev worker.
+    app.run(host="0.0.0.0", port=backend_port, debug=True, threaded=True)

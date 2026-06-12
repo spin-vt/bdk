@@ -1,0 +1,24 @@
+{# Inner HTML of the jobs tray. Rendered by the page shell on first paint and
+   re-pushed by the SSE stream (event: tray). Running jobs get an indeterminate
+   bar — never a fake ETA; failures speak plain words with a way out. #}
+{% if not jobs.active %}
+<div class="jobrow"><div><div class="jt">Up to date</div><div class="js">nothing running</div></div></div>
+{% endif %}
+{% for j in jobs.active %}
+<div class="jobrow">
+  <div style="flex:1">
+    <div class="jt">{{ j.label }}</div>
+    {% if j.sub %}<div class="js">{{ j.sub }}</div>{% endif %}
+    <div class="pbar ind"><i></i></div>
+  </div>
+</div>
+{% endfor %}
+{% if jobs.recent %}<hr class="rule">{% endif %}
+{% for j in jobs.recent %}
+<div class="jobrow" style="opacity:.65">
+  <div>
+    <div class="jt">{{ "✓" if j.ok else "✗" }} {{ j.label }}</div>
+    {% if j.note %}<div class="js">{{ j.note }}</div>{% endif %}
+  </div>
+</div>
+{% endfor %}

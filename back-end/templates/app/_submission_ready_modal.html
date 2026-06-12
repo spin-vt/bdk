@@ -1,0 +1,23 @@
+{# The "Submission ready" modal — opens when a generate job lands. Filing
+   goes open → filed explicitly, by the user; "Not yet" is fine (the list
+   keeps a Mark-as-filed button for later). #}
+<div class="scrim" onclick="if (event.target === this) this.remove()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2>Submission ready</h2>
+      <div class="sub">The CSV is on your Submissions page.</div>
+    </div>
+    <div class="modal-bd">
+      <p style="margin:0;font-size:13.5px">
+        Once you've uploaded it in the FCC's BDC portal, mark <b>{{ folder.name }}</b> as filed
+        so your team knows it's done. You can reopen it later if something changes.
+      </p>
+    </div>
+    <div class="modal-ft">
+      <button class="btn" type="button" onclick="this.closest('.scrim').remove()">Not yet</button>
+      <button class="btn primary" hx-post="/submissions/filed" hx-target="#submissions-list" hx-swap="outerHTML"
+              onclick="setTimeout(() => this.closest('.scrim') && this.closest('.scrim').remove(), 0)">
+        Mark as filed</button>
+    </div>
+  </div>
+</div>
