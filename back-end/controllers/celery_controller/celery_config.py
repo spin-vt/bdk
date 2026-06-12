@@ -28,7 +28,14 @@ def make_celery():
             "sweep-stuck-tasks": {
                 "task": "controllers.celery_controller.celery_tasks.sweep_stuck_tasks",
                 "schedule": 300.0,
-            }
+            },
+            # Edit retiles splice only the dirty region (z9-16); this settles
+            # the deliberately stale z0-8 overview tiles once a folder has
+            # been quiet for a while.
+            "settle-stale-tiles": {
+                "task": "controllers.celery_controller.celery_tasks.settle_stale_tiles",
+                "schedule": 300.0,
+            },
         },
     )
     return celery
