@@ -24,6 +24,25 @@ from .geo_io import read_geo_bytes
 
 db_lock = Lock()
 
+# The full pyramid is built in TWO tippecanoe runs merged into one tileset:
+#
+#   z0-8  (overview) — density dropping allowed: a z0 tile contains every
+#         fabric point, so thinning is mandatory there. These zooms are only
+#         ever produced by full rebuilds.
+#   z9-16 (detail)   — built with NO dropping of any kind (-pk -pf, no
+#         --drop-densest-as-needed, no byte cap) so a tile's bytes are a pure
+#         function of the features that intersect it. tippecanoe's
+#         --drop-densest-as-needed shares the min-gap it discovers on an
+#         oversized tile across the whole zoom level, making tile content
+#         depend on OTHER tiles' density — which both silently thinned dense
+#         areas and would make regenerating just an edited region produce
+#         different bytes than a full rebuild. Purity at z9-16 is what lets
+#         an edit retile regenerate only its dirty region and splice the rows
+#         into the live tileset.
+TIPPECANOE_SHARED = "--base-zoom=7 -P --force --use-attribute-for-id=location_id --layer=data"
+TIPPECANOE_LOW = f"-z 8 --maximum-tile-bytes=3000000 --drop-densest-as-needed {TIPPECANOE_SHARED}"
+TIPPECANOE_HIGH = f"-Z 9 -z 16 -pk -pf {TIPPECANOE_SHARED}"
+
 
 def _features_from_gdf(gdf, name, skip_points=False, keep_types=None):
     """Build GeoJSON Feature dicts from a GeoDataFrame, mirroring the legacy
@@ -73,66 +92,61 @@ def read_geojson(fileid, session):
     )
 
 
-def add_values_to_VT(geojson_file_path, mbtiles_file_path, folderid):
-    with sqlite3.connect(mbtiles_file_path) as mb_conn:
-        mb_c = mb_conn.cursor()
-        mb_c.execute(
+def add_values_to_VT(geojson_file_path, mbtiles_file_paths, folderid):
+    """Store the tiles from one or more freshly built .mbtiles files as ONE
+    tileset: a single mbtiles anchor row (no file blob — vector_tiles rows
+    are the only thing ever served) plus all the tile rows. The zoom ranges
+    of the input files must be disjoint (z0-8 + z9-16)."""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+
+    try:
+        cur.execute("SELECT COUNT(*) FROM mbtiles WHERE folder_id = %s", (folderid,))
+        count = cur.fetchone()[0]
+        cur.execute('SELECT "name" FROM "folder" WHERE id = %s', (folderid,))
+        foldername = cur.fetchone()[0]
+        new_filename = f"{foldername}-{count + 1}.mbtiles"
+
+        cur.execute(
             """
-            SELECT zoom_level, tile_column, tile_row, tile_data
-            FROM tiles
-            """
+            INSERT INTO mbtiles (tile_data, filename, timestamp, folder_id)
+            VALUES (%s, %s, %s, %s) RETURNING id
+            """,
+            (None, new_filename, datetime.now(), folderid),
         )
 
-        # Create a new connection to Postgres
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
+        mbt_id = cur.fetchone()[0]
 
-        try:
-            with open(mbtiles_file_path, "rb") as file:
-                mbtiles_data = Binary(file.read())
-
-            cur.execute("SELECT COUNT(*) FROM mbtiles WHERE folder_id = %s", (folderid,))
-            count = cur.fetchone()[0]
-            cur.execute('SELECT "name" FROM "folder" WHERE id = %s', (folderid,))
-            foldername = cur.fetchone()[0]
-            new_filename = f"{foldername}-{count + 1}.mbtiles"
-
-            cur.execute(
-                """
-                INSERT INTO mbtiles (tile_data, filename, timestamp, folder_id)
-                VALUES (%s, %s, %s, %s) RETURNING id
-                """,
-                (mbtiles_data, new_filename, datetime.now(), folderid),
-            )
-
-            mbt_id = cur.fetchone()[0]
-
-            data = [(row[0], row[1], row[2], Binary(row[3]), mbt_id) for row in mb_c]
-
+        for mbtiles_file_path in mbtiles_file_paths:
+            with sqlite3.connect(mbtiles_file_path) as mb_conn:
+                mb_c = mb_conn.cursor()
+                mb_c.execute("SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles")
+                data = [(row[0], row[1], row[2], Binary(row[3]), mbt_id) for row in mb_c]
             execute_values(
                 cur,
                 """
-                INSERT INTO vector_tiles (zoom_level, tile_column, tile_row, tile_data, mbtiles_id) 
+                INSERT INTO vector_tiles (zoom_level, tile_column, tile_row, tile_data, mbtiles_id)
                 VALUES %s
                 """,
                 data,
             )
 
-            # Commit the transaction
-            conn.commit()
-        except psycopg2.Error as e:
-            print(f"Database error occurred: {e}")
-            conn.rollback()
-            return -1
-        except Exception as e:
-            print(f"Unexpected error occurred: {e}")
-            conn.rollback()
-            return -1
-        finally:
-            cur.close()
-            conn.close()
-            os.remove(mbtiles_file_path)
-            os.remove(geojson_file_path)
+        conn.commit()
+    except psycopg2.Error as e:
+        print(f"Database error occurred: {e}")
+        conn.rollback()
+        return -1
+    except Exception as e:
+        print(f"Unexpected error occurred: {e}")
+        conn.rollback()
+        return -1
+    finally:
+        cur.close()
+        conn.close()
+        for mbtiles_file_path in mbtiles_file_paths:
+            if os.path.exists(mbtiles_file_path):
+                os.remove(mbtiles_file_path)
+        os.remove(geojson_file_path)
     return 1
 
 
@@ -187,13 +201,12 @@ def add_values_to_VT(geojson_file_path, mbtiles_file_path, folderid):
 #         return None
 
 
-def run_tippecanoe(command, folderid, geojsonpath, mbtilepath):
+def run_tippecanoe(command):
     result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
 
     if result.stderr:
         print("Tippecanoe stderr:", result.stderr.decode())
 
-    add_values_to_VT(geojsonpath, mbtilepath, folderid)
     return result.returncode
 
 
@@ -239,9 +252,11 @@ def create_tiles(geojson_array, folderid, session):
                 f.write(orjson.dumps(feat))
                 f.write(b"\n")
 
-        outputFile = f"output{uuid_str}.mbtiles"
-        command = f"tippecanoe -o {outputFile} --base-zoom=7 -P --maximum-tile-bytes=3000000 -z 16 --drop-densest-as-needed {unique_geojson_filename} --force --use-attribute-for-id=location_id --layer=data"
-        run_tippecanoe(command, folderid, unique_geojson_filename, outputFile)
+        low_file = f"output{uuid_str}-low.mbtiles"
+        high_file = f"output{uuid_str}-high.mbtiles"
+        run_tippecanoe(f"tippecanoe -o {low_file} {TIPPECANOE_LOW} {unique_geojson_filename}")
+        run_tippecanoe(f"tippecanoe -o {high_file} {TIPPECANOE_HIGH} {unique_geojson_filename}")
+        add_values_to_VT(unique_geojson_filename, [low_file, high_file], folderid)
 
 
 def retrieve_tiles(zoom, x, y, folderid):
