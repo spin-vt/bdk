@@ -354,3 +354,180 @@ def test_cannot_delete_own_organization(client):
     )
     assert resp.status_code == 400
     assert "belong" in resp.get_json()["message"].lower()
+
+
+# ------------------------------------------------- create user / org, membership
+
+
+def test_admin_creates_user_with_temp_password(client):
+    """Operator-created accounts (Decisions #4): created verified, a temp
+    password returned ONCE, optionally attached to an org at birth."""
+    from database.models import organization, user
+    from database.sessions import Session
+
+    op_id, csrf = _operator(client)
+    s = Session()
+    try:
+        org = organization(name="Birth Org", provider_id=7, brand_name="b")
+        s.add(org)
+        s.commit()
+        org_id = org.id
+    finally:
+        s.close()
+
+    resp = client.post(
+        "/admin/api/users/create",
+        headers=_csrf(csrf),
+        json={"email": "newhire@example.com", "organization_id": org_id},
+    )
+    assert resp.status_code == 200, resp.get_json()
+    body = resp.get_json()
+    temp = body["temp_password"]
+    assert temp
+
+    s = Session()
+    try:
+        u = s.query(user).filter_by(email="newhire@example.com").one()
+        assert u.verified is True  # operator-vouched
+        assert u.organization_id == org_id
+    finally:
+        s.close()
+    assert _audit("admin_create_user")
+
+    # The temp password works on the real login.
+    resp = client.post("/auth/login", data={"email": "newhire@example.com", "password": temp})
+    assert resp.status_code == 302
+
+    # Duplicate email is a plain-words 400.
+    resp = client.post(
+        "/admin/api/users/create",
+        headers=_csrf(csrf),
+        json={"email": "newhire@example.com"},
+    )
+    assert resp.status_code == 400
+
+
+def test_admin_creates_organization(client):
+    from database.models import organization
+    from database.sessions import Session
+
+    op_id, csrf = _operator(client)
+    resp = client.post(
+        "/admin/api/organizations/create",
+        headers=_csrf(csrf),
+        json={"name": "Fresh ISP", "provider_id": "330054"},
+    )
+    assert resp.status_code == 200, resp.get_json()
+    s = Session()
+    try:
+        org = s.query(organization).filter_by(name="Fresh ISP").one()
+        assert org.provider_id == 330054
+        assert org.brand_name == "Fresh ISP"  # brand follows the name at birth
+    finally:
+        s.close()
+    assert _audit("admin_create_org")
+
+    # Duplicate name refused; non-numeric provider id refused.
+    assert (
+        client.post(
+            "/admin/api/organizations/create", headers=_csrf(csrf), json={"name": "Fresh ISP"}
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            "/admin/api/organizations/create",
+            headers=_csrf(csrf),
+            json={"name": "Other", "provider_id": "FRN-123"},
+        ).status_code
+        == 400
+    )
+
+
+def test_admin_moves_user_between_orgs_and_out(client):
+    from database.models import organization, user
+    from database.sessions import Session
+
+    op_id, csrf = _operator(client)
+    uid = _make_user("mover@example.com")
+    s = Session()
+    try:
+        a = organization(name="Org A", provider_id=1, brand_name="a")
+        b = organization(name="Org B", provider_id=2, brand_name="b")
+        s.add_all([a, b])
+        s.commit()
+        a_id, b_id = a.id, b.id
+    finally:
+        s.close()
+
+    resp = client.post(
+        f"/admin/api/users/{uid}/organization", headers=_csrf(csrf), json={"organization_id": a_id}
+    )
+    assert resp.status_code == 200, resp.get_json()
+    resp = client.post(
+        f"/admin/api/users/{uid}/organization", headers=_csrf(csrf), json={"organization_id": b_id}
+    )
+    assert resp.status_code == 200
+    s = Session()
+    try:
+        u = s.query(user).filter_by(id=uid).one()
+        assert u.organization_id == b_id
+        assert u.is_admin is False  # org-admin never rides along across orgs
+    finally:
+        s.close()
+
+    # Remove from any org.
+    resp = client.post(
+        f"/admin/api/users/{uid}/organization", headers=_csrf(csrf), json={"organization_id": None}
+    )
+    assert resp.status_code == 200
+    s = Session()
+    try:
+        assert s.query(user).filter_by(id=uid).one().organization_id is None
+    finally:
+        s.close()
+    assert _audit("set_organization")
+
+    # Unknown org is a 404, not a crash.
+    resp = client.post(
+        f"/admin/api/users/{uid}/organization", headers=_csrf(csrf), json={"organization_id": 99999}
+    )
+    assert resp.status_code == 404
+
+
+def test_admin_toggles_org_admin(client):
+    from database.models import organization, user
+    from database.sessions import Session
+
+    op_id, csrf = _operator(client)
+    uid = _make_user("orgadmin@example.com")
+    s = Session()
+    try:
+        org = organization(name="Perm Org", provider_id=3, brand_name="p")
+        s.add(org)
+        s.flush()
+        s.query(user).filter_by(id=uid).one().organization_id = org.id
+        s.commit()
+    finally:
+        s.close()
+
+    resp = client.post(
+        f"/admin/api/users/{uid}/org-admin", headers=_csrf(csrf), json={"value": "true"}
+    )
+    assert resp.status_code == 200, resp.get_json()
+    s = Session()
+    try:
+        assert s.query(user).filter_by(id=uid).one().is_admin is True
+    finally:
+        s.close()
+    assert _audit("set_org_admin")
+
+    resp = client.post(
+        f"/admin/api/users/{uid}/org-admin", headers=_csrf(csrf), json={"value": "false"}
+    )
+    assert resp.status_code == 200
+    s = Session()
+    try:
+        assert s.query(user).filter_by(id=uid).one().is_admin is False
+    finally:
+        s.close()

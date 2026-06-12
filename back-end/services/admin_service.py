@@ -151,7 +151,88 @@ def send_password_reset_email(user_id, session):
         token=email_token,
         title="Reset Your Password for BDK",
         content="reset your password",
+        link_path=f"/auth/reset/{email_token}",
     )
+    return u
+
+
+def create_user(email, session, *, organization_id=None):
+    """Operator-created account (Decisions #4 — the real-world path): born
+    VERIFIED (the operator vouches; no email round-trip), optionally attached
+    to an org, with a random temporary password returned ONCE. The operator
+    relays it (or follows up with the reset-email button — the activation
+    flow)."""
+    from werkzeug.security import generate_password_hash
+
+    from utils.validation import is_valid_email
+
+    email = (email or "").strip()
+    if not is_valid_email(email):
+        raise ServiceError("Please provide a valid email address.", 400)
+    if session.query(user).filter(user.email == email).first() is not None:
+        raise ServiceError("A user with that email already exists.", 400)
+    if organization_id is not None:
+        org = session.query(organization).filter(organization.id == organization_id).first()
+        if org is None:
+            raise ServiceError("Organization not found", 404)
+    temp_password = secrets.token_urlsafe(12)
+    u = user(
+        email=email,
+        password=generate_password_hash(temp_password, method="pbkdf2:sha256"),
+        verified=True,
+        organization_id=organization_id,
+    )
+    session.add(u)
+    session.commit()
+    return temp_password, u
+
+
+def create_organization_admin(name, session, *, provider_id=None):
+    """Create an org from the admin panel. Brand follows the name at birth
+    (the same legacy-sync rule the org page keeps); provider id numeric."""
+    name = (name or "").strip()
+    if not name:
+        raise ServiceError("Please provide an organization name.", 400)
+    if session.query(organization).filter(organization.name == name).first() is not None:
+        raise ServiceError("That organization name is already in use.", 400)
+    pid = None
+    if provider_id not in (None, ""):
+        if not str(provider_id).strip().isdigit():
+            raise ServiceError(
+                "Provider ID is numbers only — the ID from the BDC account, not the FRN.", 400
+            )
+        pid = int(str(provider_id).strip())
+    org = organization(name=name, provider_id=pid, brand_name=name)
+    session.add(org)
+    session.commit()
+    return org
+
+
+def set_organization(user_id, organization_id, session):
+    """Attach a user to an org (or detach with None). Org-admin never rides
+    along — landing in an org (or leaving one) always means plain member."""
+    u = _require_user(user_id, session)
+    if organization_id is None:
+        u.organization_id = None
+        u.is_admin = False
+        session.commit()
+        return u, None
+    org = session.query(organization).filter(organization.id == organization_id).first()
+    if org is None:
+        raise ServiceError("Organization not found", 404)
+    u.organization_id = org.id
+    u.is_admin = False
+    session.commit()
+    return u, org
+
+
+def set_org_admin(user_id, value, session):
+    """The org-level admin flag (distinct from platform admin)."""
+    u = _require_user(user_id, session)
+    if u.organization_id is None:
+        raise ServiceError("The user isn't in an organization.", 400)
+    u.is_admin = bool(value)
+    session.commit()
     return u
 
 

@@ -3,6 +3,15 @@
 {% block title %}Users{% endblock %}
 {% block content %}
 <h1>Users</h1>
+<form class="actions" style="margin-bottom:12px" hx-post="/admin/api/users/create">
+  <input type="email" name="email" placeholder="new-user@example.com" required>
+  <select name="organization_id">
+    <option value="">no organization</option>
+    {% for o in organizations %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+  </select>
+  <button class="btn btn-primary" type="submit">Create user</button>
+  <span class="muted">born verified; the temp password shows once — or send a reset email after</span>
+</form>
 <input class="search" type="search" name="q" value="{{ q }}" placeholder="Filter by email…"
        hx-get="/admin/users?partial=1" hx-trigger="keyup changed delay:300ms, search"
        hx-target="#user-rows" hx-include="this">

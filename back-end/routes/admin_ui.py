@@ -133,7 +133,12 @@ def users():
     # htmx live-filter requests just want the rows.
     if request.headers.get("HX-Request") and request.args.get("partial"):
         return _render("admin/_user_rows.html", users=user_list)
-    return _render("admin/users.html", users=user_list, q=q or "")
+    return _render(
+        "admin/users.html",
+        users=user_list,
+        q=q or "",
+        organizations=admin_service.list_organizations(session),
+    )
 
 
 @bp.route("/admin/users/<int:user_id>", methods=["GET"])
@@ -146,7 +151,11 @@ def user_detail(user_id):
         target = admin_service.user_detail(user_id, session)
     except ServiceError:
         return redirect("/admin/users")
-    return _render("admin/user_detail.html", target=target)
+    return _render(
+        "admin/user_detail.html",
+        target=target,
+        organizations=admin_service.list_organizations(session),
+    )
 
 
 @bp.route("/admin/tasks", methods=["GET"])
@@ -161,3 +170,30 @@ def tasks():
 def audit():
     session = get_session()
     return _render("admin/audit.html", entries=admin_service.recent_audit(session))
+
+
+@bp.route("/admin/settings", methods=["GET", "POST"])
+@require_platform_admin
+def settings():
+    """Site-wide settings (currently just the theme every provider-facing page
+    renders with). Theme classes are defined in static/app/bdk.css."""
+    from controllers.database_controller import setting_ops
+
+    session = get_session()
+    error = None
+    saved = False
+    if request.method == "POST":
+        theme = (request.form.get("site_theme") or "").strip()
+        if theme not in setting_ops.SITE_THEMES:
+            error = "Unknown theme."
+        else:
+            setting_ops.set_setting("site_theme", theme, session)
+            log_action("set_site_theme", user_id=g.admin_user.id, details={"theme": theme})
+            saved = True
+    ctx = {
+        "themes": setting_ops.SITE_THEMES,
+        "current": setting_ops.get_site_theme(session),
+        "saved": saved,
+        "error": error,
+    }
+    return _render("admin/settings.html", **ctx), (400 if error else 200)
