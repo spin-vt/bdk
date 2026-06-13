@@ -132,6 +132,17 @@ def page_session_required(view):
     return wrapper
 
 
+@bp.route("/", strict_slashes=False)
+def root():
+    """The app's front door (live once nginx routes / here at cutover):
+    a signed-in user lands on the map, everyone else on the login page."""
+    try:
+        verify_jwt_in_request()
+        return redirect("/map")
+    except Exception:
+        return redirect("/auth/login")
+
+
 def _member_rows(org, me):
     rows = []
     for member in sorted(org.users, key=lambda u: u.email):

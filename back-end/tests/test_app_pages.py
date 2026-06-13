@@ -39,6 +39,18 @@ def test_unauthenticated_page_redirects_to_login(client, path):
     assert resp.headers["Location"].startswith("/auth/login")
 
 
+def test_root_routes_by_session(client):
+    """The app's front door (nginx hands / to the backend at cutover):
+    anonymous -> login, signed-in -> the map."""
+    resp = client.get("/")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].startswith("/auth/login")
+    login_page_session(client, email="rootdoor@example.com")
+    resp = client.get("/")
+    assert resp.status_code == 302
+    assert resp.headers["Location"] == "/map"
+
+
 @pytest.mark.parametrize("path", PAGE_PATHS)
 def test_authenticated_page_renders(client, path):
     login_page_session(client, email="pages@example.com")
