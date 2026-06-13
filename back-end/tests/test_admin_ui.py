@@ -190,3 +190,27 @@ def test_settings_rejects_unknown_theme(client):
     resp = client.post("/admin/settings", data={"csrf_token": csrf, "site_theme": "hotdog-stand"})
     assert resp.status_code == 400
     assert b"Unknown theme." in resp.data
+
+
+def test_settings_max_service_only_roundtrip(client, db_session):
+    """The export max-service toggle persists (checkbox on -> '1', absent ->
+    '0') and is read back by the export-path helper. Default is OFF."""
+    from controllers.database_controller.setting_ops import export_max_service_only
+
+    assert export_max_service_only(db_session) is False
+
+    _, csrf = _admin_session(client)
+    resp = client.post(
+        "/admin/settings",
+        data={"csrf_token": csrf, "site_theme": "civic-light", "export_max_service_only": "1"},
+    )
+    assert resp.status_code == 200 and b"Saved." in resp.data
+    db_session.expire_all()
+    assert export_max_service_only(db_session) is True
+    assert b"checked" in client.get("/admin/settings").data
+
+    # Unchecking (the field absent from the POST) turns it back off.
+    resp = client.post("/admin/settings", data={"csrf_token": csrf, "site_theme": "civic-light"})
+    assert resp.status_code == 200
+    db_session.expire_all()
+    assert export_max_service_only(db_session) is False

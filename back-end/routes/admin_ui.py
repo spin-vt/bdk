@@ -175,8 +175,8 @@ def audit():
 @bp.route("/admin/settings", methods=["GET", "POST"])
 @require_platform_admin
 def settings():
-    """Site-wide settings (currently just the theme every provider-facing page
-    renders with). Theme classes are defined in static/app/bdk.css."""
+    """Site-wide settings: the theme every provider-facing page renders with
+    (classes in static/app/bdk.css) and the export max-service-only toggle."""
     from controllers.database_controller import setting_ops
 
     session = get_session()
@@ -188,11 +188,18 @@ def settings():
             error = "Unknown theme."
         else:
             setting_ops.set_setting("site_theme", theme, session)
-            log_action("set_site_theme", user_id=g.admin_user.id, details={"theme": theme})
+            max_service = "1" if request.form.get("export_max_service_only") else "0"
+            setting_ops.set_setting("export_max_service_only", max_service, session)
+            log_action(
+                "set_site_settings",
+                user_id=g.admin_user.id,
+                details={"theme": theme, "export_max_service_only": max_service},
+            )
             saved = True
     ctx = {
         "themes": setting_ops.SITE_THEMES,
         "current": setting_ops.get_site_theme(session),
+        "max_service_only": setting_ops.export_max_service_only(session),
         "saved": saved,
         "error": error,
     }

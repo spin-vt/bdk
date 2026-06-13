@@ -14,6 +14,13 @@
     {% endfor %}
   </select>
   <p class="muted">Applied to every provider-facing page site-wide. Providers don't choose themes.</p>
+  <label>
+    <input type="checkbox" name="export_max_service_only" value="1" {{ 'checked' if max_service_only }}>
+    Only report maximum service at a location
+  </label>
+  <p class="muted">When on, generated BDC reports include just the fastest claim per location
+  (by download, then upload) instead of every technology claim. The BDC accepts multiple
+  claims per location, so this is off by default.</p>
   <button type="submit">Save</button>
 </form>
 {% endblock %}

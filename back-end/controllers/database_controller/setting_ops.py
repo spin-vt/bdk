@@ -21,3 +21,10 @@ def set_setting(key, value, session):
 def get_site_theme(session):
     theme = get_setting("site_theme", DEFAULT_THEME, session)
     return theme if theme in SITE_THEMES else DEFAULT_THEME
+
+
+def export_max_service_only(session):
+    """When on, the BDC export reports only the fastest claim per location
+    instead of every (location, technology) claim. Default OFF — the BDC
+    accepts multiple technology claims per location."""
+    return get_setting("export_max_service_only", "0", session) == "1"

@@ -47,3 +47,32 @@ def test_provider_and_brand_are_filled():
     df = generate_csv_data([_row(1), _row(2)], provider_id=330054, brand_name="Acme")
     assert (df.provider_id == 330054).all()
     assert (df.brand_name == "Acme").all()
+
+
+def test_default_reports_every_technology_claim():
+    """The BDC accepts multiple technology claims per location; by default a
+    location under several coverages files a row per technology."""
+    rows = [_row(1, tech=50), _row(1, tech=70), _row(1, tech=71)]
+    df = generate_csv_data(rows, provider_id=330054, brand_name="Acme")
+    assert set(zip(df.location_id, df.technology)) == {(1, 50), (1, 70), (1, 71)}
+
+
+def test_max_service_only_picks_the_fastest_claim_per_location():
+    """With max_service_only, a location files exactly ONE row — the fastest
+    claim: download desc, then upload desc, then low-latency first, then the
+    lowest technology code as a deterministic tiebreak. The surviving row
+    keeps its own values."""
+    rows = [
+        _row(1, tech=50, dl=1000, ul=1000),
+        _row(1, tech=70, dl=25, ul=3),  # slower -> dropped
+        _row(2, tech=70, dl=100, ul=50),
+        _row(2, tech=71, dl=100, ul=75),  # same download, faster upload -> wins
+        _row(3, tech=70, dl=100, ul=20, latency=0),
+        _row(3, tech=71, dl=100, ul=20, latency=1),  # low latency wins the tie
+        _row(4, tech=71, dl=100, ul=20),
+        _row(4, tech=70, dl=100, ul=20),  # full tie -> lowest tech code
+    ]
+    df = generate_csv_data(rows, provider_id=330054, brand_name="Acme", max_service_only=True)
+    assert set(zip(df.location_id, df.technology)) == {(1, 50), (2, 71), (3, 71), (4, 70)}
+    kept = df[df.location_id == 1].iloc[0]
+    assert kept.max_advertised_download_speed == 1000  # the winner's own values
