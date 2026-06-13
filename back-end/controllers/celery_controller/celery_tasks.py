@@ -424,9 +424,14 @@ def apply_edit_changes(self, markers, folderid, polygonfeatures):
                 + file_ops.get_files_with_postfix(user_folder.id, ".geojson", session)
             ]
 
+            from controllers.database_controller.setting_ops import export_max_service_only
+
             results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
             availability_csv = kml_ops.generate_csv_data(
-                results, user_folder.organization.provider_id, user_folder.organization.brand_name
+                results,
+                user_folder.organization.provider_id,
+                user_folder.organization.brand_name,
+                max_service_only=export_max_service_only(session),
             )
 
             csv_name = f"availability-{datetime.now().strftime('%Y-%m-%d_%H:%M:%S')}.csv"

@@ -259,7 +259,27 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, latency, categor
     return True
 
 
-def generate_csv_data(results, provider_id, brand_name):
+def filter_max_service(availability_csv):
+    """One BDC row per location: the fastest claim wins (download desc, then
+    upload desc, then low-latency first, then lowest technology code as a
+    deterministic tiebreak). The surviving row keeps its own values. The BDC
+    accepts multiple technology claims per location, so this is OPTIONAL
+    behavior behind the export_max_service_only site setting — default is to
+    report every claim."""
+    ordered = availability_csv.sort_values(
+        by=[
+            "max_advertised_download_speed",
+            "max_advertised_upload_speed",
+            "low_latency",
+            "technology",
+        ],
+        ascending=[False, False, False, True],
+        kind="mergesort",
+    )
+    return ordered.drop_duplicates(subset=["location_id"], keep="first")
+
+
+def generate_csv_data(results, provider_id, brand_name, max_service_only=False):
     availability_csv = pandas.DataFrame()
 
     availability_csv["location_id"] = [row.location_id for row in results]
@@ -274,6 +294,8 @@ def generate_csv_data(results, provider_id, brand_name):
     availability_csv.drop_duplicates(
         subset=["location_id", "technology"], keep="first", inplace=True
     )
+    if max_service_only:
+        availability_csv = filter_max_service(availability_csv)
     availability_csv = availability_csv[
         [
             "provider_id",
@@ -302,7 +324,11 @@ def export(folderid, providerid, brandname, deadline, session, dispatch_copy=Tru
     all_file_ids = [file.id for file in all_files]
     results = session.query(kml_data).filter(kml_data.file_id.in_(all_file_ids)).all()
 
-    availability_csv = generate_csv_data(results, providerid, brandname)
+    from .setting_ops import export_max_service_only
+
+    availability_csv = generate_csv_data(
+        results, providerid, brandname, max_service_only=export_max_service_only(session)
+    )
 
     output = io.BytesIO()
     availability_csv.to_csv(output, index=False, encoding="utf-8")
