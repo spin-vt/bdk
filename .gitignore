@@ -25,12 +25,14 @@ front-end/Map_marker.svg:Zone.Identifier
 
 pushgateway-*/
 profiling_data/
-data/
+/data/
+deploy/*/pgdata/
 .env.local
 helpful.txt
 .env.*
 !.env.example
 README.md
+!deploy/README.md
 
 # Real ISP data for local dev/test — never commit (sensitive FCC fabric/location data)
 dev-data/

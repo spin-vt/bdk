@@ -28,6 +28,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
+# Bake the application code into the image (as Dockerfile.worker does) so a
+# backend:<sha> image is a self-contained artifact: production pulls it from
+# the registry; code is never built or bind-mounted on the host. The dev
+# compose still bind-mounts ./back-end over /app for live reload (the venv at
+# /opt/venv is outside /app, so neither path hides it).
+COPY . .
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

@@ -1,0 +1,64 @@
+# BDK production — DATA host: PostgreSQL 16 + Redis + Celery worker/beat,
+# colocated (the heavy byte-flows are worker<->database). Code bind-mounted
+# from this checkout (pinned by deploy.sh). Real config in ./\.env.
+#
+# PGDATA lives on local fast disk via ./pgdata — keep this directory on the
+# NVMe volume. Resource caps come from .env (DB_CPUS etc.).
+#
+#   docker compose --env-file .env up -d
+
+services:
+  db:
+    # PostGIS-capable image, extension NOT created — enabling it later is a
+    # one-line migration instead of an image swap.
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    cpus: ${DB_CPUS}
+    mem_limit: ${DB_MEM_LIMIT}
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+
+  worker:
+    image: ghcr.io/spin-vt/worker:${TAG}
+    command: celery -A controllers.celery_controller.celery_config.celery worker -B --loglevel=INFO
+    restart: unless-stopped
+    cpus: ${WORKER_CPUS}
+    mem_limit: ${WORKER_MEM_LIMIT}
+    depends_on:
+      - db
+      - redis
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - PYTHONPATH=/app
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_TOKEN_LOCATION=${JWT_TOKEN_LOCATION}
+      - JWT_ACCESS_COOKIE_NAME=${JWT_ACCESS_COOKIE_NAME}
+      - IN_PRODUCTION=${IN_PRODUCTION}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
+      - MAIL_SERVER=${MAIL_SERVER}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_USE_TLS=${MAIL_USE_TLS}
+      - MAIL_USE_SSL=${MAIL_USE_SSL}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
