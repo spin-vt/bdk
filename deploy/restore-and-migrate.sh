@@ -20,6 +20,11 @@ cd "$DIR/data"
 DBC=$(docker compose --env-file .env ps -q db)
 [ -n "$DBC" ] || { echo "db container not running (docker compose up -d db first)"; exit 1; }
 
+# The postgis image auto-creates the (unused) extension on first boot; drop
+# it so its spatial_ref_sys table doesn't fail the emptiness check below.
+docker exec "$DBC" psql -U "$POSTGRES_USER" -d "$DB" -c \
+  "DROP EXTENSION IF EXISTS postgis CASCADE" >/dev/null
+
 TABLES=$(docker exec "$DBC" psql -U "$POSTGRES_USER" -d "$DB" -tAc \
   "SELECT count(*) FROM pg_tables WHERE schemaname='public'")
 [ "$TABLES" = "0" ] || { echo "database is not empty ($TABLES tables) — refusing to restore"; exit 1; }
