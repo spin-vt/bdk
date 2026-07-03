@@ -45,8 +45,13 @@ migrations against the empty database.
 
 ## Backups
 
-A nightly cron on the data host (see DEPLOYMENT notes; not part of compose):
+`backup.sh`, run nightly from cron on the data host (as the deploy user):
 
-    pg_dump -Fc -h localhost -U bdk bdk > /backups/bdk-$(date +%F).dump
+    0 3 * * * /opt/bdk/deploy/backup.sh >> /backups/backup.log 2>&1
 
-Keep at least 14 days and copy them off-host.
+It dumps through the db container (socket auth — no password on the host),
+writes atomically, and prunes to a tiered retention under `/backups`:
+14 daily, 8 weekly (Sundays), 12 monthly (the 1st). Worst-case disk is the
+sum of those counts times the dump size. Verify the first cron run produced
+a real file. The dumps hold provider data — trusted storage only; copy the
+monthlies off-host.
