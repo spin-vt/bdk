@@ -15,7 +15,6 @@ from flask_jwt_extended import (
     set_access_cookies,
     unset_jwt_cookies,
 )
-from werkzeug.security import check_password_hash
 
 from controllers.database_controller import setting_ops, user_ops
 from database.sessions import get_session
@@ -26,6 +25,7 @@ from routes._email import (
 )
 from services.audit import log_action
 from utils.flask_app import app, limiter
+from utils.passwords import needs_rehash, verify_password
 from utils.validation import is_valid_email
 
 bp = Blueprint("auth_pages", __name__, template_folder="../templates")
@@ -53,10 +53,14 @@ def login_submit():
     email = (request.form.get("email") or "").strip()
     pword = request.form.get("password") or ""
     user = user_ops.get_user_with_email(email)
-    if user is None or not check_password_hash(user.password, pword):
+    if user is None or not verify_password(user.password, pword):
         # Don't leak whether the email exists; record the attempted email.
         log_action("login_failed", details={"email": email})
         return _page("app/auth_login.html", error="Invalid credentials")
+    if needs_rehash(user.password):
+        # Legacy (pre-pbkdf2) hash: the user just proved the password, so
+        # upgrade the stored hash in place — no forced reset.
+        user_ops.reset_user_password(user.id, pword)
     if getattr(user, "disabled", False):
         log_action("login_disabled", user_id=user.id, resource_type="user", resource_id=user.id)
         return _page("app/auth_login.html", error="This account has been disabled.")
