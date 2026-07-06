@@ -139,6 +139,7 @@ def submission_debts(user_id, folderid, session):
     submission, in plain words with a place to fix it. Empty list = ready.
     Feeds the header badge ("N tasks to finish" / "Ready to submit") and the
     generate sheet — the app's only hard gate."""
+    from database.models import celerytaskinfo, fabric_data
     from database.models import file as file_model
     from services import plan_service
 
@@ -161,6 +162,49 @@ def submission_debts(user_id, folderid, session):
                 "fix": "/files?tab=fabric",
             }
         )
+    else:
+        # The file row is committed synchronously at upload, before — and
+        # regardless of whether — the worker import succeeds. The gate must
+        # key on locations actually having landed, or a failed import could
+        # be submitted as a filing with no fabric-derived served locations.
+        fabric_imported = (
+            session.query(fabric_data.id)
+            .join(file_model, fabric_data.file_id == file_model.id)
+            .filter(file_model.folder_id == folderVal.id, file_model.type == "fabric")
+            .first()
+            is not None
+        )
+        if not fabric_imported:
+            # Task status only shapes the wording; the fabric_data rows above
+            # are the source of truth for readiness.
+            latest_task = (
+                session.query(celerytaskinfo)
+                .filter(
+                    celerytaskinfo.organization_id == folderVal.organization_id,
+                    celerytaskinfo.operation_type == "Fabric",
+                    celerytaskinfo.folder_deadline == folderVal.deadline,
+                )
+                .order_by(celerytaskinfo.id.desc())
+                .first()
+            )
+            if latest_task is not None and latest_task.status in ("PENDING", "STARTED", "RETRY"):
+                debts.append(
+                    {
+                        "id": "fabric_import",
+                        "label": "Fabric import in progress",
+                        "sub": "locations are still loading — this clears when the import lands",
+                        "fix": "/files?tab=fabric",
+                    }
+                )
+            else:
+                debts.append(
+                    {
+                        "id": "fabric_import",
+                        "label": "Fabric import failed",
+                        "sub": "the upload didn't import any locations — retry or re-upload it",
+                        "fix": "/files?tab=fabric",
+                    }
+                )
 
     coverage_files = (
         session.query(file_model)
