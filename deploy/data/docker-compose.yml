@@ -37,6 +37,14 @@ services:
     restart: unless-stopped
     cpus: ${WORKER_CPUS}
     mem_limit: ${WORKER_MEM_LIMIT}
+    # tippecanoe opens temp files scaled to the host's core count plus
+    # per-tile geometry files; on a many-core host a large tile build blows
+    # through Docker's default soft limit of 1024 and dies with EMFILE
+    # ("Too many open files"), deterministically. 65536 gives it headroom.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       - db
       - redis
