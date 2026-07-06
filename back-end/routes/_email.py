@@ -12,10 +12,17 @@ from utils.flask_app import app, mail
 EMAIL_TOKEN_AUDIENCE = "bdk-email"
 
 
+# How long a verify/reset/join link stays valid. An hour, not minutes: users
+# routinely open these emails well after they arrive, and an expired link
+# reads as a broken product. Tokens are not single-use, so this is also the
+# replay window for an already-used link — keep it to hours, not days.
+EMAIL_TOKEN_LIFETIME = timedelta(minutes=60)
+
+
 def create_email_token(userid, email, operation, org_id=-1):
     # Expiry must be timezone-aware UTC: PyJWT treats a naive datetime as UTC,
     # so naive local time on a non-UTC host mints already-expired tokens.
-    expiration = datetime.now(UTC) + timedelta(minutes=15)
+    expiration = datetime.now(UTC) + EMAIL_TOKEN_LIFETIME
     email_token = jwt.encode(
         {
             "sub": {"id": userid, "email": email, "operation": operation, "org_id": org_id},

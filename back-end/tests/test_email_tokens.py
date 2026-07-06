@@ -77,3 +77,25 @@ def test_verify_email_token(client):
         assert s.query(user).filter(user.email == "verifyme@example.com").one().verified is True
     finally:
         s.close()
+
+
+def test_email_token_lifetime_is_an_hour(client):
+    """Users often come back to a verify/reset email well after it arrives;
+    15 minutes read as "broken link". Pin the intended 60-minute lifetime."""
+    import time
+
+    import jwt as pyjwt
+
+    from routes._email import EMAIL_TOKEN_AUDIENCE, create_email_token
+    from utils.flask_app import app
+
+    token = create_email_token(userid=1, email="ttl@example.com", operation="reset_password")
+    decoded = pyjwt.decode(
+        token,
+        app.config["JWT_SECRET_KEY"],
+        algorithms=["HS256"],
+        audience=EMAIL_TOKEN_AUDIENCE,
+        options={"verify_sub": False},
+    )
+    lifetime = decoded["exp"] - time.time()
+    assert 59 * 60 < lifetime <= 60 * 60
