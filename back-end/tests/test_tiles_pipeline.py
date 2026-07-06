@@ -267,3 +267,37 @@ def test_folder_copy_carries_rows_not_blob(db_session):
     assert len(copies) == 1
     assert copies[0].tile_data is None
     assert len(tile_rows(db_session, copies[0].id)) == n_rows
+
+
+# ------------------------------------------------- failure diagnosability
+
+
+def test_run_tippecanoe_surfaces_stderr_on_failure(monkeypatch):
+    """A failed tippecanoe must raise with its real stderr in the message —
+    that string is what lands in celerytaskinfo.result, and a bare
+    "returned non-zero exit status 1" made a prod tile failure undiagnosable
+    without shell access to the worker."""
+    import subprocess
+
+    from controllers.database_controller import vt_ops
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(
+            args=command, returncode=1, stderr=b"/tmp/geom.XXKZPVzn: Too many open files\n"
+        )
+
+    monkeypatch.setattr(vt_ops.subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="Too many open files"):
+        vt_ops.run_tippecanoe("tippecanoe -o out.mbtiles data.geojson")
+
+
+def test_run_tippecanoe_success_still_returns_zero(monkeypatch):
+    import subprocess
+
+    from controllers.database_controller import vt_ops
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(args=command, returncode=0, stderr=b"1234 features\n")
+
+    monkeypatch.setattr(vt_ops.subprocess, "run", fake_run)
+    assert vt_ops.run_tippecanoe("tippecanoe -o out.mbtiles data.geojson") == 0

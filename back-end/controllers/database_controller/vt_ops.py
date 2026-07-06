@@ -16,6 +16,7 @@ from sqlalchemy import desc
 from controllers.database_controller.kml_ops import get_kml_data
 from database.models import mbtiles, vector_tiles
 from database.sessions import Session
+from utils.logger_config import logger
 from utils.settings import DATABASE_URL
 
 from .file_ops import (
@@ -203,11 +204,18 @@ def add_values_to_VT(geojson_file_path, mbtiles_file_paths, folderid):
 
 
 def run_tippecanoe(command):
-    result = subprocess.run(command, shell=True, check=True, stderr=subprocess.PIPE)
-
-    if result.stderr:
-        print("Tippecanoe stderr:", result.stderr.decode())
-
+    """Run a tippecanoe/tile-join command, surfacing stderr on BOTH paths.
+    On failure the raised message must carry the real error: it is what gets
+    stored as the task result, and a bare "returned non-zero exit status 1"
+    leaves tile failures undiagnosable without shell access to the worker."""
+    result = subprocess.run(command, shell=True, stderr=subprocess.PIPE)
+    stderr = (result.stderr or b"").decode(errors="replace").strip()
+    if result.returncode != 0:
+        logger.error(f"tippecanoe failed (exit {result.returncode}): {stderr}\ncmd: {command}")
+        raise RuntimeError(f"tippecanoe exit {result.returncode}: {stderr[-2000:]}")
+    if stderr:
+        # tippecanoe reports progress/feature counts on stderr even on success.
+        logger.info(f"tippecanoe stderr: {stderr}")
     return result.returncode
 
 
