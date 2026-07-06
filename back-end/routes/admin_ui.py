@@ -7,7 +7,7 @@ deletes are driven from these pages via htmx calls to the /admin/api/* endpoints
 """
 
 from flask import Blueprint, g, redirect, render_template, request
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import generate_password_hash
 
 from controllers.database_controller import user_ops
 from database.sessions import get_session
@@ -15,6 +15,7 @@ from services import admin_service
 from services.audit import log_action
 from utils.admin_auth import ADMIN_COOKIE, mint_admin_session, require_platform_admin
 from utils.flask_app import limiter
+from utils.passwords import needs_rehash, verify_password
 from utils.settings import IN_PRODUCTION
 
 bp = Blueprint("admin_ui", __name__)
@@ -66,8 +67,12 @@ def login():
         and getattr(user, "is_platform_admin", False)
         and not getattr(user, "disabled", False)
         and user.password
-        and check_password_hash(user.password, password)
+        and verify_password(user.password, password)
     ):
+        if needs_rehash(user.password):
+            # Legacy (pre-pbkdf2) hash: the user just proved the password, so
+            # upgrade the stored hash in place — no forced reset.
+            user_ops.reset_user_password(user.id, password)
         token, _csrf = mint_admin_session(user.id)
         response = redirect("/admin/")
         _set_admin_cookie(response, token)
@@ -76,7 +81,7 @@ def login():
 
     # Equalize work on the failure path (absent / non-admin email) so response
     # time doesn't reveal which emails are platform admins.
-    check_password_hash(_DUMMY_PASSWORD_HASH, password)
+    verify_password(_DUMMY_PASSWORD_HASH, password)
     log_action("admin_login_failed", details={"email": email})
     return render_template(
         "admin/login.html", error="Invalid credentials or not a platform admin."

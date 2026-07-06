@@ -10,7 +10,6 @@ from flask_jwt_extended import (
     verify_jwt_in_request,
 )
 from jwt import ExpiredSignatureError
-from werkzeug.security import check_password_hash
 
 from controllers.database_controller import (
     user_ops,
@@ -24,6 +23,7 @@ from routes._email import (
 from services.audit import log_action
 from utils.flask_app import app, limiter
 from utils.logger_config import logger
+from utils.passwords import needs_rehash, verify_password
 from utils.validation import is_valid_email
 
 bp = Blueprint("auth", __name__)
@@ -189,7 +189,11 @@ def login():
     # Needs a try catch to return the correct message
     user = user_ops.get_user_with_email(email)
 
-    if user is not None and check_password_hash(user.password, pword):
+    if user is not None and verify_password(user.password, pword):
+        if needs_rehash(user.password):
+            # Legacy (pre-pbkdf2) hash: the user just proved the password, so
+            # upgrade the stored hash in place — no forced reset.
+            user_ops.reset_user_password(user.id, pword)
         # A soft-disabled account cannot obtain a fresh session. Checked
         # only after the password verifies, so we never reveal disabled status
         # to someone who doesn't already hold the credentials.
