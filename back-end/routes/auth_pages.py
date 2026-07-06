@@ -20,6 +20,7 @@ from controllers.database_controller import setting_ops, user_ops
 from database.sessions import get_session
 from routes._email import (
     EMAIL_TOKEN_AUDIENCE,
+    consume_email_token,
     create_email_token,
     send_verification_email_with_token,
 )
@@ -133,6 +134,13 @@ def verify_email(token):
         )
         if decoded["sub"]["operation"] != "email_address_verification":
             raise ValueError
+        if not consume_email_token(decoded):
+            # Re-clicks and mail-scanner prefetches replay this GET link; once
+            # the account is verified that's a success, not a broken link.
+            userVal = user_ops.get_user_with_id(decoded["sub"]["id"], session=session)
+            if userVal is not None and userVal.verified:
+                return _page("app/auth_verified.html", ok=True, error=None)
+            raise ValueError
         if not user_ops.verify_user_email(
             decoded["sub"]["id"], decoded["sub"]["email"], session, True
         ):
@@ -212,6 +220,12 @@ def reset_token_submit(token):
         email = decoded["sub"]["email"]
         if not user_ops.verify_user_email(user_id, email, session, False):
             raise ValueError
+        if not consume_email_token(decoded):
+            return _page(
+                "app/auth_reset_token.html",
+                token=token,
+                error="That link has already been used — request a new one.",
+            )
         user_ops.reset_user_password(user_id, new_password)
     except jwt.ExpiredSignatureError:
         return _page(

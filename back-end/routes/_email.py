@@ -1,7 +1,9 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import jwt
 from flask_mail import Message
+from sqlalchemy.exc import IntegrityError
 
 from utils.flask_app import app, mail
 
@@ -28,11 +30,47 @@ def create_email_token(userid, email, operation, org_id=-1):
             "sub": {"id": userid, "email": email, "operation": operation, "org_id": org_id},
             "exp": expiration,
             "aud": EMAIL_TOKEN_AUDIENCE,
+            # One-time-use handle: consume_email_token records it on first
+            # successful use, so a leaked/reused link can't be replayed.
+            "jti": uuid.uuid4().hex,
         },
         app.config["JWT_SECRET_KEY"],
         algorithm="HS256",
     )
     return email_token
+
+
+def consume_email_token(decoded):
+    """One-time-use gate. True the first time a decoded token is consumed;
+    False on replay or when the token has no jti (minted before stamping —
+    those age out within EMAIL_TOKEN_LIFETIME of the deploy).
+
+    Call it after the domain checks pass and before mutating anything. The
+    unique constraint on jti is the actual gate, so two concurrent uses of
+    the same token can't both win. Own short session on purpose: the
+    IntegrityError rollback must not discard request-scoped work."""
+    from database.models import used_email_token
+    from database.sessions import Session
+
+    jti = decoded.get("jti")
+    if not jti:
+        return False
+    # Column is a naive-UTC DateTime like the rest of the schema.
+    now = datetime.now(UTC).replace(tzinfo=None)
+    expires_at = datetime.fromtimestamp(decoded["exp"], UTC).replace(tzinfo=None)
+    session = Session()
+    try:
+        # Opportunistic prune: expired rows guard nothing (their JWTs are
+        # already dead), so the table stays bounded by the token lifetime.
+        session.query(used_email_token).filter(used_email_token.expires_at < now).delete()
+        session.add(used_email_token(jti=jti, expires_at=expires_at))
+        session.commit()
+        return True
+    except IntegrityError:
+        session.rollback()
+        return False
+    finally:
+        session.close()
 
 
 def send_verification_email_with_token(
