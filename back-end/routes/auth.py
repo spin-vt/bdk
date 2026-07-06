@@ -17,6 +17,7 @@ from controllers.database_controller import (
 from database.sessions import get_session
 from routes._email import (
     EMAIL_TOKEN_AUDIENCE,
+    consume_email_token,
     create_email_token,
     send_verification_email_with_token,
 )
@@ -69,6 +70,8 @@ def reset_password():
         user_id = decoded_token["sub"]["id"]
         email = decoded_token["sub"]["email"]
         if user_ops.verify_user_email(user_id, email, session, False):
+            if not consume_email_token(decoded_token):
+                return jsonify({"status": "error", "message": "Invalid token."}), 400
             user_ops.reset_user_password(user_id, new_password)
             return jsonify({"status": "success", "message": "Password reset successfully."}), 200
         else:
@@ -105,6 +108,9 @@ def verify_token():
         operation = decoded_token["sub"]["operation"]
 
         logger.debug(operation)
+
+        if not consume_email_token(decoded_token):
+            return jsonify({"status": "error", "message": "Invalid token."}), 400
 
         setVerified = True if operation == "email_address_verification" else False
         if user_ops.verify_user_email(user_id, email, session, setVerified):

@@ -99,3 +99,114 @@ def test_email_token_lifetime_is_an_hour(client):
     )
     lifetime = decoded["exp"] - time.time()
     assert 59 * 60 < lifetime <= 60 * 60
+
+
+def _user_id(email):
+    from database.models import user
+    from database.sessions import Session
+
+    s = Session()
+    try:
+        return s.query(user).filter(user.email == email).one().id
+    finally:
+        s.close()
+
+
+def test_reset_token_is_single_use(client):
+    from routes._email import create_email_token
+
+    _register(client, "once@example.com")
+    uid = _user_id("once@example.com")
+    token = create_email_token(userid=uid, email="once@example.com", operation="reset_password")
+
+    first = client.post("/api/reset_password", json={"token": token, "newPassword": "FirstNew1!"})
+    assert first.status_code == 200
+
+    replay = client.post(
+        "/api/reset_password", json={"token": token, "newPassword": "AttackerPick1!"}
+    )
+    assert replay.status_code == 400
+
+    # The replay changed nothing: the first new password still logs in.
+    login = client.post("/api/login", json={"email": "once@example.com", "password": "FirstNew1!"})
+    assert login.get_json()["status"] == "success"
+
+
+def test_verify_token_is_single_use(client):
+    from routes._email import create_email_token
+
+    _register(client, "onceverify@example.com")
+    uid = _user_id("onceverify@example.com")
+    token = create_email_token(
+        userid=uid, email="onceverify@example.com", operation="email_address_verification"
+    )
+
+    assert client.post("/api/verify_token", json={"token": token}).status_code == 200
+    assert client.post("/api/verify_token", json={"token": token}).status_code == 400
+
+
+def test_reset_page_token_is_single_use(client):
+    from routes._email import create_email_token
+
+    _register(client, "oncepage@example.com")
+    uid = _user_id("oncepage@example.com")
+    token = create_email_token(userid=uid, email="oncepage@example.com", operation="reset_password")
+
+    first = client.post(f"/auth/reset/{token}", data={"password": "FirstNew1!"})
+    assert first.status_code == 302  # success redirects to the login page
+
+    replay = client.post(f"/auth/reset/{token}", data={"password": "AttackerPick1!"})
+    assert replay.status_code == 200
+    assert "already been used" in replay.get_data(as_text=True)
+
+    login = client.post(
+        "/api/login", json={"email": "oncepage@example.com", "password": "FirstNew1!"}
+    )
+    assert login.get_json()["status"] == "success"
+
+
+def test_verify_link_replay_reads_as_verified(client):
+    """Mail scanners prefetch GET links and users re-click them; once the
+    account is verified, a replayed verify link should read as success, not
+    as a scary invalid-link page."""
+    from routes._email import create_email_token
+
+    _register(client, "reclick@example.com")
+    uid = _user_id("reclick@example.com")
+    token = create_email_token(
+        userid=uid, email="reclick@example.com", operation="email_address_verification"
+    )
+
+    for _ in range(2):
+        html = client.get(f"/auth/verify/{token}").get_data(as_text=True)
+        assert "not valid" not in html
+
+
+def test_token_without_jti_rejected(client):
+    """Tokens minted before one-time-use stamping carry no jti; they can't be
+    tracked, so they are refused rather than replayable forever."""
+    from datetime import UTC, datetime, timedelta
+
+    import jwt as pyjwt
+
+    from routes._email import EMAIL_TOKEN_AUDIENCE
+    from utils.flask_app import app
+
+    _register(client, "nojti@example.com")
+    uid = _user_id("nojti@example.com")
+    token = pyjwt.encode(
+        {
+            "sub": {
+                "id": uid,
+                "email": "nojti@example.com",
+                "operation": "reset_password",
+                "org_id": -1,
+            },
+            "exp": datetime.now(UTC) + timedelta(minutes=60),
+            "aud": EMAIL_TOKEN_AUDIENCE,
+        },
+        app.config["JWT_SECRET_KEY"],
+        algorithm="HS256",
+    )
+    resp = client.post("/api/reset_password", json={"token": token, "newPassword": "Sneaky1!"})
+    assert resp.status_code == 400

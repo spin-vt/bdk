@@ -584,6 +584,20 @@ class audit_log(Base):
     ip = Column(String, nullable=True)
 
 
+class used_email_token(Base):
+    """One-time-use ledger for email link tokens (verify / reset / join-org):
+    a token's jti is recorded on its first successful use and any replay is
+    refused. Rows are dead weight once expires_at passes (the JWT itself has
+    expired by then) and are pruned opportunistically on insert."""
+
+    __tablename__ = "used_email_token"
+    __table_args__ = (Index("ix_used_email_token_expires_at", "expires_at"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    jti = Column(String(36), unique=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+
 class site_setting(Base):
     """Site-wide key/value settings the platform operator controls from the
     admin panel (e.g. site_theme). Not per-org, not user-visible to edit."""
