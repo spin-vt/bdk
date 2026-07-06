@@ -504,3 +504,104 @@ def test_snapshots_never_leak_across_filings(client, db_session):
     # The lineage is explicit on the model, not inferred.
     snaps = db_session.query(folder_model).filter_by(type="export").all()
     assert {s.source_folder_id for s in snaps} == {folder_a.id, folder_b.id}
+
+
+# ----------------------------------------- fabric debt tracks import success
+
+
+def _seed_unimported_fabric(db_session, folder, task_status=None):
+    """A fabric file row whose async import never landed any fabric_data —
+    the state a filing is in while the worker runs, or after it failed."""
+    from controllers.database_controller import file_ops
+    from database.models import celerytaskinfo
+
+    f = file_ops.create_file(
+        filename="fabric.csv",
+        content=b"location_id\n",
+        folderid=folder.id,
+        filetype="fabric",
+        session=db_session,
+    )
+    db_session.commit()
+    if task_status is not None:
+        db_session.add(
+            celerytaskinfo(
+                task_id="00000000-0000-0000-0000-000000000000",
+                status=task_status,
+                operation_type="Fabric",
+                operation_detail="Add the fabric",
+                user_email="debts@example.com",
+                folder_deadline=folder.deadline,
+                organization_id=folder.organization_id,
+            )
+        )
+        db_session.commit()
+    return f
+
+
+def test_fabric_file_without_imported_rows_is_not_ready(db_session):
+    """The gate must key on the import having actually landed locations, not
+    on the file row (which is committed synchronously at upload, before —
+    and regardless of whether — the worker import succeeds)."""
+    from services import filing_service
+
+    org = H.make_org(db_session)
+    user = H.make_user(db_session, org_id=org.id, email="unimported@example.com")
+    folder = H.make_folder(db_session, org.id)
+    _make_ready(db_session, folder)  # everything else satisfied
+
+    # Wipe the imported rows, keeping the file row: simulates a failed import.
+    from database.models import fabric_data
+    from database.models import file as file_model
+
+    db_session.query(fabric_data).filter(
+        fabric_data.file_id.in_(
+            db_session.query(file_model.id).filter(
+                file_model.folder_id == folder.id, file_model.type == "fabric"
+            )
+        )
+    ).delete(synchronize_session=False)
+    db_session.commit()
+
+    debts = filing_service.submission_debts(user.id, folder.id, db_session)
+    assert {d["id"] for d in debts} == {"fabric_import"}
+
+
+def test_fabric_import_still_running_reads_as_in_progress(db_session):
+    from services import filing_service
+
+    org = H.make_org(db_session)
+    user = H.make_user(db_session, org_id=org.id, email="importing@example.com")
+    folder = H.make_folder(db_session, org.id)
+    _seed_unimported_fabric(db_session, folder, task_status="PENDING")
+
+    debts = filing_service.submission_debts(user.id, folder.id, db_session)
+    fabric_debt = next(d for d in debts if d["id"] == "fabric_import")
+    assert "in progress" in fabric_debt["label"].lower()
+
+
+def test_fabric_import_failure_reads_as_failed(db_session):
+    from services import filing_service
+
+    org = H.make_org(db_session)
+    user = H.make_user(db_session, org_id=org.id, email="failed@example.com")
+    folder = H.make_folder(db_session, org.id)
+    _seed_unimported_fabric(db_session, folder, task_status="FAILURE")
+
+    debts = filing_service.submission_debts(user.id, folder.id, db_session)
+    fabric_debt = next(d for d in debts if d["id"] == "fabric_import")
+    assert "failed" in fabric_debt["label"].lower()
+
+
+def test_fabric_import_debt_when_no_task_record(db_session):
+    """No task record at all (e.g. the row was lost): still not ready, with
+    the failed/retry wording rather than a false in-progress promise."""
+    from services import filing_service
+
+    org = H.make_org(db_session)
+    user = H.make_user(db_session, org_id=org.id, email="notask@example.com")
+    folder = H.make_folder(db_session, org.id)
+    _seed_unimported_fabric(db_session, folder, task_status=None)
+
+    debts = filing_service.submission_debts(user.id, folder.id, db_session)
+    assert any(d["id"] == "fabric_import" for d in debts)
