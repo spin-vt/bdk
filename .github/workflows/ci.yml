@@ -24,25 +24,6 @@ jobs:
       - name: pytest
         run: docker compose -f docker-compose.test.yml run --rm test
 
-  frontend:
-    name: frontend tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: front-end
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-          cache: npm
-          cache-dependency-path: front-end/package-lock.json
-      - name: install
-        run: npm ci
-      # Jest + React Testing Library component/contract tests (jsdom, no browser).
-      - name: jest
-        run: npm test -- --ci
-
   boot-smoke:
     name: backend boot smoke
     runs-on: ubuntu-latest

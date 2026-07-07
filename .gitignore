@@ -56,3 +56,6 @@ front-end/public/asgeojson
 # Python tool caches
 .ruff_cache/
 .pytest_cache/
+
+# Claude Code session data (worktrees, local settings)
+.claude/

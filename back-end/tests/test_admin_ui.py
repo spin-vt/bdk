@@ -179,7 +179,7 @@ def test_settings_theme_roundtrip_applies_to_app_pages(client):
     assert b"Saved." in resp.data
 
     # Every provider-facing page now renders with the chosen theme class.
-    client.post("/api/register", json={"email": "themed@example.com", "password": "Password123!"})
+    client.post("/auth/register", data={"email": "themed@example.com", "password": "Password123!"})
     page = client.get("/org")
     assert page.status_code == 200
     assert b"theme-civic-vt" in page.data

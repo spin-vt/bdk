@@ -1,7 +1,5 @@
 import base64
 import json
-import os
-import subprocess
 import time
 from datetime import datetime
 
@@ -17,7 +15,6 @@ from controllers.database_controller import (
     kml_ops,
     mbtiles_ops,
     organization_ops,
-    user_ops,
     vt_ops,
 )
 from database.models import file, kml_data, service_plan

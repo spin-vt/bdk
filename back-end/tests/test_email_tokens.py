@@ -1,7 +1,10 @@
-"""Regression: email/reset tokens use a dict `sub`, which PyJWT >= 2.10 rejects
-by default ("sub must be a string"). The reset_password / verify_token routes
-must decode with verify_sub=False, otherwise every password reset and email
-verification silently fails with "Invalid token".
+"""Email token behavior through the server-rendered auth flows.
+
+Regression: email/reset tokens use a dict `sub`, which PyJWT >= 2.10 rejects
+by default ("sub must be a string") — the consuming routes must decode with
+verify_sub=False or every password reset and email verification silently
+fails. Also pins the 60-minute token lifetime and one-time use (a consumed
+or pre-jti token can never reset a password again).
 """
 
 import pytest
@@ -24,53 +27,55 @@ def client(db_session):
 
 
 def _register(client, email, password="Password123!"):
-    return client.post("/api/register", json={"email": email, "password": password})
+    resp = client.post("/auth/register", data={"email": email, "password": password})
+    assert resp.status_code == 302, resp.get_data(as_text=True)
+    return resp
+
+
+def _user_id(email):
+    from database.models import user
+    from database.sessions import Session
+
+    s = Session()
+    try:
+        return s.query(user).filter(user.email == email).one().id
+    finally:
+        s.close()
+
+
+def _login_status(client, email, password):
+    """302 = credentials accepted; 200 = the login page re-rendered an error."""
+    return client.post("/auth/login", data={"email": email, "password": password}).status_code
 
 
 def test_reset_password_round_trip(client):
-    _register(client, "reset@example.com")
-    from database.models import user
-    from database.sessions import Session
     from routes._email import create_email_token
 
-    s = Session()
-    try:
-        uid = s.query(user).filter(user.email == "reset@example.com").one().id
-    finally:
-        s.close()
+    _register(client, "reset@example.com")
+    uid = _user_id("reset@example.com")
 
     token = create_email_token(userid=uid, email="reset@example.com", operation="reset_password")
-    resp = client.post(
-        "/api/reset_password", json={"token": token, "newPassword": "BrandNewPass1!"}
-    )
-    assert resp.status_code == 200, resp.get_json()
-    assert resp.get_json()["status"] == "success"
+    resp = client.post(f"/auth/reset/{token}", data={"password": "BrandNewPass1!"})
+    assert resp.status_code == 302
+    assert resp.headers["Location"] == "/auth/login"
 
     # The new password actually works.
-    login = client.post(
-        "/api/login", json={"email": "reset@example.com", "password": "BrandNewPass1!"}
-    )
-    assert login.get_json()["status"] == "success"
+    assert _login_status(client, "reset@example.com", "BrandNewPass1!") == 302
 
 
 def test_verify_email_token(client):
-    _register(client, "verifyme@example.com")
     from database.models import user
     from database.sessions import Session
     from routes._email import create_email_token
 
-    s = Session()
-    try:
-        uid = s.query(user).filter(user.email == "verifyme@example.com").one().id
-    finally:
-        s.close()
+    _register(client, "verifyme@example.com")
+    uid = _user_id("verifyme@example.com")
 
     token = create_email_token(
         userid=uid, email="verifyme@example.com", operation="email_address_verification"
     )
-    resp = client.post("/api/verify_token", json={"token": token})
-    assert resp.status_code == 200, resp.get_json()
-    assert resp.get_json()["status"] == "success"
+    html = client.get(f"/auth/verify/{token}").get_data(as_text=True)
+    assert "not valid" not in html
 
     s = Session()
     try:
@@ -101,50 +106,6 @@ def test_email_token_lifetime_is_an_hour(client):
     assert 59 * 60 < lifetime <= 60 * 60
 
 
-def _user_id(email):
-    from database.models import user
-    from database.sessions import Session
-
-    s = Session()
-    try:
-        return s.query(user).filter(user.email == email).one().id
-    finally:
-        s.close()
-
-
-def test_reset_token_is_single_use(client):
-    from routes._email import create_email_token
-
-    _register(client, "once@example.com")
-    uid = _user_id("once@example.com")
-    token = create_email_token(userid=uid, email="once@example.com", operation="reset_password")
-
-    first = client.post("/api/reset_password", json={"token": token, "newPassword": "FirstNew1!"})
-    assert first.status_code == 200
-
-    replay = client.post(
-        "/api/reset_password", json={"token": token, "newPassword": "AttackerPick1!"}
-    )
-    assert replay.status_code == 400
-
-    # The replay changed nothing: the first new password still logs in.
-    login = client.post("/api/login", json={"email": "once@example.com", "password": "FirstNew1!"})
-    assert login.get_json()["status"] == "success"
-
-
-def test_verify_token_is_single_use(client):
-    from routes._email import create_email_token
-
-    _register(client, "onceverify@example.com")
-    uid = _user_id("onceverify@example.com")
-    token = create_email_token(
-        userid=uid, email="onceverify@example.com", operation="email_address_verification"
-    )
-
-    assert client.post("/api/verify_token", json={"token": token}).status_code == 200
-    assert client.post("/api/verify_token", json={"token": token}).status_code == 400
-
-
 def test_reset_page_token_is_single_use(client):
     from routes._email import create_email_token
 
@@ -159,10 +120,9 @@ def test_reset_page_token_is_single_use(client):
     assert replay.status_code == 200
     assert "already been used" in replay.get_data(as_text=True)
 
-    login = client.post(
-        "/api/login", json={"email": "oncepage@example.com", "password": "FirstNew1!"}
-    )
-    assert login.get_json()["status"] == "success"
+    # The replay changed nothing: the first new password still logs in.
+    assert _login_status(client, "oncepage@example.com", "FirstNew1!") == 302
+    assert _login_status(client, "oncepage@example.com", "AttackerPick1!") == 200
 
 
 def test_verify_link_replay_reads_as_verified(client):
@@ -184,7 +144,7 @@ def test_verify_link_replay_reads_as_verified(client):
 
 def test_token_without_jti_rejected(client):
     """Tokens minted before one-time-use stamping carry no jti; they can't be
-    tracked, so they are refused rather than replayable forever."""
+    tracked, so the reset form refuses them rather than allow forever-replay."""
     from datetime import UTC, datetime, timedelta
 
     import jwt as pyjwt
@@ -208,5 +168,6 @@ def test_token_without_jti_rejected(client):
         app.config["JWT_SECRET_KEY"],
         algorithm="HS256",
     )
-    resp = client.post("/api/reset_password", json={"token": token, "newPassword": "Sneaky1!"})
-    assert resp.status_code == 400
+    resp = client.post(f"/auth/reset/{token}", data={"password": "Sneaky1!"})
+    assert resp.status_code == 200  # the error page, not the login redirect
+    assert _login_status(client, "nojti@example.com", "Sneaky1!") == 200  # unchanged

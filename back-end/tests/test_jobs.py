@@ -10,9 +10,7 @@ Pins:
     (a mid-chain crash leaves the chain's final task PENDING forever — this is
     the only thing that ever resolves those);
   - the SSE stream at /api/jobs/events (shared `token` session, org-scoped,
-    text/event-stream, pill+tray fragments, nginx buffering disabled);
-  - the /api/user-tasks contract the frozen SPA still relies on (previously
-    untested).
+    text/event-stream, pill+tray fragments, nginx buffering disabled).
 """
 
 from datetime import datetime, timedelta
@@ -359,32 +357,6 @@ def test_app_pages_carry_live_job_pill(client, db_session):
     assert "visibilitychange" in html  # hidden tabs must release their stream
     assert "Map updating…" in html
     assert "Reading 1 network file" in html
-
-
-# ------------------------------------------------- /api/user-tasks (SPA gate)
-
-
-def test_user_tasks_requires_auth(client):
-    assert client.get("/api/user-tasks").status_code == 401
-
-
-def test_user_tasks_splits_and_scopes_by_org(client, db_session):
-    s = db_session
-    login_page_session(client, email="spa@example.com")
-    org = _attach_org(s, "spa@example.com")
-    other = H.make_org(s, name="other-spa")
-    make_taskinfo(s, org.id, task_id="t-run", status="PENDING")
-    make_taskinfo(s, org.id, task_id="t-ok", status="SUCCESS")
-    make_taskinfo(s, other.id, task_id="t-leak", status="PENDING")
-
-    resp = client.get("/api/user-tasks")
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["status"] == "success"
-    in_progress = {t["task_id"] for t in data["in_progress_tasks"]}
-    finished = {t["task_id"] for t in data["finished_tasks"]}
-    assert in_progress == {"t-run"}
-    assert finished == {"t-ok"}
 
 
 def test_sweep_uses_tighter_threshold_for_generate_jobs(job_service, db_session):

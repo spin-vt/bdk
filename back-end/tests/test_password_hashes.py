@@ -6,7 +6,7 @@ raw ``check_password_hash`` raises ValueError and the login 500s instead of
 logging the user in. The fix (utils/passwords.py) verifies legacy hashes with
 the stdlib, never raises on malformed/None hashes, and transparently re-hashes
 the account to pbkdf2:sha256 on the next successful login. Covers all three
-login handlers: /auth/login, /api/login, /admin/login.
+login handlers: /auth/login and /admin/login.
 """
 
 import hashlib
@@ -128,17 +128,6 @@ def test_auth_login_migrates_legacy_hash(client):
     assert resp.status_code == 302
 
 
-def test_api_login_migrates_legacy_hash(client):
-    uid = _make_user("legacy2@example.com", _legacy_sha256_hash("Password123!"))
-
-    resp = client.post(
-        "/api/login", json={"email": "legacy2@example.com", "password": "Password123!"}
-    )
-    assert resp.status_code == 200
-    assert resp.get_json()["status"] == "success"
-    assert _stored_hash(uid).startswith("pbkdf2:")
-
-
 def test_admin_login_migrates_legacy_hash(client):
     uid = _make_user(
         "legacyadmin@example.com",
@@ -173,10 +162,6 @@ def test_malformed_hash_is_invalid_credentials_not_500(client):
         resp = client.post("/auth/login", data={"email": email, "password": "whatever"})
         assert resp.status_code == 200, email
         assert "Invalid credentials" in resp.get_data(as_text=True)
-
-        resp = client.post("/api/login", json={"email": email, "password": "whatever"})
-        assert resp.status_code == 200, email
-        assert resp.get_json()["status"] == "error"
 
         resp = client.post("/admin/login", data={"email": email, "password": "whatever"})
         assert resp.status_code == 401, email

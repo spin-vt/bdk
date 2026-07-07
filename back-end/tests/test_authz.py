@@ -1,13 +1,8 @@
-"""Authorization enforcement on existing app routes.
+"""Authorization enforcement on the auth routes.
 
-Two concrete gaps closed:
-  * a `disabled` user must not be able to log in;
-  * `delete_organization` must require an org admin (today any *member* of an
-    org can delete the whole org — it only checks the org name matches).
-
-Org-scoped read/write routes (filings/files/edit/export) are intentionally left
-open to any org member — that's the current product behavior and gating them
-would break non-admin members.
+A `disabled` user must not be able to log in — even with the correct
+password, no fresh session is issued. (Org deletion is admin-panel-only now;
+its guard is exercised by the admin API tests.)
 """
 
 import pytest
@@ -31,7 +26,9 @@ def client(db_session):
 
 
 def _register(client, email, password="Password123!"):
-    return client.post("/api/register", json={"email": email, "password": password})
+    resp = client.post("/auth/register", data={"email": email, "password": password})
+    assert resp.status_code == 302, resp.get_data(as_text=True)
+    return resp
 
 
 def _set_flags(email, **flags):
@@ -49,67 +46,26 @@ def _set_flags(email, **flags):
         s.close()
 
 
-# --- disabled blocks login --------------------------------------------------
-
-
 def test_disabled_user_cannot_login(client):
     _register(client, "disabled@example.com")
     _set_flags("disabled@example.com", disabled=True)
+    client.post("/auth/logout")
     resp = client.post(
-        "/api/login", json={"email": "disabled@example.com", "password": "Password123!"}
+        "/auth/login", data={"email": "disabled@example.com", "password": "Password123!"}
     )
-    body = resp.get_json()
-    assert body["status"] == "error"
-    # Correct password but disabled -> not authenticated, no fresh token issued.
-    assert (
-        "token=" not in resp.headers.get("Set-Cookie", "") or "disabled" in body["message"].lower()
+    # Correct password but disabled -> the page re-renders, no fresh token.
+    assert resp.status_code == 200
+    assert "disabled" in resp.get_data(as_text=True).lower()
+    assert not any(
+        c.startswith("token=") and "token=;" not in c for c in resp.headers.getlist("Set-Cookie")
     )
 
 
 def test_enabled_user_can_still_login(client):
     _register(client, "enabled@example.com")
+    client.post("/auth/logout")
     resp = client.post(
-        "/api/login", json={"email": "enabled@example.com", "password": "Password123!"}
+        "/auth/login", data={"email": "enabled@example.com", "password": "Password123!"}
     )
-    assert resp.get_json()["status"] == "success"
-
-
-# --- delete_organization requires org admin ---------------------------------
-
-
-def test_non_admin_member_cannot_delete_org(client):
-    # Admin creates the org.
-    _register(client, "owner@example.com")
-    _set_flags("owner@example.com", verified=True)
-    assert client.post("/api/create_organization", json={"orgName": "Acme ISP"}).status_code == 200
-
-    # A second user is a *member* of the same org but not an admin.
-    from database.models import user
-    from database.sessions import Session
-
-    s = Session()
-    try:
-        org_id = s.query(user).filter(user.email == "owner@example.com").one().organization_id
-    finally:
-        s.close()
-
-    from utils.flask_app import app
-
-    with H.CsrfFlaskClient(app) as member:
-        member.post(
-            "/api/register", json={"email": "member@example.com", "password": "Password123!"}
-        )
-        _set_flags("member@example.com", verified=True, organization_id=org_id, is_admin=False)
-        resp = member.delete("/api/delete_organization", json={"organizationName": "Acme ISP"})
-        assert resp.status_code == 403, resp.get_json()
-        assert resp.get_json()["status"] == "error"
-
-
-def test_org_admin_can_delete_own_org(client):
-    _register(client, "boss@example.com")
-    _set_flags("boss@example.com", verified=True)
-    assert client.post("/api/create_organization", json={"orgName": "Boss ISP"}).status_code == 200
-    # The creator is an org admin -> passes the guard (async delete runs eagerly).
-    resp = client.delete("/api/delete_organization", json={"organizationName": "Boss ISP"})
-    assert resp.status_code == 200, resp.get_json()
-    assert resp.get_json()["status"] == "success"
+    assert resp.status_code == 302
+    assert any(c.startswith("token=") for c in resp.headers.getlist("Set-Cookie"))

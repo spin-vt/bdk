@@ -73,23 +73,15 @@ def consume_email_token(decoded):
         session.close()
 
 
-def send_verification_email_with_token(
-    email, token, title, content, join_org=False, joining_email="", link_path=None
-):
+def send_verification_email_with_token(email, token, title, content, link_path=None):
     """link_path (e.g. "/auth/reset/<token>") adds a clickable link for the
-    new app's pages; the raw token stays in the body for the SPA's
-    paste-the-token flows until cutover."""
+    app's pages; the raw token stays in the body as a fallback."""
     import os
 
     msg = Message(title, recipients=[email])
     msg.content_subtype = "html"  # This sets the message content type to HTML
 
-    if join_org:
-        message_start = f"Dear BDK User,<br><br>A user has requested to join your organization. Please forward the following token to {joining_email} and request them to enter it on the BDK website to "
-    else:
-        message_start = (
-            "Dear BDK User,<br><br>Please enter the following token on the BDK website to "
-        )
+    message_start = "Dear BDK User,<br><br>Please enter the following token on the BDK website to "
 
     link_html = ""
     if link_path:

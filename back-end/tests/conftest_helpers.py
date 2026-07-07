@@ -207,6 +207,6 @@ def login_page_session(client, email, password="Password123!"):
     gets one: register through the real endpoint (which sets the cookie). Used
     by the server-rendered app-page tests; any page test should authenticate
     through this rather than minting tokens by hand."""
-    resp = client.post("/api/register", json={"email": email, "password": password})
-    assert resp.status_code == 200, resp.get_json()
+    resp = client.post("/auth/register", data={"email": email, "password": password})
+    assert resp.status_code == 302, resp.get_data(as_text=True)
     return resp

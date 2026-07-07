@@ -97,24 +97,6 @@ services:
     ports:
       - ${DEVELOP_BACKEND_PORT}:${DEVELOP_BACKEND_PORT}
 
-  frontend:
-    image: ${DOCKER_IMAGE_FRONTEND}
-    build: ./front-end
-    environment:
-      # API base URL the browser-side code calls; defaults to nginx on localhost.
-      - NEXT_PUBLIC_DEVELOP_BACKEND_URL=${NEXT_PUBLIC_DEVELOP_BACKEND_URL:-http://localhost}
-      # MapTiler basemap style URLs (optional — the app boots without them,
-      # the basemap is just blank until a key is configured).
-      - NEXT_PUBLIC_DEVELOP_MAPTILE_STREET=${NEXT_PUBLIC_DEVELOP_MAPTILE_STREET:-}
-      - NEXT_PUBLIC_DEVELOP_MAPTILE_SATELITE=${NEXT_PUBLIC_DEVELOP_MAPTILE_SATELITE:-}
-      - NEXT_PUBLIC_DEVELOP_MAPTILE_DARK=${NEXT_PUBLIC_DEVELOP_MAPTILE_DARK:-}
-    volumes:
-      - ./front-end:/app
-    depends_on:
-      - backend
-    ports:
-      - ${DEVELOP_FRONTEND_PORT}:${DEVELOP_FRONTEND_PORT}
-
   nginx:
     image: nginx:latest
     container_name: nginx-proxy
@@ -124,4 +106,3 @@ services:
       - ./nginx.conf.local:/etc/nginx/conf.d/default.conf
     depends_on:
       - backend
-      - frontend

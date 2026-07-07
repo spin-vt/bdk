@@ -105,10 +105,22 @@ def test_impersonate_sets_app_token_keeps_admin_session(client):
     # admin_session must NOT be cleared/overwritten by impersonation.
     assert "admin_session=" not in set_cookie
 
-    # The SPA now reports the impersonator (the operator's email) via /api/user.
-    me = client.get("/api/user")
-    assert me.status_code == 200, me.get_json()
-    assert me.get_json()["userinfo"]["impersonator"] == "operator@example.com"
+    # The minted app token is tagged with the operator, and it works as a
+    # real app session (the org page renders for the impersonated user).
+    import jwt as pyjwt
+
+    from utils.flask_app import app as flask_app
+
+    token = _token_from_set_cookie(resp)
+    claims = pyjwt.decode(
+        token,
+        flask_app.config["JWT_SECRET_KEY"],
+        algorithms=["HS256"],
+        options={"verify_sub": False, "verify_aud": False},
+    )
+    assert claims["sub"]["id"] == target
+    assert claims["sub"]["impersonator"] == op_id
+    assert client.get("/org").status_code == 200
 
     assert len(_audit("impersonate_start")) == 1
 
@@ -183,8 +195,8 @@ def test_reset_password_temp_returns_working_password(client):
     assert temp
 
     # The temp password actually logs the user in.
-    login = client.post("/api/login", json={"email": "needsreset@example.com", "password": temp})
-    assert login.get_json()["status"] == "success"
+    login = client.post("/auth/login", data={"email": "needsreset@example.com", "password": temp})
+    assert login.status_code == 302
 
     # The plaintext must never be written to the audit trail.
     rows = _audit("password_reset_temp")
@@ -231,9 +243,10 @@ def test_toggle_verified_and_disabled(client):
 
     # Disabled now blocks login.
     login = client.post(
-        "/api/login", json={"email": "flags@example.com", "password": "Password123!"}
+        "/auth/login", data={"email": "flags@example.com", "password": "Password123!"}
     )
-    assert login.status_code == 403
+    assert login.status_code == 200
+    assert "disabled" in login.get_data(as_text=True).lower()
 
 
 def test_cannot_revoke_own_platform_admin(client):
