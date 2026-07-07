@@ -34,7 +34,7 @@ jobs:
       # suite runs in-process with a memory:// limiter, so it can't catch "the
       # image won't even start" — a dep missing from the lock, a Redis-storage
       # boot failure, a broken migration, or WSGI wiring. `--wait` fails the job
-      # if /api never becomes healthy.
+      # if /healthz never answers.
       - name: boot + health-check /api
         run: docker compose -f docker-compose.smoke.yml up --build --wait --wait-timeout 240
       - name: backend logs (on failure)

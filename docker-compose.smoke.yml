@@ -69,12 +69,12 @@ services:
     # Boot the prod WSGI server (entrypoint runs `alembic upgrade head` first).
     command: gunicorn routes:app -b 0.0.0.0:8000 -w 2 --threads 4
     healthcheck:
-      # No curl in the image; use python. /api is the lightweight health route.
+      # No curl in the image; use python. /healthz is the liveness route.
       test:
         - "CMD"
         - "python"
         - "-c"
-        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api',timeout=3).status==200 else 1)"
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz',timeout=3).status==200 else 1)"
       interval: 4s
       timeout: 5s
       retries: 25
