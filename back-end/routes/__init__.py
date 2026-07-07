@@ -24,7 +24,6 @@ from routes.submissions_page import bp as submissions_page_bp  # server-rendered
 from routes.tasks import bp as tasks_bp
 from routes.tiles import bp as tiles_bp
 from routes.users import bp as users_bp
-from routes.wireless import bp as wireless_bp
 from utils.flask_app import app
 
 _blueprints = (
@@ -48,7 +47,6 @@ _blueprints = (
     tasks_bp,
     tiles_bp,
     users_bp,
-    wireless_bp,
 )
 
 for _bp in _blueprints:
