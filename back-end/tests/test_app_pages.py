@@ -131,3 +131,11 @@ def test_header_filing_label_has_year_and_countdown(client, db_session):
         assert "completed Aug 15, 2025" in html
     finally:
         s.close()
+
+
+def test_healthz_is_public_and_cheap(client):
+    """The boot smoke (CI) and deploy tooling health-check this: it must
+    answer 200 without auth, a DB, or a session."""
+    resp = client.get("/healthz")
+    assert resp.status_code == 200
+    assert resp.get_json() == {"status": "ok"}

@@ -13,7 +13,7 @@ admin panel) is applied as a class on <body> by the base layout.
 from datetime import date
 from functools import wraps
 
-from flask import Blueprint, g, make_response, redirect, render_template, request
+from flask import Blueprint, g, jsonify, make_response, redirect, render_template, request
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from controllers.database_controller import folder_ops, organization_ops, setting_ops, user_ops
@@ -130,6 +130,14 @@ def page_session_required(view):
         return view(*args, identity=identity, **kwargs)
 
     return wrapper
+
+
+@bp.route("/healthz")
+def healthz():
+    """Liveness probe for the CI boot smoke and deploy tooling. Deliberately
+    touches nothing (no auth, no DB): it answers "is the WSGI app up", so a
+    degraded dependency can't wedge the container health loop."""
+    return jsonify({"status": "ok"})
 
 
 @bp.route("/", strict_slashes=False)
