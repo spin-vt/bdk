@@ -31,6 +31,7 @@ from controllers.database_controller import (
 )
 from database.models import fabric_data, kml_data, supplemental_data
 from services import fabric_intake
+from services.audit import log_action
 from services.exceptions import ServiceError
 
 ROLE_TO_TYPE = {
@@ -166,6 +167,13 @@ def intake_fabric(user_id, folderid, filename, data, session, override_vintage=F
         files_changed=", ".join(f.name for f in new_files),
     )
 
+    log_action(
+        "upload",
+        user_id=user.id,
+        resource_type="folder",
+        resource_id=folderid,
+        details={"kind": "fabric", "task_id": result.id, "files": [f.name for f in new_files]},
+    )
     return {
         "task_id": result.id,
         "roles": roles,
