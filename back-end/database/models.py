@@ -27,7 +27,6 @@ class organization(Base):
     brand_name = Column(String(50))
     users = relationship("user", back_populates="organization")
     folders = relationship("folder", back_populates="organization", cascade="all, delete")
-    towers = relationship("tower", back_populates="organization", cascade="all, delete")
     celerytasksinfo = relationship(
         "celerytaskinfo", back_populates="organization", cascade="all, delete"
     )
@@ -70,58 +69,6 @@ class celerytaskinfo(Base):
     files_changed = Column(String, nullable=True)
     organization_id = Column(Integer, ForeignKey("organization.id"))
     organization = relationship("organization", back_populates="celerytasksinfo")
-
-
-class tower(Base):
-    __tablename__ = "tower"
-
-    id = Column(Integer, primary_key=True)
-    tower_name = Column(String, nullable=False)
-    organization_id = Column(Integer, ForeignKey("organization.id"), nullable=False)
-
-    # Relationship to TowerInfo and RasterData models (assuming they exist)
-    organization = relationship("organization", back_populates="towers")
-    tower_info = relationship(
-        "towerinfo", back_populates="tower", uselist=False, cascade="all, delete"
-    )
-    raster_data = relationship(
-        "rasterdata", back_populates="tower", uselist=False, cascade="all, delete"
-    )
-
-
-class towerinfo(Base):
-    __tablename__ = "towerinfo"
-
-    id = Column(Integer, primary_key=True)
-    latitude = Column(String)
-    longitude = Column(String)
-    frequency = Column(String)
-    radius = Column(String)
-    antennaHeight = Column(String)
-    antennaTilt = Column(String)
-    horizontalFacing = Column(String)
-    floorLossRate = Column(String)
-
-    # One-to-one relationship with Tower
-    tower_id = Column(Integer, ForeignKey("tower.id", ondelete="CASCADE"))
-    tower = relationship("tower", back_populates="tower_info", uselist=False)
-
-
-class rasterdata(Base):
-    __tablename__ = "rasterdata"
-
-    id = Column(Integer, primary_key=True)
-    image_data = Column(LargeBinary)  # for storing binary image data
-    transparent_image_data = Column(LargeBinary)
-    loss_color_mapping = Column(JSON)
-    north_bound = Column(String)
-    south_bound = Column(String)
-    east_bound = Column(String)
-    west_bound = Column(String)
-
-    # One-to-one relationship with Tower
-    tower_id = Column(Integer, ForeignKey("tower.id", ondelete="CASCADE"))
-    tower = relationship("tower", back_populates="raster_data", uselist=False)
 
 
 class folder(Base):  # filing, will change the name later for less confusion when reading

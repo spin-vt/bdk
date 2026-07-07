@@ -38,13 +38,14 @@ def _alembic_config():
 
 
 def _drop_everything(engine):
-    """Return the database to a blank slate (no ORM tables, no alembic_version)."""
-    import database.models  # noqa: F401  registers every table on Base.metadata
-    from database.base import Base
-
-    Base.metadata.drop_all(engine)
+    """Return the database to a blank slate (no tables at all, no
+    alembic_version). Recreate the schema rather than metadata.drop_all:
+    drop_all only knows the CURRENT models, so a table that a migration (or a
+    stale test run) created and a later change removed from the models would
+    survive and break the next drop on its foreign keys."""
     with engine.begin() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
 
 
 @pytest.mark.usefixtures("_require_db")
