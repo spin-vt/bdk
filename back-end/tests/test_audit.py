@@ -125,3 +125,89 @@ def test_org_create_audited(client):
     client.post("/org/create", data={"name": "Audit ISP"})
     assert len(_rows("org_create")) == 1
     assert _rows("org_create")[0].details.get("name") == "Audit ISP"
+
+
+# ------------------------------------------------------------------- uploads
+
+
+@pytest.fixture()
+def no_tiles(monkeypatch):
+    from controllers.celery_controller import celery_tasks as ct
+
+    monkeypatch.setattr(ct, "_coalesced_tile_rebuild", lambda *a, **k: "stubbed")
+
+
+POLYGON_GEOJSON = b"""{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},
+"geometry":{"type":"Polygon","coordinates":[[[-80.01,37.27],[-79.90,37.27],[-79.90,37.31],
+[-80.01,37.31],[-80.01,37.27]]]}}]}"""
+
+FABRIC_ROWS = [
+    (1001, "1 MAIN ST", "TRUE", 37.28, -79.95, "51161", "VA"),
+    (1002, "2 ELM AVE", "TRUE", 37.50, -79.95, "51161", "VA"),
+]
+
+
+def _login_with_filing(client, db_session, email):
+    from datetime import date
+
+    _register(client, email)
+    uid = _verify(email)
+    org = H.make_org(db_session, name=f"audit-org-{email}")
+    from database.models import user
+
+    u = db_session.query(user).filter(user.id == uid).one()
+    u.organization_id = org.id
+    db_session.commit()
+    folder = H.make_folder(db_session, org.id, deadline=date(2025, 9, 1))
+    return org, folder
+
+
+def test_coverage_upload_audited(client, db_session, no_tiles):
+    """Every ingest of provider data must land in the audit trail — this is
+    an FCC-filing system. Regression: the server-rendered upload paths
+    originally wrote no audit rows at all."""
+    import io
+
+    from tests.conftest_helpers import make_active_fabric_csv
+
+    org, folder = _login_with_filing(client, db_session, "covaudit@example.com")
+    H.seed_fabric(db_session, folder.id, make_active_fabric_csv(FABRIC_ROWS))
+
+    resp = client.post(
+        "/files/coverage/upload",
+        data={"network_files": [(io.BytesIO(POLYGON_GEOJSON), "sector.geojson")]},
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 200
+
+    rows = _rows("upload")
+    assert len(rows) == 1
+    assert rows[0].resource_type == "folder"
+    assert rows[0].resource_id == folder.id
+    assert rows[0].details.get("kind") == "coverage"
+    assert rows[0].details.get("files") == ["sector.geojson"]
+    assert rows[0].details.get("task_id")
+
+
+def test_fabric_upload_audited(client, db_session, no_tiles):
+    import io
+
+    from tests.conftest_helpers import make_active_fabric_csv
+
+    org, folder = _login_with_filing(client, db_session, "fabaudit@example.com")
+    csv_bytes = make_active_fabric_csv(FABRIC_ROWS)
+
+    resp = client.post(
+        "/files/fabric/upload",
+        data={"fabric_file": (io.BytesIO(csv_bytes), "FCC_Active_BSL_06302025_ver7.csv")},
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 200
+
+    rows = _rows("upload")
+    assert len(rows) == 1
+    assert rows[0].resource_type == "folder"
+    assert rows[0].resource_id == folder.id
+    assert rows[0].details.get("kind") == "fabric"
+    assert rows[0].details.get("files") == ["FCC_Active_BSL_06302025_ver7.csv"]
+    assert rows[0].details.get("task_id")

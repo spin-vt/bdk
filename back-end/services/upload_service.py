@@ -28,6 +28,7 @@ from controllers.celery_controller.celery_tasks import (
     process_data,
 )
 from controllers.database_controller import celerytaskinfo_ops, folder_ops, user_ops
+from services.audit import log_action
 from services.exceptions import ServiceError
 from utils.logger_config import logger
 
@@ -172,6 +173,15 @@ def dispatch_upload(
         folder_deadline=deadline,
         session=session,
         files_changed=concatenated_filenames,
+    )
+    # The audit row is the tamper-evident record (celerytaskinfo is
+    # operational state); every ingest of provider data must land here.
+    log_action(
+        "upload",
+        user_id=user_id,
+        resource_type="folder",
+        resource_id=folderid if folderid != -1 else None,
+        details={"kind": "coverage", "task_id": result.id, "files": filenames},
     )
     return result.id
 
