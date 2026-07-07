@@ -46,7 +46,7 @@ A video demonstration of how to use this tool will be provided at a later date
 
 | Category                   | Technology/Libraries                                 |
 |----------------------------|------------------------------------------------------|
-| Client                 | 🌐 [Next.js](https://nextjs.org/)                |
+| Client                 | 🌐 Server-rendered Flask (Jinja2 + htmx)         |
 | Server                 | 🚀 [Flask](https://flask.palletsprojects.com/)   |
 | Database               | 📦 [PostgreSQL](https://www.postgresql.org/)     |
 | Asynchronous Processing| 🔄 Redis & [Celery](https://docs.celeryproject.org/en/stable/) |

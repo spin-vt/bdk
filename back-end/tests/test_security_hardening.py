@@ -1,10 +1,10 @@
-"""Security hardening of the existing app's auth surface.
+"""Security hardening of the app's auth surface.
 
 Pins: email tokens are purpose-bound (aud) and UTC-expiring; tokens of one
-type can't be replayed as another; profile/registration input is validated
-(notably: a missing JSON field must never coerce to the string "None");
-the session cookie is HttpOnly even in dev; a disabled user's outstanding
-token stops working immediately; prod refuses a weak JWT secret.
+type can't be replayed as another; registration input is validated; the
+session cookie is HttpOnly even in dev; cookie-auth'd mutating API calls
+require the CSRF double-submit header; a disabled user's outstanding token
+stops working immediately; prod refuses a weak JWT secret.
 """
 
 from datetime import UTC
@@ -29,8 +29,8 @@ def client(db_session):
 
 
 def _register(client, email="sec@example.com", password="Password123!"):
-    resp = client.post("/api/register", json={"email": email, "password": password})
-    assert resp.status_code == 200, resp.get_json()
+    resp = client.post("/auth/register", data={"email": email, "password": password})
+    assert resp.status_code == 302, resp.get_data(as_text=True)
     return resp
 
 
@@ -70,8 +70,8 @@ def test_email_token_round_trip_and_claims(client, db_session):
     )
     assert decoded["exp"] > datetime.now(UTC).timestamp()
 
-    resp = client.post("/api/verify_token", json={"token": token})
-    assert resp.status_code == 200, resp.get_json()
+    html = client.get(f"/auth/verify/{token}").get_data(as_text=True)
+    assert "not valid" not in html
     db_session.expire_all()
     assert _user(db_session).verified is True
 
@@ -88,12 +88,15 @@ def test_app_token_rejected_as_email_token(client, db_session):
     with app.app_context():
         app_token = create_access_token(identity={"id": uid})
 
-    resp = client.post("/api/verify_token", json={"token": app_token})
-    assert resp.status_code == 400
-    resp = client.post(
-        "/api/reset_password", json={"token": app_token, "newPassword": "NewPass123!"}
-    )
-    assert resp.status_code == 400
+    html = client.get(f"/auth/verify/{app_token}").get_data(as_text=True)
+    assert "not valid" in html
+
+    resp = client.post(f"/auth/reset/{app_token}", data={"password": "NewPass123!"})
+    assert resp.status_code == 200  # the error page, not the success redirect
+    # The password did not change: the original still logs in.
+    client.post("/auth/logout")
+    ok = client.post("/auth/login", data={"email": "sec@example.com", "password": "Password123!"})
+    assert ok.status_code == 302
 
 
 def test_email_token_rejected_as_session_cookie(client, db_session):
@@ -107,9 +110,10 @@ def test_email_token_rejected_as_session_cookie(client, db_session):
         userid=uid, email="sec@example.com", operation="email_address_verification"
     )
     client.set_cookie("token", token)
-    resp = client.get("/api/user")
     # 422 = flask-jwt-extended's "wrong audience" rejection; 401 = no/invalid
-    # token. Either way: not authenticated.
+    # token. Either way: not authenticated (an authenticated call would 404
+    # on the bad tile coordinates instead).
+    resp = client.get("/api/tiles/abc/9/143/199.pbf")
     assert resp.status_code in (401, 422)
 
 
@@ -122,105 +126,49 @@ def _csrf_headers(client):
 
 
 def test_mutating_request_requires_csrf_header(client, db_session):
-    """Login sets a JS-readable csrf_access_token cookie; mutating API calls
-    must echo it in X-CSRF-TOKEN (double-submit), so a cross-site form can't
-    ride the session cookie."""
+    """Registration sets a JS-readable csrf_access_token cookie; mutating API
+    calls must echo it in X-CSRF-TOKEN (double-submit), so a cross-site form
+    can't ride the session cookie."""
     _register(client)
     assert client.get_cookie("csrf_access_token") is not None
 
-    resp = client.post("/api/update_profile", json={})  # no header
+    body = {"file_ids": [], "editfile_ids": []}
+    resp = client.delete("/api/delfiles", json=body)  # no header
     assert resp.status_code == 401
 
-    resp = client.post("/api/update_profile", json={}, headers=_csrf_headers(client))
-    assert resp.status_code == 200, resp.get_json()
+    # With the header the CSRF gate passes and the handler's own validation
+    # answers instead (empty selection -> 400).
+    resp = client.delete("/api/delfiles", json=body, headers=_csrf_headers(client))
+    assert resp.status_code == 400
 
 
 def test_get_requests_do_not_need_csrf(client, db_session):
     _register(client)
-    resp = client.get("/api/user")
-    assert resp.status_code == 200
-
-
-# --- profile update input validation -----------------------------------------
-
-
-def _setup_profile_user(client, db_session):
-    from database.models import organization
-
-    _register(client)
-    s = db_session
-    u = _user(s)
-    org = organization(name="SecOrg", provider_id=330054, brand_name="SecBrand")
-    s.add(org)
-    s.commit()
-    u.organization_id = org.id
-    u.verified = True
-    s.commit()
-    return u, org
-
-
-def test_update_profile_empty_body_changes_nothing(client, db_session):
-    """A missing field must never coerce to the literal string 'None'."""
-    u, org = _setup_profile_user(client, db_session)
-    resp = client.post("/api/update_profile", json={}, headers=_csrf_headers(client))
-    assert resp.status_code == 200, resp.get_json()
-    db_session.expire_all()
-    assert u.email == "sec@example.com"
-    assert u.verified is True
-    assert org.brand_name == "SecBrand"
-    assert org.name == "SecOrg"
-
-
-def test_update_profile_rejects_invalid_email(client, db_session):
-    u, _ = _setup_profile_user(client, db_session)
-    resp = client.post(
-        "/api/update_profile", json={"email": "not-an-email"}, headers=_csrf_headers(client)
-    )
-    assert resp.status_code == 400
-    db_session.expire_all()
-    assert u.email == "sec@example.com"
-
-
-def test_update_profile_rejects_taken_email(client, db_session):
-    u, _ = _setup_profile_user(client, db_session)
-    from controllers.database_controller import user_ops
-
-    user_ops.create_user_in_db("other@example.com", "Password123!", db_session)
-    db_session.commit()
-    resp = client.post(
-        "/api/update_profile", json={"email": "other@example.com"}, headers=_csrf_headers(client)
-    )
-    assert resp.status_code == 400
-    db_session.expire_all()
-    assert u.email == "sec@example.com"
-
-
-def test_update_profile_valid_changes_apply(client, db_session):
-    u, org = _setup_profile_user(client, db_session)
-    resp = client.post(
-        "/api/update_profile",
-        json={"email": "new@example.com", "brandName": "NewBrand", "organizationName": "NewOrg"},
-        headers=_csrf_headers(client),
-    )
-    assert resp.status_code == 200, resp.get_json()
-    db_session.expire_all()
-    assert u.email == "new@example.com"
-    assert u.verified is False  # changed email needs re-verification
-    assert org.brand_name == "NewBrand"
-    assert org.name == "NewOrg"
+    # No X-CSRF-TOKEN header: an authenticated GET must not 401; the bad tile
+    # coordinates 404 instead.
+    resp = client.get("/api/tiles/abc/9/143/199.pbf")
+    assert resp.status_code == 404
 
 
 # --- registration input validation --------------------------------------------
 
 
-def test_register_rejects_invalid_email(client):
-    resp = client.post("/api/register", json={"email": "nope", "password": "Password123!"})
-    assert resp.status_code == 400
+def test_register_rejects_invalid_email(client, db_session):
+    from database.models import user
+
+    resp = client.post("/auth/register", data={"email": "nope", "password": "Password123!"})
+    assert resp.status_code == 200
+    assert "valid email" in resp.get_data(as_text=True)
+    assert db_session.query(user).filter(user.email == "nope").first() is None
 
 
-def test_register_rejects_empty_password(client):
-    resp = client.post("/api/register", json={"email": "ok@example.com", "password": ""})
-    assert resp.status_code == 400
+def test_register_rejects_empty_password(client, db_session):
+    from database.models import user
+
+    resp = client.post("/auth/register", data={"email": "ok@example.com", "password": ""})
+    assert resp.status_code == 200
+    assert "password" in resp.get_data(as_text=True).lower()
+    assert db_session.query(user).filter(user.email == "ok@example.com").first() is None
 
 
 # --- cookie flags ---------------------------------------------------------------
@@ -228,7 +176,8 @@ def test_register_rejects_empty_password(client):
 
 def test_login_cookie_is_httponly_even_in_dev(client, db_session):
     _register(client)
-    resp = client.post("/api/login", json={"email": "sec@example.com", "password": "Password123!"})
+    client.post("/auth/logout")
+    resp = client.post("/auth/login", data={"email": "sec@example.com", "password": "Password123!"})
     cookie_headers = [h for h in resp.headers.getlist("Set-Cookie") if h.startswith("token=")]
     assert cookie_headers, "login should set the token cookie"
     assert "HttpOnly" in cookie_headers[0]
@@ -239,14 +188,14 @@ def test_login_cookie_is_httponly_even_in_dev(client, db_session):
 
 def test_disabled_user_token_rejected_immediately(client, db_session):
     _register(client)
-    resp = client.get("/api/user")
-    assert resp.status_code == 200  # the registration cookie works
+    resp = client.get("/api/tiles/abc/9/143/199.pbf")
+    assert resp.status_code == 404  # authenticated: validation answers
 
     u = _user(db_session)
     u.disabled = True
     db_session.commit()
 
-    resp = client.get("/api/user")
+    resp = client.get("/api/tiles/abc/9/143/199.pbf")
     assert resp.status_code == 401  # same token, now rejected per-request
 
 

@@ -1,9 +1,7 @@
 """Contract tests for the endpoints the studio map (/map) builds on.
 
-Pre-build coverage: the tile-serving route (validation, ownership, gzip/protobuf
-headers, the TMS y-flip), regenerate_map, the toggle-markers route (its
-service is well covered; the route itself wasn't), the edit-geojson pair,
-served-data's success shape, the legacy fabric search, and last-upload-folder.
+The tile-serving route (validation, ownership, gzip/protobuf headers, the
+TMS y-flip), regenerate_map, and the edit-geojson centroid lookup.
 """
 
 import gzip
@@ -161,45 +159,6 @@ def test_regenerate_map_dispatches_and_records(client, db_session, no_tiles):
     assert info.organization_id == org.id
 
 
-# ------------------------------------------------------------- toggle-markers
-
-
-def test_toggle_markers_route_applies_an_edit(client, db_session, no_tiles):
-    """The route over the well-covered apply_edit service: an exclusion edit
-    unserves the location and persists an editfile."""
-    from database.models import editfile as editfile_model
-    from database.models import kml_data
-
-    org, folder, cov = _login_with_computed_filing(client, db_session, "togg1@example.com")
-    marker = [
-        [{"id": 1001, "served": True, "editedFile": [cov.name], "coordinate": [37.28, -79.95]}]
-    ]
-    resp = client.post(
-        "/api/toggle-markers",
-        json={"marker": marker, "folderid": folder.id, "polygonfeatures": [EDIT_POLYGON]},
-    )
-    assert resp.status_code == 200, resp.get_json()
-    db_session.expire_all()
-    assert db_session.query(editfile_model).filter_by(folder_id=folder.id).count() == 1
-    served = (
-        db_session.query(kml_data)
-        .filter(kml_data.file_id == cov.id, kml_data.location_id == 1001)
-        .count()
-    )
-    assert served == 0  # excluded by the edit
-
-
-def test_toggle_markers_other_org_400(client, db_session):
-    _login_with_computed_filing(client, db_session, "togg2@example.com")
-    other = H.make_org(db_session, name="togg2-other")
-    their_folder = H.make_folder(db_session, other.id)
-    resp = client.post(
-        "/api/toggle-markers",
-        json={"marker": [], "folderid": their_folder.id, "polygonfeatures": []},
-    )
-    assert resp.status_code == 400
-
-
 # ------------------------------------------------------------- edit geojson
 
 
@@ -216,27 +175,7 @@ def _make_editfile(db_session, folder_id):
     return ef
 
 
-def test_get_edit_geojson_roundtrip_and_ownership(client, db_session):
-    org, folder, _ = _login_with_computed_filing(client, db_session, "ej1@example.com")
-    ef = _make_editfile(db_session, folder.id)
-
-    resp = client.get(f"/api/get-edit-geojson/{ef.id}")
-    assert resp.status_code == 200
-    assert resp.get_json() == EDIT_POLYGON
-
-    import routes  # noqa: F401
-    from utils.flask_app import app
-
-    with H.CsrfFlaskClient(app) as other:
-        login_page_session(other, email="ej1-other@example.com")
-        other_org = H.make_org(db_session, name="ej1-other-org")
-        u = _get_user(db_session, "ej1-other@example.com")
-        u.organization_id = other_org.id
-        db_session.commit()
-        assert other.get(f"/api/get-edit-geojson/{ef.id}").status_code == 400
-
-
-def test_get_edit_geojson_centroid(client, db_session):
+def test_get_edit_geojson_centroid_and_ownership(client, db_session):
     org, folder, _ = _login_with_computed_filing(client, db_session, "ej2@example.com")
     ef = _make_editfile(db_session, folder.id)
     resp = client.get(f"/api/get-edit-geojson-centroid/{ef.id}")
@@ -245,49 +184,14 @@ def test_get_edit_geojson_centroid(client, db_session):
     assert abs(data["latitude"] - 37.28) < 0.01
     assert abs(data["longitude"] - (-79.95)) < 0.01
 
+    import routes  # noqa: F401
+    from utils.flask_app import app
 
-# ------------------------------------------------------------- served-data
-
-
-def test_served_data_success_shape(client, db_session):
-    org, folder, _ = _login_with_computed_filing(client, db_session, "sd1@example.com")
-    resp = client.get(f"/api/served-data/{folder.id}")
-    assert resp.status_code == 200
-    rows = resp.get_json()
-    by_loc = {r["location_id"]: r for r in rows}
-    assert set(by_loc) == {1001, 1002}
-    assert by_loc[1001]["served"] is True and by_loc[1002]["served"] is False
-    # The map needs coords + bsl + the merged coverage fields per location.
-    expected_keys = {
-        "location_id",
-        "latitude",
-        "longitude",
-        "address",
-        "bsl",
-        "served",
-        "wireless",
-        "coveredLocations",
-        "maxDownloadSpeed",
-    }
-    assert expected_keys <= set(by_loc[1001])
-
-
-# ------------------------------------------------------------- search + folder
-
-
-def test_legacy_search_finds_fabric_addresses(client, db_session):
-    org, folder, _ = _login_with_computed_filing(client, db_session, "ls1@example.com")
-    resp = client.get(f"/api/search/{folder.id}?query=MAIN")
-    assert resp.status_code == 200
-    results = resp.get_json()
-    assert any(
-        "MAIN" in str(v).upper()
-        for v in (results.values() if isinstance(results, dict) else results)
-    )
-
-
-def test_get_last_upload_folder(client, db_session):
-    org, folder, _ = _login_with_computed_filing(client, db_session, "lf1@example.com")
-    resp = client.get("/api/get-last-upload-folder")
-    assert resp.status_code == 200
-    assert resp.get_json() == folder.id
+    with H.CsrfFlaskClient(app) as other:
+        login_page_session(other, email="ej2-other@example.com")
+        other_org = H.make_org(db_session, name="ej2-other-org")
+        u = _get_user(db_session, "ej2-other@example.com")
+        u.organization_id = other_org.id
+        u.verified = True
+        db_session.commit()
+        assert other.get(f"/api/get-edit-geojson-centroid/{ef.id}").status_code == 400

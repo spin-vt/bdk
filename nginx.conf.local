@@ -5,59 +5,18 @@ server {
     # Large uploads (fabric deliveries, coverage files) — matches prod.
     client_max_body_size 500M;
 
-    # Frontend route for everything else
+    # Every path is served by the backend — the server-rendered app, /api,
+    # the admin panel, auth pages, and static assets all live there (same
+    # shape as deploy/nginx.conf, minus TLS).
     location / {
-        proxy_pass http://frontend:3000;
+        proxy_pass http://backend:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_cache_bypass $http_upgrade;
-        proxy_buffering off;
-        proxy_redirect off;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 16k;
-        proxy_busy_buffers_size 24k;
+        proxy_buffering off;          # SSE (job pill / map finalize streams)
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_connect_timeout 60s;
     }
-
-    # Backend routes
-    location /api/ {
-        proxy_pass http://backend:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 16k;
-        proxy_busy_buffers_size 24k;
-    }
-
-    # Server-rendered admin panel (Flask + htmx). Covers /admin/, /admin/api/,
-    # and /admin/static/. Longest-prefix match wins over `location /`.
-    location = /admin { return 301 /admin/; }
-    location /admin/ {
-        proxy_pass http://backend:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 16k;
-        proxy_busy_buffers_size 24k;
-    }
-
-    # Server-rendered app pages (the redesigned UI), brought up page by page
-    # beside the SPA. These paths are new (the SPA doesn't own them), so they
-    # all route to the backend already; a page goes live when the backend
-    # replaces its placeholder — no nginx change per page.
-    location ~ ^/(org|files|map|submissions|setup|filing|assets|auth)(/|$) {
-        proxy_pass http://backend:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 16k;
-        proxy_busy_buffers_size 24k;
-    }
-
 }

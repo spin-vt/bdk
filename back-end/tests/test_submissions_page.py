@@ -605,3 +605,28 @@ def test_fabric_import_debt_when_no_task_record(db_session):
 
     debts = filing_service.submission_debts(user.id, folder.id, db_session)
     assert any(d["id"] == "fabric_import" for d in debts)
+
+
+def test_download_export_is_org_scoped(client, db_session):
+    """/api/downloadexport must refuse another org's snapshot (it serves raw
+    stored bytes, so a leak here is a full CSV disclosure)."""
+    org, folder = _login_with_filing(client, db_session, "dlown@example.com")
+    _make_ready(db_session, folder)
+    client.post("/submissions/generate")
+
+    from database.models import file as file_model
+
+    db_session.expire_all()
+    csv_file = db_session.query(file_model).filter_by(type="export").one()
+
+    import routes  # noqa: F401
+    from utils.flask_app import app
+
+    with H.CsrfFlaskClient(app) as other:
+        login_page_session(other, email="dlown-other@example.com")
+        other_org = H.make_org(db_session, name="dlown-other-org")
+        u = _get_user(db_session, "dlown-other@example.com")
+        u.organization_id = other_org.id
+        u.verified = True
+        db_session.commit()
+        assert other.get(f"/api/downloadexport/{csv_file.id}").status_code == 400

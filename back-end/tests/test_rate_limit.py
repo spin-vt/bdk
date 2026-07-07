@@ -38,14 +38,12 @@ def rate_limiting_on():
 
 def test_login_is_rate_limited(client, rate_limiting_on):
     codes = [
-        client.post("/api/login", json={"email": "x@example.com", "password": "nope"}).status_code
+        client.post("/auth/login", data={"email": "x@example.com", "password": "nope"}).status_code
         for _ in range(15)
     ]
     assert 429 in codes, codes
-    # The 429 body is the unified JSON error shape.
-    over = client.post("/api/login", json={"email": "x@example.com", "password": "nope"})
+    over = client.post("/auth/login", data={"email": "x@example.com", "password": "nope"})
     assert over.status_code == 429
-    assert over.get_json()["status"] == "error"
 
 
 def test_admin_login_post_is_rate_limited(client, rate_limiting_on):
