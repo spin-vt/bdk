@@ -37,6 +37,11 @@ services:
     restart: unless-stopped
     cpus: ${WORKER_CPUS}
     mem_limit: ${WORKER_MEM_LIMIT}
+    # On stop, celery's warm shutdown finishes the active task before exiting.
+    # Docker's default grace is 10s and then SIGKILLs — which would kill a
+    # minutes-long tile build or fabric import mid-flight. Give it real time;
+    # when the queue is drained first (deploy scripts), shutdown is instant.
+    stop_grace_period: 15m
     # tippecanoe opens temp files scaled to the host's core count plus
     # per-tile geometry files; on a many-core host a large tile build blows
     # through Docker's default soft limit of 1024 and dies with EMFILE
