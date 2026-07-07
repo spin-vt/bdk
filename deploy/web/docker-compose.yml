@@ -49,5 +49,9 @@ services:
       - ../nginx.conf:/etc/nginx/templates/default.conf.template:ro
       - ${SSL_CERT_PATH}:/etc/nginx/ssl/server.crt:ro
       - ${SSL_KEY_PATH}:/etc/nginx/ssl/server.key:ro
+      # Maintenance flag dir — OUTSIDE the checkout on purpose: deploy.sh
+      # refuses a dirty tree, and an untracked flag file would count as dirty.
+      # `touch /srv/bdk/maintenance/on` = down for maintenance; `rm -f` = up.
+      - /srv/bdk/maintenance:/maintenance:ro
     environment:
       - SERVER_NAME=${SERVER_NAME}
