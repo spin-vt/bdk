@@ -19,8 +19,11 @@
     Only report maximum service at a location
   </label>
   <p class="muted">When on, generated BDC reports include just the fastest claim per location
-  (by download, then upload) instead of every technology claim. The BDC accepts multiple
-  claims per location, so this is off by default.</p>
+  (by download, then upload) instead of a claim per technology. The BDC accepts claims under
+  multiple technologies per location, so this is off by default. Regardless of this setting,
+  fixed-wireless claims (technology codes 70/71/72) always collapse to the single fastest at
+  each location — the BDC rejects reports claiming more than one fixed-wireless technology
+  there.</p>
   <button type="submit">Save</button>
 </form>
 {% endblock %}
