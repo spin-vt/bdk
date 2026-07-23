@@ -3,12 +3,15 @@ and assert the availability CSV our export path generates matches the bytes
 prod actually stored (the BDC report the provider filed).
 
 This pins the export-layer behavior that kml_data equality cannot see. The
-shipped default reports every (location, technology) claim — the BDC accepts
-multiple claims per location — which matches the reference era pinned here.
-(Some historical snapshots were generated with a since-retired per-location
-wireless dedup; they stay in the fixture set as reference only — see
-csv-golden.json. The optional export_max_service_only setting, pinned by
-unit tests in test_csv_export.py, is the supported variant of that idea.)
+shipped default reports every (location, technology) claim the BDC will
+accept: claims under multiple technologies may coexist at a location, but at
+most one fixed-wireless claim (tech 70/71/72) survives — the fastest — since
+the BDC rejects filings claiming two fixed-wireless technologies at one
+location. The pinned reference exports were filed under that one-fixed-
+wireless-row shape. (Earlier report-every-claim-era snapshots stay in the
+fixture set as reference only — see csv-golden.json. The optional
+export_max_service_only setting, pinned by unit tests in test_csv_export.py,
+further collapses to a single row per location.)
 
 References: prod-extract/<export_folder>/output/prod-stored-export.csv and
 prod-extract/csv-golden.json, which maps each upload folder to the stored

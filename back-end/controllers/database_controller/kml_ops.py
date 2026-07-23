@@ -259,14 +259,17 @@ def add_to_db(pandaDF, kmlid, download, upload, tech, wireless, latency, categor
     return True
 
 
-def filter_max_service(availability_csv):
-    """One BDC row per location: the fastest claim wins (download desc, then
-    upload desc, then low-latency first, then lowest technology code as a
-    deterministic tiebreak). The surviving row keeps its own values. The BDC
-    accepts multiple technology claims per location, so this is OPTIONAL
-    behavior behind the export_max_service_only site setting — default is to
-    report every claim."""
-    ordered = availability_csv.sort_values(
+# BDC fixed-wireless technology codes: 70 unlicensed, 71 licensed, 72
+# licensed-by-rule. The BDC rejects a filing claiming more than one of these
+# at a single location, while claims across other technologies may coexist.
+FIXED_WIRELESS_TECH_CODES = (70, 71, 72)
+
+
+def _fastest_first(availability_csv):
+    """Rank claims fastest-first: download desc, then upload desc, then
+    low-latency first, then lowest technology code as a deterministic
+    tiebreak."""
+    return availability_csv.sort_values(
         by=[
             "max_advertised_download_speed",
             "max_advertised_upload_speed",
@@ -276,7 +279,29 @@ def filter_max_service(availability_csv):
         ascending=[False, False, False, True],
         kind="mergesort",
     )
+
+
+def filter_max_service(availability_csv):
+    """One BDC row per location: the fastest claim wins and keeps its own
+    values. The BDC accepts claims under multiple technologies per location,
+    so this is OPTIONAL behavior behind the export_max_service_only site
+    setting — default is to report every claim the BDC will take (see
+    filter_max_fixed_wireless)."""
+    ordered = _fastest_first(availability_csv)
     return ordered.drop_duplicates(subset=["location_id"], keep="first")
+
+
+def filter_max_fixed_wireless(availability_csv):
+    """At most one fixed-wireless BDC row per location: among claims with a
+    technology in FIXED_WIRELESS_TECH_CODES, only the fastest survives (same
+    ranking as filter_max_service) since the BDC rejects filings claiming two
+    fixed-wireless technologies at one location. Claims under other
+    technologies are untouched. Always applied — this is the shipped default,
+    not a setting."""
+    ordered = _fastest_first(availability_csv)
+    fixed_wireless = ordered[ordered["technology"].isin(FIXED_WIRELESS_TECH_CODES)]
+    losers = fixed_wireless.duplicated(subset=["location_id"], keep="first")
+    return availability_csv.drop(fixed_wireless.index[losers])
 
 
 def generate_csv_data(results, provider_id, brand_name, max_service_only=False):
@@ -294,6 +319,7 @@ def generate_csv_data(results, provider_id, brand_name, max_service_only=False):
     availability_csv.drop_duplicates(
         subset=["location_id", "technology"], keep="first", inplace=True
     )
+    availability_csv = filter_max_fixed_wireless(availability_csv)
     if max_service_only:
         availability_csv = filter_max_service(availability_csv)
     availability_csv = availability_csv[
